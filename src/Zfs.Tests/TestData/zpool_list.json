@@ -1,0 +1,55 @@
+{
+  "output_version": {
+    "command": "zpool list",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "zfsPool": {
+      "name": "zfsPool",
+      "type": "POOL",
+      "state": "ONLINE",
+      "pool_guid": "10653252733543182891",
+      "txg": "148263",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "properties": {
+        "size": {
+          "value": "24238647934976",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "allocated": {
+          "value": "13975181643776",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "free": {
+          "value": "10263466291200",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "health": {
+          "value": "ONLINE",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "fragmentation": {
+          "value": "3",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    }
+  }
+}

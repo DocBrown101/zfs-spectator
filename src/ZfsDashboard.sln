@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.4.11612.150
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZfsDashboard", "ZfsDashboard.csproj", "{5D85A986-F4DE-8314-EEB1-019833A9AE57}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZfsDashboard", "ZfsDashboard\ZfsDashboard.csproj", "{5D85A986-F4DE-8314-EEB1-019833A9AE57}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zfs.Core", "..\Zfs.Core\Zfs.Core.csproj", "{375A8188-CBEF-4258-90F1-B7851C5ACD8F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zfs.Core", "Zfs.Core\Zfs.Core.csproj", "{375A8188-CBEF-4258-90F1-B7851C5ACD8F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zfs.Tests", "..\Zfs.Tests\Zfs.Tests.csproj", "{607D5853-8622-4CF8-8221-75C2E67B4F3F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zfs.Tests", "Zfs.Tests\Zfs.Tests.csproj", "{607D5853-8622-4CF8-8221-75C2E67B4F3F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

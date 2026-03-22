@@ -1,0 +1,94 @@
+{
+  "output_version": {
+    "command": "zfs list",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "datasets": {
+    "zfsPool/vm-disk": {
+      "name": "zfsPool/vm-disk",
+      "type": "VOLUME",
+      "pool": "zfsPool",
+      "createtxg": "12345",
+      "properties": {
+        "volsize": {
+          "value": "107374182400",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "used": {
+          "value": "5368709120",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "5368709120",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compressratio": {
+          "value": "1.50",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "volblocksize": {
+          "value": "16384",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "aes-256-gcm",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "VM Storage",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "5368709120",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        }
+      }
+    }
+  }
+}

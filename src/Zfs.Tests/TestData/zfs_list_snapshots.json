@@ -1,0 +1,40 @@
+{
+  "output_version": {
+    "command": "zfs list",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "datasets": {
+    "zfsPool/Cloud@backup-2026-03-22": {
+      "name": "zfsPool/Cloud@backup-2026-03-22",
+      "type": "SNAPSHOT",
+      "pool": "zfsPool",
+      "createtxg": "157255",
+      "dataset": "zfsPool/Cloud",
+      "snapshot_name": "backup-2026-03-22",
+      "properties": {
+        "used": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "119759839696",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "creation": {
+          "value": "1774166100",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    }
+  }
+}

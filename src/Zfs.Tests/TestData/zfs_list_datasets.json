@@ -1,0 +1,1278 @@
+{
+  "output_version": {
+    "command": "zfs list",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "datasets": {
+    "zfsPool": {
+      "name": "zfsPool",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "1",
+      "properties": {
+        "used": {
+          "value": "9309523489840",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "125568",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compressratio": {
+          "value": "1.00",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "131072",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/Cloud": {
+      "name": "zfsPool/Cloud",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "147065",
+      "properties": {
+        "used": {
+          "value": "119759839696",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "119759839696",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool"
+          }
+        },
+        "compressratio": {
+          "value": "1.04",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "131072",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/Cloud",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/Media": {
+      "name": "zfsPool/Media",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "387",
+      "properties": {
+        "used": {
+          "value": "7579445475712",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "141856",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "off",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compressratio": {
+          "value": "1.00",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "1048576",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/Media",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/Media/Filme": {
+      "name": "zfsPool/Media/Filme",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "397",
+      "properties": {
+        "used": {
+          "value": "5955452022608",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "5955452022608",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "off",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool/Media"
+          }
+        },
+        "compressratio": {
+          "value": "1.00",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "1048576",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/Media/Filme",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/Media/Serien": {
+      "name": "zfsPool/Media/Serien",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "404",
+      "properties": {
+        "used": {
+          "value": "1623993311248",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "1623993311248",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "off",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool/Media"
+          }
+        },
+        "compressratio": {
+          "value": "1.00",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "1048576",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/Media/Serien",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/PC-Daniel": {
+      "name": "zfsPool/PC-Daniel",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "142090",
+      "properties": {
+        "used": {
+          "value": "513408077440",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "155648",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool"
+          }
+        },
+        "compressratio": {
+          "value": "1.02",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "131072",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/PC-Daniel",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/PC-Daniel/Archiv": {
+      "name": "zfsPool/PC-Daniel/Archiv",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "146093",
+      "properties": {
+        "used": {
+          "value": "510950575744",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "510950575744",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool"
+          }
+        },
+        "compressratio": {
+          "value": "1.02",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "1048576",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/PC-Daniel/Archiv",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/PC-Daniel/Development": {
+      "name": "zfsPool/PC-Daniel/Development",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "146960",
+      "properties": {
+        "used": {
+          "value": "2457346048",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "2457346048",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool"
+          }
+        },
+        "compressratio": {
+          "value": "2.01",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "65536",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/PC-Daniel/Development",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    },
+    "zfsPool/PC-Heidi": {
+      "name": "zfsPool/PC-Heidi",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "143252",
+      "properties": {
+        "used": {
+          "value": "1096831062544",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "1096831062544",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "quota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "refquota": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "INHERITED",
+            "data": "zfsPool"
+          }
+        },
+        "compressratio": {
+          "value": "1.03",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "recordsize": {
+          "value": "131072",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "mountpoint": {
+          "value": "/zfsPool/PC-Heidi",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "casesensitivity": {
+          "value": "sensitive",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "refreservation": {
+          "value": "0",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "zfsnas:comment": {
+          "value": "-",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "-",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "mounted": {
+          "value": "yes",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "canmount": {
+          "value": "on",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "usedbysnapshots": {
+          "value": "0",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    }
+  }
+}

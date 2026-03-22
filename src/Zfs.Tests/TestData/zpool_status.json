@@ -1,0 +1,156 @@
+{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "zfsPool": {
+      "name": "zfsPool",
+      "state": "ONLINE",
+      "pool_guid": "10653252733543182891",
+      "txg": "148263",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": "Mi 27. M\u00e4r 12:54:52 CET 2024",
+        "end_time": "Mi 27. M\u00e4r 17:22:17 CET 2024",
+        "to_examine": "6.50T",
+        "examined": "6.50T",
+        "skipped": "0B",
+        "processed": "0B",
+        "errors": "0",
+        "bytes_per_scan": "0B",
+        "pass_start": "1774085560",
+        "scrub_pause": "-",
+        "scrub_spent_paused": "0",
+        "issued_bytes_per_scan": "0B",
+        "issued": "6.50T"
+      },
+      "vdevs": {
+        "zfsPool": {
+          "name": "zfsPool",
+          "vdev_type": "root",
+          "guid": "10653252733543182891",
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": "12.7T",
+          "total_space": "22.0T",
+          "def_space": "14.8T",
+          "read_errors": "0",
+          "write_errors": "0",
+          "checksum_errors": "0",
+          "vdevs": {
+            "raidz1-0": {
+              "name": "raidz1-0",
+              "vdev_type": "raidz",
+              "guid": "1664598526836095681",
+              "class": "normal",
+              "state": "ONLINE",
+              "alloc_space": "12.7T",
+              "total_space": "21.8T",
+              "def_space": "14.5T",
+              "rep_dev_size": "21.8T",
+              "read_errors": "0",
+              "write_errors": "0",
+              "checksum_errors": "0",
+              "vdevs": {
+                "/dev/disk/by-id/wwn-0x50014ee2c06fdd9f-part2": {
+                  "name": "/dev/disk/by-id/wwn-0x50014ee2c06fdd9f-part2",
+                  "vdev_type": "disk",
+                  "guid": "3819638882453289016",
+                  "path": "/dev/disk/by-id/wwn-0x50014ee2c06fdd9f-part2",
+                  "class": "normal",
+                  "state": "ONLINE",
+                  "rep_dev_size": "7.27T",
+                  "phys_space": "7.28T",
+                  "read_errors": "0",
+                  "write_errors": "0",
+                  "checksum_errors": "0",
+                  "slow_ios": "0"
+                },
+                "/dev/disk/by-id/wwn-0x50014ee2c06f6164-part2": {
+                  "name": "/dev/disk/by-id/wwn-0x50014ee2c06f6164-part2",
+                  "vdev_type": "disk",
+                  "guid": "10106810877021629011",
+                  "path": "/dev/disk/by-id/wwn-0x50014ee2c06f6164-part2",
+                  "class": "normal",
+                  "state": "ONLINE",
+                  "rep_dev_size": "7.27T",
+                  "phys_space": "7.28T",
+                  "read_errors": "0",
+                  "write_errors": "0",
+                  "checksum_errors": "0",
+                  "slow_ios": "0"
+                },
+                "/dev/disk/by-id/wwn-0x50014ee26b194e0d-part2": {
+                  "name": "/dev/disk/by-id/wwn-0x50014ee26b194e0d-part2",
+                  "vdev_type": "disk",
+                  "guid": "320875372603684681",
+                  "path": "/dev/disk/by-id/wwn-0x50014ee26b194e0d-part2",
+                  "class": "normal",
+                  "state": "ONLINE",
+                  "rep_dev_size": "7.27T",
+                  "phys_space": "7.28T",
+                  "read_errors": "0",
+                  "write_errors": "0",
+                  "checksum_errors": "0",
+                  "slow_ios": "0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "special": {
+        "mirror-1": {
+          "name": "mirror-1",
+          "vdev_type": "mirror",
+          "guid": "9631090888487347532",
+          "class": "special",
+          "state": "ONLINE",
+          "alloc_space": "5.11G",
+          "total_space": "238G",
+          "def_space": "238G",
+          "rep_dev_size": "238G",
+          "read_errors": "0",
+          "write_errors": "0",
+          "checksum_errors": "0",
+          "vdevs": {
+            "/dev/disk/by-id/nvme-WDC_PC_SN530_SDBPNPZ-256G-1006_205161805086-part1": {
+              "name": "/dev/disk/by-id/nvme-WDC_PC_SN530_SDBPNPZ-256G-1006_205161805086-part1",
+              "vdev_type": "disk",
+              "guid": "1540055460166441151",
+              "path": "/dev/disk/by-id/nvme-WDC_PC_SN530_SDBPNPZ-256G-1006_205161805086-part1",
+              "class": "special",
+              "state": "ONLINE",
+              "rep_dev_size": "238G",
+              "phys_space": "238G",
+              "read_errors": "0",
+              "write_errors": "0",
+              "checksum_errors": "0",
+              "slow_ios": "0"
+            },
+            "/dev/disk/by-id/nvme-eui.001b444a46ea3364-part1": {
+              "name": "/dev/disk/by-id/nvme-eui.001b444a46ea3364-part1",
+              "vdev_type": "disk",
+              "guid": "5734247120123735730",
+              "path": "/dev/disk/by-id/nvme-eui.001b444a46ea3364-part1",
+              "class": "special",
+              "state": "ONLINE",
+              "rep_dev_size": "238G",
+              "phys_space": "238G",
+              "read_errors": "0",
+              "write_errors": "0",
+              "checksum_errors": "0",
+              "slow_ios": "0"
+            }
+          }
+        }
+      },
+      "error_count": "0"
+    }
+  }
+}

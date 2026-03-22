@@ -1,0 +1,27 @@
+{
+  "output_version": {
+    "command": "zpool get",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "zfsPool": {
+      "name": "zfsPool",
+      "type": "POOL",
+      "state": "ONLINE",
+      "pool_guid": "10653252733543182891",
+      "txg": "148263",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "properties": {
+        "ashift": {
+          "value": "12",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        }
+      }
+    }
+  }
+}
