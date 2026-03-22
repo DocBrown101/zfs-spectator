@@ -1,0 +1,115 @@
+@page
+@model ZfsDashboard.Pages.Pools.IndexModel
+@{
+    ViewData["Title"] = "Pools";
+}
+
+<h3 class="fw-bold mb-1">
+    <i class="bi bi-hdd-stack me-2 text-info"></i>Pools
+</h3>
+<p class="text-body-secondary mb-4">All ZFS storage pools &mdash; @Model.Pools.Count total</p>
+
+@if (Model.Pools.Count == 0)
+{
+    <div class="alert alert-secondary">
+        <i class="bi bi-info-circle me-1"></i>No pools found.
+    </div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-body bg-surface">
+            <div class="table-responsive">
+                <table class="table table-borderless table-sm mb-0">
+                    <thead>
+                        <tr class="border-bottom border-secondary">
+                            <th class="text-body-secondary fw-normal">Name</th>
+                            <th class="text-body-secondary fw-normal text-center">Health</th>
+                            <th class="text-body-secondary fw-normal text-center">Type</th>
+                            <th class="text-body-secondary fw-normal text-end">Size (raw)</th>
+                            <th class="text-body-secondary fw-normal text-end">Usable</th>
+                            <th class="text-body-secondary fw-normal text-end">Used</th>
+                            <th class="text-body-secondary fw-normal text-end">Free</th>
+                            <th class="text-body-secondary fw-normal text-center" style="min-width:110px">Capacity</th>
+                            <th class="text-body-secondary fw-normal text-end">Frag</th>
+                            <th class="text-body-secondary fw-normal text-center">Compression</th>
+                            <th class="text-body-secondary fw-normal text-center">Dedup</th>
+                            <th class="text-body-secondary fw-normal text-end">Ashift</th>
+                            <th class="text-body-secondary fw-normal text-center">Devices</th>
+                            <th class="text-body-secondary fw-normal text-center">Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.Pools)
+                        {
+                            <tr class="border-bottom border-secondary">
+                                <td>
+                                    <a asp-page="Details" asp-route-name="@p.Name" class="text-info text-decoration-none fw-semibold">@p.Name</a>
+                                    @if (p.Encrypted)
+                                    {
+                                        <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="@p.EncryptionAlgorithm"></i>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge @p.Health.ToStatusBadgeCss()">@p.Health</span>
+                                </td>
+                                <td class="small text-center">@p.VdevType</td>
+                                <td class="small text-end">@p.Size.FormatBytes()</td>
+                                <td class="small text-end">@p.UsableSize.FormatBytes()</td>
+                                <td class="small text-end">@p.UsableUsed.FormatBytes()</td>
+                                <td class="small text-end">@p.UsableAvail.FormatBytes()</td>
+                                <td>
+                                    @{
+                                        var pct = p.UsagePercent;
+                                        var barCss = pct > 85 ? "bg-danger" : pct > 70 ? "bg-warning" : "bg-success";
+                                    }
+                                    <div class="d-flex align-items-center gap-2 small">
+                                        <div class="progress flex-grow-1" style="height:6px;">
+                                            <div class="progress-bar @barCss" style="width:@pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                        </div>
+                                        <span class="text-body-secondary" style="min-width:38px">@pct.ToString("F0")%</span>
+                                    </div>
+                                </td>
+                                <td class="small text-end">@p.Fragmentation%</td>
+                                <td class="small text-center">@p.Compression (@p.CompRatio)</td>
+                                <td class="small text-center">@p.Dedup</td>
+                                <td class="small text-end">@p.Ashift</td>
+                                <td class="small text-center">
+                                    <span data-bs-toggle="tooltip" data-bs-title="@p.DataDevices.Count data, @p.SpecialDevices.Count special, @p.CacheDevices.Count cache, @p.LogDevices.Count log, @p.SpareDevices.Count spare">
+                                        @p.DataDevices.Count
+                                        @if (p.SpecialDevices.Count > 0)
+                                        {
+                                            <span class="text-body-secondary">+ @p.SpecialDevices.Count</span>
+                                        }
+                                        @if (p.CacheDevices.Count > 0)
+                                        {
+                                            <span class="text-body-secondary">+ @p.CacheDevices.Count</span>
+                                        }
+                                        @if (p.LogDevices.Count > 0)
+                                        {
+                                            <span class="text-body-secondary">+ @p.LogDevices.Count</span>
+                                        }
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    @if (p.HasErrors)
+                                    {
+                                        <span class="text-danger" data-bs-toggle="tooltip" data-bs-title="Read: @p.ErrorsRead | Write: @p.ErrorsWrite | Checksum: @p.ErrorsChecksum">
+                                            <i class="bi bi-exclamation-triangle-fill"></i>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check-circle text-success small"></i>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<partial name="_CommandSuggestions" model="Model.Suggestions" />

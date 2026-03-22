@@ -1,0 +1,178 @@
+@page
+@model ZfsDashboard.Pages.Datasets.DetailsModel
+@{
+    var ds = Model.Dataset!;
+    ViewData["Title"] = $"Dataset: {ds.Name}";
+    var pct = ds.UsagePercent;
+    var barCss = pct > 85 ? "bg-danger" : pct > 70 ? "bg-warning" : "bg-success";
+}
+
+@functions {
+    void Row(string label, object value, string? id = null, bool last = false)
+    {
+        <div class="row py-2 @(last ? "" : "border-bottom border-secondary") small">
+            <div class="col-5 text-body-secondary">@label</div>
+            <div class="col-7" @(id != null ? $"id=\"{id}\"" : "")>@value</div>
+        </div>
+    }
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a asp-page="Index">Datasets</a></li>
+        <li class="breadcrumb-item active font-monospace">@ds.Name</li>
+    </ol>
+</nav>
+
+<div class="d-flex align-items-center gap-2 mb-1">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-folder2 me-2 text-info"></i>@ds.Name
+    </h3>
+    @if (ds.Encrypted)
+    {
+        <i class="bi bi-lock-fill text-info" data-bs-toggle="tooltip" data-bs-title="@ds.EncryptionAlgorithm"></i>
+    }
+    @if (!ds.Mounted)
+    {
+        <span class="badge bg-secondary">unmounted</span>
+    }
+</div>
+<p class="text-body-secondary mb-4">Dataset details and snapshots</p>
+
+@* ── Capacity ────────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-pie-chart text-info"></i>
+            Capacity
+        </h5>
+        <div class="progress mb-3" style="height: 8px;">
+            <div class="progress-bar @barCss" style="width: @pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+        </div>
+        <div class="row g-3 small">
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Used</div>
+                <div class="fw-semibold">@ds.Used.FormatBytes()</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Available</div>
+                <div class="fw-semibold">@ds.Avail.FormatBytes()</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Referenced</div>
+                <div class="fw-semibold">@ds.Refer.FormatBytes()</div>
+            </div>
+            @if (ds.UsedBySnapshots > 0)
+            {
+                <div class="col-6 col-md-3">
+                    <div class="text-body-secondary">Snapshots</div>
+                    <div class="fw-semibold">@ds.UsedBySnapshots.FormatBytes()</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@* ── Properties ──────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-gear text-info"></i>
+            Properties
+        </h5>
+        <div class="row">
+            <div class="col-md-6">
+                @{ Row("Compression", $"{ds.Compression} ({ds.CompRatio})"); }
+                @{ Row("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit"); }
+                @{ Row("Dedup", ds.Dedup); }
+                @{ Row("Sync", ds.Sync); }
+                @{ Row("Case Sensitivity", ds.CaseSensitivity, last: true); }
+            </div>
+            <div class="col-md-6">
+                @{ Row("Mountpoint", ds.Mountpoint); }
+                @{ Row("CanMount", ds.CanMount); }
+                @{ Row("Quota", ds.Quota.FormatBytesOrNone()); }
+                @{ Row("RefQuota", ds.RefQuota.FormatBytesOrNone()); }
+                @{ Row("Refreservation", ds.Refreservation.FormatBytesOrNone(), last: true); }
+            </div>
+        </div>
+        @if (ds.Encrypted)
+        {
+            <div class="mt-2 small">
+                <span class="text-body-secondary">Encryption:</span> @ds.EncryptionAlgorithm
+                <span class="badge @(ds.KeyLocked ? "bg-warning" : "bg-success") ms-1">@(ds.KeyLocked ? "locked" : "loaded")</span>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(ds.Comment))
+        {
+            <div class="mt-2 small"><strong>Comment:</strong> @ds.Comment</div>
+        }
+    </div>
+</div>
+
+@* ── Snapshots ───────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-camera text-info"></i>
+            Snapshots
+            <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.Snapshots.Count</span>
+        </h5>
+        @if (Model.Snapshots.Count > 0)
+        {
+            <div class="table-responsive">
+                <table class="table table-borderless table-sm mb-0">
+                    <thead>
+                        <tr class="border-bottom border-secondary">
+                            <th class="text-body-secondary fw-normal">Name</th>
+                            <th class="text-body-secondary fw-normal text-end">Used</th>
+                            <th class="text-body-secondary fw-normal text-end">Refer</th>
+                            <th class="text-body-secondary fw-normal">Created</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var snap in Model.Snapshots.OrderByDescending(s => s.Creation))
+                        {
+                            var safeId = snap.SnapName.Replace(".", "_").Replace("-", "_");
+                            <tr class="border-bottom border-secondary">
+                                <td class="font-monospace small">@@@snap.SnapName</td>
+                                <td class="small text-end">@snap.Used.FormatBytes()</td>
+                                <td class="small text-end">@snap.Refer.FormatBytes()</td>
+                                <td class="small">@snap.Creation.LocalDateTime.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#snap-@safeId">
+                                        <i class="bi bi-terminal"></i>
+                                    </button>
+                                    <div class="collapse mt-1" id="snap-@safeId">
+                                        <div class="cmd-block mb-1">
+                                            <pre class="bg-dark text-light p-2 rounded small"><code>@CommandSuggestionsService.SuggestRollback(snap.Name).ZfsCommand</code></pre>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                        <div class="cmd-block">
+                                            <pre class="bg-dark text-light p-2 rounded small"><code>@CommandSuggestionsService.SuggestDestroySnapshot(snap.Name).ZfsCommand</code></pre>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <span class="text-body-secondary small">No snapshots</span>
+        }
+    </div>
+</div>
+
+<partial name="_CommandSuggestions" model="Model.Suggestions" />

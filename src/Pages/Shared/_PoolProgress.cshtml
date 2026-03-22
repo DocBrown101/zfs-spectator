@@ -1,0 +1,16 @@
+@* Pool capacity progress bar with 80% threshold marker and Bootstrap tooltip *@
+@{
+    var pct = (double)ViewData["Pct"]!;
+    var height = ViewData["Height"]?.ToString() ?? "8px";
+    var barCss = pct > 85 ? "bg-danger" : pct > 70 ? "bg-warning" : "bg-success";
+}
+<div class="progress-wrap mt-3 mb-1"
+     data-bs-toggle="tooltip"
+     data-bs-placement="top"
+     data-bs-title="ZFS performance degrades significantly above 80% pool usage — keep below this threshold for optimal performance">
+    <span class="threshold-label">80%</span>
+    <div class="threshold-marker"></div>
+    <div class="progress" style="height: @height;">
+        <div class="progress-bar @barCss" style="width: @pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+    </div>
+</div>

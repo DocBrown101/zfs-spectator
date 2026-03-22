@@ -1,0 +1,101 @@
+@page
+@model ZfsDashboard.Pages.ZVols.IndexModel
+@{
+    ViewData["Title"] = "ZVols";
+}
+
+<h3 class="fw-bold mb-1">
+    <i class="bi bi-device-hdd me-2 text-info"></i>ZVols
+</h3>
+<p class="text-body-secondary mb-4">ZFS block devices &mdash; @Model.ZVols.Count total</p>
+
+@if (Model.ZVols.Count == 0)
+{
+    <div class="alert alert-secondary">
+        <i class="bi bi-info-circle me-1"></i>No ZFS volumes found.
+    </div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-body bg-surface">
+            <div class="table-responsive">
+                <table class="table table-borderless table-sm mb-0">
+                    <thead>
+                        <tr class="border-bottom border-secondary">
+                            <th class="text-body-secondary fw-normal">Name</th>
+                            <th class="text-body-secondary fw-normal">Pool</th>
+                            <th class="text-body-secondary fw-normal text-end">Size</th>
+                            <th class="text-body-secondary fw-normal text-end">Used</th>
+                            <th class="text-body-secondary fw-normal text-end">Refer</th>
+                            <th class="text-body-secondary fw-normal text-end">Reservation</th>
+                            <th class="text-body-secondary fw-normal">Compression</th>
+                            <th class="text-body-secondary fw-normal">Dedup</th>
+                            <th class="text-body-secondary fw-normal">Sync</th>
+                            <th class="text-body-secondary fw-normal text-end">Block Size</th>
+                            <th class="text-body-secondary fw-normal">Device</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var zv in Model.ZVols)
+                        {
+                            <tr class="border-bottom border-secondary">
+                                <td class="font-monospace small">
+                                    @zv.Name
+                                    @if (zv.Encrypted)
+                                    {
+                                        <i class="bi bi-lock-fill text-warning ms-1"></i>
+                                    }
+                                    @if (!string.IsNullOrEmpty(zv.Comment))
+                                    {
+                                        <div class="text-body-secondary small" style="font-family:var(--bs-body-font-family)">@zv.Comment</div>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-page="/Pools/Details" asp-route-name="@zv.Pool" class="text-info text-decoration-none">@zv.Pool</a>
+                                </td>
+                                <td class="small text-end">@zv.Size.FormatBytes()</td>
+                                <td class="small text-end">@zv.Used.FormatBytes()</td>
+                                <td class="small text-end">@zv.Refer.FormatBytes()</td>
+                                <td class="small text-end">@zv.Refreservation.FormatBytesOrNone()</td>
+                                <td class="small">@zv.Compression (@zv.CompRatio)</td>
+                                <td class="small">@zv.Dedup</td>
+                                <td class="small">@zv.Sync</td>
+                                <td class="small text-end">@zv.VolBlockSize</td>
+                                <td>
+                                    <div class="cmd-block d-inline-flex align-items-center gap-1">
+                                        <code class="font-monospace small text-body-secondary">@zv.DevPath</code>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-copy opacity-100 position-static py-0 px-1"
+                                                data-bs-toggle="tooltip" data-bs-title="Copy path">
+                                            <i class="bi bi-clipboard small"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* ── Command Reference ────────────────────────────────────── *@
+    <div class="card mb-4">
+        <div class="card-body bg-surface">
+            <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-terminal text-info"></i>
+                Common ZVol Commands
+            </h5>
+            @{
+                var createCmd = CommandSuggestionsService.SuggestCreateZVol("poolname");
+            }
+            <div class="cmd-block mb-2">
+                <div class="small text-body-secondary mb-1">@createCmd.Description</div>
+                <pre class="bg-dark text-light p-2 rounded"><code>@createCmd.ZfsCommand</code></pre>
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+}

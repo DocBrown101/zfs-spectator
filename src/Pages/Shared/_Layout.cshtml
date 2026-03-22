@@ -1,0 +1,74 @@
+@using Zfs.Core.Services
+@inject SystemService SystemSvc
+@inject ZfsService ZfsSvc
+@{
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    string NavActive(string page) => currentPage.StartsWith(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    var sysInfo = await SystemSvc.GetSystemInfoAsync();
+    var zfsVersion = await ZfsSvc.GetZfsVersionAsync();
+
+    var navItems = new (string Page, string Label, string Icon)[]
+    {
+        ("/Index", "Dashboard", "bi-grid-1x2"),
+        ("/Pools", "Pools", "bi-hdd-stack"),
+        ("/Datasets", "Datasets", "bi-folder2"),
+        ("/Snapshots", "Snapshots", "bi-camera"),
+        ("/ZVols", "ZVols", "bi-device-hdd"),
+    };
+}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - ZFS Spectator</title>
+    <link href="~/lib/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="~/lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" />
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-expand-lg bg-surface border-bottom border-body-tertiary py-2 sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                <i class="bi bi-hdd-rack"></i>
+                <span>ZFS Spectator</span>
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navMain">
+                <ul class="navbar-nav nav-pills ms-3 gap-1">
+                    @foreach (var (page, label, icon) in navItems)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-1 @NavActive(page)"
+                               asp-page="@(page == "/Index" ? page : page + "/Index")">
+                                <i class="bi @icon" style="font-size:.85rem"></i>
+                                @label
+                            </a>
+                        </li>
+                    }
+                </ul>
+                <div class="d-flex align-items-center gap-3 ms-auto small">
+                    <span class="fw-semibold">@sysInfo.Hostname</span>
+                    <div class="d-flex flex-column align-items-end text-body-secondary" style="line-height:1.3">
+                        <span>Linux-@sysInfo.Kernel</span>
+                        <span>ZFS @zfsVersion</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="container-fluid px-4 py-4 flex-grow-1">
+        @RenderBody()
+    </main>
+    <footer class="border-top py-2 px-4 text-body-secondary small d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-eye me-1"></i>ZFS Spectator &mdash; read-only monitoring</span>
+        <span>Commands shown are for reference only &mdash; copy &amp; run manually</span>
+    </footer>
+    <script src="~/js/site.js"></script>
+    <script src="~/lib/bootstrap/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/chartjs/chart.umd.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

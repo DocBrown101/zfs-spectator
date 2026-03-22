@@ -1,0 +1,80 @@
+/* ZFS Dashboard — only styles that have no Bootstrap 5.3 utility equivalent */
+
+/* Slightly darker base for the dark theme */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #0d1117;
+    --bs-tertiary-bg: #161b22;
+    --zfs-surface: #10151c;
+}
+
+/* Dark surface for cards and navbar — between body-bg and tertiary-bg */
+.bg-surface {
+    background-color: var(--zfs-surface);
+}
+
+/* Nav pills: subtle rounded look */
+.navbar .nav-pills .nav-link {
+    border-radius: var(--bs-border-radius-pill);
+    padding: .35rem .9rem;
+    font-size: .875rem;
+}
+.navbar .nav-pills .nav-link:not(.active) {
+    color: var(--bs-body-color);
+}
+.navbar .nav-pills .nav-link:not(.active):hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+/* Command block: copy button appears on hover */
+.cmd-block {
+    position: relative;
+}
+.cmd-block .btn-copy {
+    position: absolute;
+    top: .35rem;
+    right: .35rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.cmd-block:hover .btn-copy {
+    opacity: 1;
+}
+
+/* 80% threshold marker on pool progress bars */
+.progress-wrap {
+    position: relative;
+}
+.progress-wrap .threshold-marker {
+    position: absolute;
+    left: 80%;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background-color: var(--bs-danger);
+    opacity: .7;
+    z-index: 2;
+    pointer-events: none;
+}
+.progress-wrap .threshold-label {
+    position: absolute;
+    left: 80%;
+    top: -14px;
+    transform: translateX(-50%);
+    font-size: .6rem;
+    color: var(--bs-danger);
+    opacity: .8;
+    pointer-events: none;
+}
+
+/* Table headers: uppercase small-caps treatment */
+.table thead th {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    white-space: nowrap;
+}
+
+/* Table row hover in dark theme */
+.table-hover-dark tbody tr:hover {
+    background-color: var(--bs-tertiary-bg);
+}

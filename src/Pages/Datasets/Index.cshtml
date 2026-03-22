@@ -1,0 +1,148 @@
+@page
+@model ZfsDashboard.Pages.Datasets.IndexModel
+@{
+    ViewData["Title"] = "Datasets";
+}
+
+<h3 class="fw-bold mb-1">
+    <i class="bi bi-folder2 me-2 text-info"></i>Datasets
+</h3>
+<p class="text-body-secondary mb-4">All ZFS datasets grouped by pool &mdash; @Model.TotalCount total</p>
+
+<div class="row g-4">
+
+    @* ── Left Column: Datasets by Pool ───────────────────────── *@
+    <div class="col-lg-8">
+        @if (Model.TotalCount == 0)
+        {
+            <div class="alert alert-secondary">
+                <i class="bi bi-info-circle me-1"></i>No datasets found.
+            </div>
+        }
+
+        @foreach (var (poolName, datasets) in Model.DatasetsByPool)
+        {
+            <div class="card mb-4">
+                <div class="card-body bg-surface">
+                    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-folder2 text-info"></i>
+                        <a asp-page="/Pools/Details" asp-route-name="@poolName" class="text-decoration-none text-info">@poolName</a>
+                        <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@datasets.Count datasets</span>
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-sm mb-0">
+                            <thead>
+                                <tr class="border-bottom border-secondary">
+                                    <th class="text-body-secondary fw-normal">Name</th>
+                                    <th class="text-body-secondary fw-normal text-end">Used</th>
+                                    <th class="text-body-secondary fw-normal text-end">Avail</th>
+                                    <th class="text-body-secondary fw-normal text-end">Refer</th>
+                                    <th class="text-body-secondary fw-normal text-end">Record Size</th>
+                                    <th class="text-body-secondary fw-normal">Compression</th>
+                                    <th class="text-body-secondary fw-normal text-center">Mounted</th>
+                                    <th class="text-body-secondary fw-normal" style="min-width:100px">Usage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var ds in datasets)
+                                {
+                                    var indent = ds.Depth * 16;
+                                    <tr class="border-bottom border-secondary">
+                                        <td>
+                                            <span style="padding-left:@(indent)px" class="font-monospace small">
+                                                @if (ds.Depth > 0)
+                                                {
+                                                    <span class="text-body-secondary opacity-50">└ </span>
+                                                }
+                                                <a asp-page="Details" asp-route-name="@ds.Name" class="text-info text-decoration-none">@ds.ShortName</a>
+                                                @if (ds.Encrypted)
+                                                {
+                                                    <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="@ds.EncryptionAlgorithm (@(ds.KeyLocked ? "locked" : "loaded"))"></i>
+                                                }
+                                                @if (ds.UsedBySnapshots > 0)
+                                                {
+                                                    <span class="badge bg-body-tertiary text-body-secondary border ms-1" data-bs-toggle="tooltip" data-bs-title="Space used by snapshots">
+                                                        <i class="bi bi-camera"></i> @ds.UsedBySnapshots.FormatBytes()
+                                                    </span>
+                                                }
+                                            </span>
+                                        </td>
+                                        <td class="small text-end">@ds.Used.FormatBytes()</td>
+                                        <td class="small text-end">@ds.Avail.FormatBytes()</td>
+                                        <td class="small text-end">@ds.Refer.FormatBytes()</td>
+                                        <td class="small text-end">@ds.RecordSize.FormatBytes()</td>
+                                        <td class="small">@ds.Compression (@ds.CompRatio)</td>
+                                        <td class="text-center">
+                                            @if (ds.Mounted)
+                                            {
+                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-dash-circle text-secondary opacity-50"></i>
+                                            }
+                                        </td>
+                                        <td>
+                                            @{
+                                                var dsPct = ds.UsagePercent;
+                                                var dsBarCss = dsPct > 85 ? "bg-danger" : dsPct > 70 ? "bg-warning" : "bg-success";
+                                            }
+                                            <div class="d-flex align-items-center gap-2 small">
+                                                <div class="progress flex-grow-1" style="height:6px;">
+                                                    <div class="progress-bar @dsBarCss" style="width:@dsPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                                </div>
+                                                <span class="text-body-secondary" style="min-width:38px">@dsPct.ToString("F0")%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* ── Right Column: Mounts ────────────────────────────────── *@
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-pin-map text-info"></i>
+                    Mounts
+                    <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.MountedDatasets.Count</span>
+                </h5>
+
+                @if (Model.MountedDatasets.Count == 0)
+                {
+                    <p class="text-body-secondary small mb-0">No mounted datasets.</p>
+                }
+                else
+                {
+                    <table class="table table-borderless table-sm mb-0">
+                        <thead>
+                            <tr class="border-bottom border-secondary">
+                                <th class="text-body-secondary fw-normal">Mountpoint</th>
+                                <th class="text-body-secondary fw-normal">Dataset</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ds in Model.MountedDatasets)
+                            {
+                                <tr class="border-bottom border-secondary">
+                                    <td class="font-monospace small text-warning">@ds.Mountpoint</td>
+                                    <td class="small">
+                                        <a asp-page="Details" asp-route-name="@ds.Name" class="text-info text-decoration-none">@ds.Name</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<partial name="_CommandSuggestions" model="Model.Suggestions" />

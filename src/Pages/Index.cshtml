@@ -1,0 +1,322 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+@functions {
+    void Row(string label, object value, string? id = null, bool last = false)
+    {
+        var border = last ? "" : "border-bottom border-secondary";
+        <div class="row py-2 @border small">
+            <div class="col-5 text-body-secondary">@label</div>
+            <div class="col-7" id="@id">@value</div>
+        </div>
+    }
+}
+
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-grid-1x2 me-2 text-info"></i>System Dashboard
+    </h3>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-body-tertiary text-body-secondary border" id="sysUptimeBadge">
+            <i class="bi bi-clock me-1"></i><span id="sysUptime">@Model.SystemInfo.Uptime</span>
+        </span>
+    </div>
+</div>
+<p class="text-body-secondary mb-4">Overview of system resources and ZFS pools</p>
+
+<div class="row g-4">
+
+    @* ── Left Column: System Info ────────────────────────────── *@
+    <div class="col-lg-6">
+
+        @* Network Information *@
+        <div class="card mb-4">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-ethernet text-info"></i>
+                    Network Information
+                </h5>
+                <div id="netCharts"></div>
+                <canvas id="netCanvas" height="160"></canvas>
+            </div>
+        </div>
+
+        @* System Information *@
+        <div class="card mb-4">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-display text-info"></i>
+                    System Information
+                </h5>
+                @{ Row("Processor", Model.SystemInfo.Processor, "sysProcessor"); }
+                @{ Row("CPU Usage", $"{Model.CpuUsagePercent:F1}%", "cpuUsage"); }
+                @{ Row("CPU Count", Model.SystemInfo.CpuCount.ToString(), "cpuCount", last: true); }
+            </div>
+        </div>
+
+        @* Memory Information *@
+        <div class="card mb-4">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-memory text-info"></i>
+                    Memory Information
+                </h5>
+                @{ Row("Total Memory", Model.Memory.Total.FormatBytes(), "memTotal"); }
+                @{ Row("Available Memory", Model.Memory.Available.FormatBytes(), "memAvail"); }
+                @{ Row("Used Memory", Model.Memory.Used.FormatBytes(), "memUsed"); }
+                @{ Row("Percentage Used", $"{Model.Memory.UsagePercent:F1} %", "memPct"); }
+                @{ Row("Buffers / Cached", $"{Model.Memory.Buffers.FormatBytes()} / {Model.Memory.Cached.FormatBytes()}", "memBuffersCached"); }
+                @{ Row("Swap Used", $"{Model.Memory.SwapUsed.FormatBytes()} / {Model.Memory.SwapTotal.FormatBytes()}", "swapUsed"); }
+                @{ Row("Swap Usage", $"{Model.Memory.SwapUsagePercent:F1} %", "swapPct", last: true); }
+            </div>
+        </div>
+
+        @* ARC Statistics *@
+        @if (Model.Arc.MaxSize > 0)
+        {
+            <div class="card mb-4">
+                <div class="card-body bg-surface">
+                    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-speedometer2 text-info"></i>
+                        ARC Cache
+                    </h5>
+                    @{ Row("ARC Size", $"{Model.Arc.Size.FormatBytes()} / {Model.Arc.MaxSize.FormatBytes()}", "arcSize"); }
+                    @{
+                        var hitClass = Model.Arc.HitRate >= 90 ? "text-success" : Model.Arc.HitRate >= 70 ? "text-warning" : "text-danger";
+                        Row("L1 Hit Rate", Html.Raw($"<span class=\"{hitClass} fw-semibold\">{Model.Arc.HitRate:F1}%</span>"), "arcHitRate");
+                    }
+                    @if (Model.Arc.L2Size > 0)
+                    {
+                        var l2Class = Model.Arc.L2HitRate >= 70 ? "text-success" : "text-warning";
+                        Row("L2ARC Hit Rate", Html.Raw($"<span class=\"{l2Class} fw-semibold\">{Model.Arc.L2HitRate:F1}% ({Model.Arc.L2Size.FormatBytes()})</span>"), "l2HitRate");
+                    }
+                    @if (Model.Arc.MetadataSize > 0)
+                    {
+                        Row("Metadata", Model.Arc.MetadataSize.FormatBytes(), "arcMeta");
+                    }
+                    @if (Model.Arc.DataSize > 0)
+                    {
+                        Row("Data", Model.Arc.DataSize.FormatBytes(), "arcData");
+                    }
+                    @if (Model.Arc.MruSize > 0 || Model.Arc.MfuSize > 0)
+                    {
+                        Row("MRU / MFU", $"{Model.Arc.MruSize.FormatBytes()} / {Model.Arc.MfuSize.FormatBytes()}", "arcMruMfu", last: true);
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @* ── Right Column: ZFS Pools ─────────────────────────────── *@
+    <div class="col-lg-6">
+        @* Disk I/O *@
+        <div class="card mb-4">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-hdd text-info"></i>
+                    Disk I/O
+                </h5>
+                <canvas id="diskCanvas" height="140"></canvas>
+                <div class="table-responsive mt-2">
+                    <table class="table table-borderless table-sm mb-0 small" style="table-layout:fixed">
+                        <colgroup>
+                            <col style="width:30%">
+                            <col style="width:35%">
+                            <col style="width:35%">
+                        </colgroup>
+                        <thead>
+                            <tr class="border-bottom border-secondary">
+                                <th class="text-body-secondary fw-normal">Device</th>
+                                <th class="text-body-secondary fw-normal text-end">Read</th>
+                                <th class="text-body-secondary fw-normal text-end">Write</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diskDetail">
+                            <tr><td colspan="3" class="text-body-secondary">Loading&hellip;</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @* Pool I/O *@
+        <div class="card mb-4">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-activity text-info"></i>
+                    Pool I/O
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-borderless table-sm mb-0">
+                        <thead>
+                            <tr class="border-bottom border-secondary">
+                                <th class="text-body-secondary fw-normal">Pool</th>
+                                <th class="text-body-secondary fw-normal text-end">Read Ops</th>
+                                <th class="text-body-secondary fw-normal text-end">Write Ops</th>
+                                <th class="text-body-secondary fw-normal text-end">Read BW</th>
+                                <th class="text-body-secondary fw-normal text-end">Write BW</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poolIoBody">
+                            <tr><td colspan="5" class="text-body-secondary">Loading&hellip;</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @* ZFS Pools *@
+        <div class="card mb-4">
+            <div class="card-body bg-surface">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title d-flex align-items-center gap-2 mb-0">
+                        <i class="bi bi-hdd-stack text-info"></i>
+                        ZFS Pools
+                    </h5>
+                    <span class="badge bg-body-tertiary text-body-secondary border">@Model.Pools.Count pools</span>
+                </div>
+
+                @if (Model.Pools.Count == 0)
+                {
+                    <div class="alert alert-secondary mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        No ZFS pools found. Ensure ZFS is installed and pools are imported.
+                    </div>
+                }
+
+                @foreach (var pool in Model.Pools)
+                {
+                    var pct = pool.UsagePercent;
+                    var barCss = pct > 85 ? "bg-danger" : pct > 70 ? "bg-warning" : "bg-success";
+
+                    <div class="card mb-3">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <a asp-page="/Pools/Details" asp-route-name="@pool.Name" class="fw-semibold text-info text-decoration-none">
+                                        <i class="bi bi-hdd-stack me-1" style="font-size:.8rem"></i>@pool.Name
+                                    </a>
+                                    @if (pool.Encrypted)
+                                    {
+                                        <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="Encrypted (@pool.EncryptionAlgorithm)"></i>
+                                    }
+                                    @if (pool.HasErrors)
+                                    {
+                                        <span class="badge bg-danger ms-1" data-bs-toggle="tooltip" data-bs-title="R:@pool.ErrorsRead W:@pool.ErrorsWrite C:@pool.ErrorsChecksum">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                        </span>
+                                    }
+                                </div>
+                                <span class="badge @pool.Health.ToStatusBadgeCss()">@pool.Health</span>
+                            </div>
+                            <div class="row text-center small">
+                                <div class="col">
+                                    <div class="text-body-secondary text-uppercase" style="font-size:.7rem">Size</div>
+                                    <div class="fw-semibold">@pool.UsableSize.FormatBytes()</div>
+                                </div>
+                                <div class="col">
+                                    <div class="text-body-secondary text-uppercase" style="font-size:.7rem">Allocated</div>
+                                    <div class="fw-semibold">@pool.UsableUsed.FormatBytes()</div>
+                                </div>
+                                <div class="col">
+                                    <div class="text-body-secondary text-uppercase" style="font-size:.7rem">Free</div>
+                                    <div class="fw-semibold">@pool.UsableAvail.FormatBytes()</div>
+                                </div>
+                                <div class="col">
+                                    <div class="text-body-secondary text-uppercase" style="font-size:.7rem">Capacity</div>
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <span class="fw-semibold">@pct.ToString("F0")%</span>
+                                        <div class="progress" style="width:60px;height:8px;">
+                                            <div class="progress-bar @barCss" style="width:@pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        function fmtRate(v) {
+            const u = ['B/s','KiB/s','MiB/s','GiB/s'];
+            for (let i = 0; i < u.length; i++) { if (v < 1024 || i === u.length - 1) return v.toFixed(1) + ' ' + u[i]; v /= 1024; }
+        }
+
+        // Rolling 2-line chart (e.g. read/write or down/up) with shared labels
+        function rollingChart(canvasId, label0, color0, label1, color1) {
+            const labels = [], d0 = [], d1 = [];
+            const chart = new Chart(document.getElementById(canvasId), {
+                type: 'line',
+                data: { labels, datasets: [
+                    { label: label0, data: d0, borderColor: color0, backgroundColor: color0 + '18', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 },
+                    { label: label1, data: d1, borderColor: color1, backgroundColor: color1 + '18', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 },
+                ]},
+                options: {
+                    animation: false, responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { boxWidth: 10, color: '#adb5bd', font: { size: 11 } } },
+                        tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtRate(c.parsed.y) } },
+                    },
+                    scales: {
+                        x: { ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#adb5bd', font: { size: 10 }, callback: fmtRate } },
+                    },
+                },
+            });
+            return function (v0, v1) {
+                labels.push(''); d0.push(v0); d1.push(v1);
+                if (labels.length > 60) { labels.shift(); d0.shift(); d1.shift(); }
+                chart.update();
+            };
+        }
+
+        const pushNet  = rollingChart('netCanvas',  'Download', '#0dcaf0', 'Upload', '#ffc107');
+        const pushDisk = rollingChart('diskCanvas', 'Read',     '#0dcaf0', 'Write',  '#ffc107');
+
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/live');
+                const data = await res.json();
+                for (const id in data.text) { const el = document.getElementById(id); if (el) el.textContent = data.text[id]; }
+                for (const id in data.html) { if (id === 'netBody' || id === 'diskBody') continue; const el = document.getElementById(id); if (el) el.innerHTML = data.html[id]; }
+
+                if (data.networkRates && data.networkRates.length) {
+                    const rx = data.networkRates.reduce((s, r) => s + r.rxBytesPerSec, 0);
+                    const tx = data.networkRates.reduce((s, r) => s + r.txBytesPerSec, 0);
+                    pushNet(rx, tx);
+                    document.getElementById('netCharts').innerHTML = data.networkRates.map(r =>
+                        '<span class="small font-monospace">' + r.name +
+                        ' <i class="bi bi-arrow-down text-info"></i>' + fmtRate(r.rxBytesPerSec) +
+                        ' <i class="bi bi-arrow-up text-warning"></i>' + fmtRate(r.txBytesPerSec) + '</span>'
+                    ).join(' &nbsp; ');
+                }
+
+                if (data.diskIoRates && data.diskIoRates.length) {
+                    const rd = data.diskIoRates.reduce((s, r) => s + r.readBytesPerSec, 0);
+                    const wr = data.diskIoRates.reduce((s, r) => s + r.writeBytesPerSec, 0);
+                    pushDisk(rd, wr);
+                    document.getElementById('diskDetail').innerHTML = data.diskIoRates.map(r =>
+                        '<tr class="border-bottom border-secondary">' +
+                        '<td class="fw-semibold font-monospace">' + r.device + '</td>' +
+                        '<td class="text-end font-monospace">' + fmtRate(r.readBytesPerSec) + '</td>' +
+                        '<td class="text-end font-monospace">' + fmtRate(r.writeBytesPerSec) + '</td></tr>'
+                    ).join('');
+                }
+            } catch (err) {
+                console.error('live update failed:', err.message);
+            } finally { setTimeout(fetchData, 1000); }
+        }
+        fetchData();
+    })();
+</script>
+}

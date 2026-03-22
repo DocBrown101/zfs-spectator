@@ -1,0 +1,82 @@
+@page
+@model ZfsDashboard.Pages.Snapshots.IndexModel
+@{
+    ViewData["Title"] = "Snapshots";
+    var grouped = Model.Snapshots
+        .OrderByDescending(s => s.Creation)
+        .GroupBy(s => s.DatasetName);
+}
+
+<h3 class="fw-bold mb-1">
+    <i class="bi bi-camera me-2 text-info"></i>Snapshots
+</h3>
+<p class="text-body-secondary mb-4">All ZFS snapshots grouped by dataset &mdash; @Model.Snapshots.Count total</p>
+
+@if (Model.Snapshots.Count == 0)
+{
+    <div class="alert alert-secondary">
+        <i class="bi bi-info-circle me-1"></i>No snapshots found.
+    </div>
+}
+
+@foreach (var group in grouped)
+{
+    <div class="card mb-4">
+        <div class="card-body bg-surface">
+            <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-camera text-info"></i>
+                <a asp-page="/Datasets/Details" asp-route-name="@group.Key" class="text-info text-decoration-none font-monospace">@group.Key</a>
+                <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@group.Count()</span>
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-borderless table-sm mb-0">
+                    <thead>
+                        <tr class="border-bottom border-secondary">
+                            <th class="text-body-secondary fw-normal">Snapshot</th>
+                            <th class="text-body-secondary fw-normal text-end">Used</th>
+                            <th class="text-body-secondary fw-normal text-end">Refer</th>
+                            <th class="text-body-secondary fw-normal">Created</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var snap in group)
+                        {
+                            var safeId = $"cmd_{snap.DatasetName.Replace("/","_").Replace(".","_")}_{snap.SnapName.Replace(".", "_").Replace("-","_")}";
+                            <tr class="border-bottom border-secondary">
+                                <td class="font-monospace small">@@@snap.SnapName</td>
+                                <td class="small text-end">@snap.Used.FormatBytes()</td>
+                                <td class="small text-end">@snap.Refer.FormatBytes()</td>
+                                <td class="small">@snap.Creation.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#@safeId">
+                                        <i class="bi bi-terminal"></i>
+                                    </button>
+                                    <div class="collapse mt-1" id="@safeId">
+                                        <div class="cmd-block mb-1">
+                                            <pre class="bg-dark text-light p-2 rounded small"><code>@CommandSuggestionsService.SuggestRollback(snap.Name).ZfsCommand</code></pre>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                        <div class="cmd-block">
+                                            <pre class="bg-dark text-light p-2 rounded small"><code>@CommandSuggestionsService.SuggestDestroySnapshot(snap.Name).ZfsCommand</code></pre>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<partial name="_CommandSuggestions" model="Model.Suggestions" />

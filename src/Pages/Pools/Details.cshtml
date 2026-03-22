@@ -1,0 +1,253 @@
+@page "{name}"
+@model ZfsDashboard.Pages.Pools.DetailsModel
+@{
+    ViewData["Title"] = $"Pool: {Model.Pool!.Name}";
+    var p = Model.Pool!;
+    var pct = p.UsagePercent;
+    var barCss = pct > 85 ? "bg-danger" : pct > 70 ? "bg-warning" : "bg-success";
+}
+
+@functions {
+    void Row(string label, object value, string? id = null, bool last = false)
+    {
+        <div class="row py-2 @(last ? "" : "border-bottom border-secondary") small">
+            <div class="col-5 text-body-secondary">@label</div>
+            <div class="col-7" @(id != null ? $"id=\"{id}\"" : "")>@value</div>
+        </div>
+    }
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a asp-page="Index">Pools</a></li>
+        <li class="breadcrumb-item active">@p.Name</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-hdd-stack me-2 text-info"></i>@p.Name
+        <span class="badge @p.Health.ToStatusBadgeCss() ms-2">@p.Health</span>
+        @if (p.Encrypted)
+        {
+            <i class="bi bi-lock-fill text-info ms-1" data-bs-toggle="tooltip" data-bs-title="@p.EncryptionAlgorithm"></i>
+        }
+        @if (p.HasErrors)
+        {
+            <span class="badge bg-danger ms-1"><i class="bi bi-exclamation-triangle"></i> errors</span>
+        }
+    </h3>
+    @if (!string.IsNullOrEmpty(p.Operation))
+    {
+        <span class="badge bg-info fs-6">@p.Operation</span>
+    }
+</div>
+<p class="text-body-secondary mb-4">Pool details and configuration</p>
+
+@* ── Capacity ────────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-pie-chart text-info"></i>
+            Capacity
+        </h5>
+        @{ ViewData["Pct"] = pct; ViewData["Height"] = "10px"; }
+        <partial name="_PoolProgress" view-data="ViewData" />
+        <div class="row g-3 mt-2 small">
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Raw</div>
+                <div class="fw-semibold">@p.Size.FormatBytes()</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Usable</div>
+                <div class="fw-semibold">@p.UsableSize.FormatBytes()</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Used</div>
+                <div class="fw-semibold">@p.UsableUsed.FormatBytes() (@pct.ToString("F1")%)</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-body-secondary">Free</div>
+                <div class="fw-semibold">@p.UsableAvail.FormatBytes()</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ── Properties ──────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-gear text-info"></i>
+            Properties
+        </h5>
+        <div class="row">
+            <div class="col-md-6">
+                @{ Row("VDEV Type", p.VdevType); }
+                @{ Row("Ashift", p.Ashift.ToString()); }
+                @{ Row("Compression", $"{p.Compression} ({p.CompRatio})"); }
+                @{ Row("Dedup", p.Dedup, last: true); }
+            </div>
+            <div class="col-md-6">
+                @{ Row("Sync", p.Sync); }
+                @{ Row("Atime", p.Atime); }
+                @{ Row("Fragmentation", $"{p.Fragmentation}%"); }
+                @if (p.Encrypted)
+                {
+                    Row("Encryption", $"{p.EncryptionAlgorithm} ({(p.KeyLocked ? "locked" : "loaded")})", last: true);
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ── Errors ──────────────────────────────────────────────────── *@
+@if (p.HasErrors)
+{
+    <div class="card border-danger mb-4">
+        <div class="card-body bg-surface">
+            <h5 class="card-title d-flex align-items-center gap-2 mb-3 text-danger">
+                <i class="bi bi-exclamation-triangle text-danger"></i>
+                Errors
+            </h5>
+            <div class="row g-3 text-center">
+                <div class="col-4">
+                    <div class="small text-body-secondary">Read</div>
+                    <div class="fs-5 fw-semibold @(p.ErrorsRead > 0 ? "text-danger" : "")">@p.ErrorsRead</div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-body-secondary">Write</div>
+                    <div class="fs-5 fw-semibold @(p.ErrorsWrite > 0 ? "text-danger" : "")">@p.ErrorsWrite</div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-body-secondary">Checksum</div>
+                    <div class="fs-5 fw-semibold @(p.ErrorsChecksum > 0 ? "text-danger" : "")">@p.ErrorsChecksum</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Devices ─────────────────────────────────────────────────── *@
+@{
+    void RenderDeviceTable(List<PoolDevice> devices, string title, string icon, ulong size = 0, ulong alloc = 0, ulong free = 0)
+    {
+        if (devices.Count == 0) return;
+        <h6 class="mt-3 mb-2 d-flex align-items-center gap-1">
+            <i class="bi bi-@icon me-1 text-info"></i>@title
+            <span class="badge bg-secondary ms-1">@devices.Count</span>
+        </h6>
+        @if (size > 0)
+        {
+            var usePct = (double)alloc / size * 100;
+            var capBarCss = usePct > 85 ? "bg-danger" : usePct > 70 ? "bg-warning" : "bg-info";
+            <div class="d-flex align-items-center gap-4 mb-2 small">
+                <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width:200px;">
+                    <div class="progress flex-grow-1" style="height:6px;">
+                        <div class="progress-bar @capBarCss" style="width:@usePct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                    </div>
+                    <span class="text-body-secondary">@usePct.ToString("F1")%</span>
+                </div>
+                <div><span class="text-body-secondary">Size</span> <span class="fw-semibold">@size.FormatBytes()</span></div>
+                <div><span class="text-body-secondary">Used</span> <span class="fw-semibold">@alloc.FormatBytes()</span></div>
+                <div><span class="text-body-secondary">Free</span> <span class="fw-semibold">@free.FormatBytes()</span></div>
+            </div>
+        }
+        <div class="table-responsive">
+            <table class="table table-borderless table-sm mb-0">
+                <thead>
+                    <tr class="border-bottom border-secondary">
+                        <th class="text-body-secondary fw-normal">Device Path</th>
+                        <th class="text-body-secondary fw-normal">Role</th>
+                        <th class="text-body-secondary fw-normal">Status</th>
+                        <th class="text-body-secondary fw-normal">Present</th>
+                        <th class="text-body-secondary fw-normal" data-bs-toggle="tooltip" data-bs-title="Read errors">READ</th>
+                        <th class="text-body-secondary fw-normal" data-bs-toggle="tooltip" data-bs-title="Write errors">WRITE</th>
+                        <th class="text-body-secondary fw-normal" data-bs-toggle="tooltip" data-bs-title="Checksum errors">CKSUM</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in devices)
+                    {
+                        <tr class="border-bottom border-secondary @(d.HasErrors ? "text-danger" : "")">
+                            <td class="font-monospace small">@d.Path</td>
+                            <td><span class="badge bg-secondary">@d.Role</span></td>
+                            <td><span class="badge @d.Status.ToStatusBadgeCss()">@d.Status</span></td>
+                            <td>
+                                @if (d.Present)
+                                {
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-exclamation-triangle-fill text-warning"
+                                       data-bs-toggle="tooltip" data-bs-title="Device not found on system"></i>
+                                }
+                            </td>
+                            <td class="@(d.ErrorsRead > 0 ? "text-danger fw-semibold" : "text-body-secondary")">@d.ErrorsRead</td>
+                            <td class="@(d.ErrorsWrite > 0 ? "text-danger fw-semibold" : "text-body-secondary")">@d.ErrorsWrite</td>
+                            <td class="@(d.ErrorsChecksum > 0 ? "text-danger fw-semibold" : "text-body-secondary")">@d.ErrorsChecksum</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-hdd text-info"></i>
+            Physical Devices
+        </h5>
+        @{ RenderDeviceTable(p.DataDevices, "Data Devices", "hdd-rack", p.Size, p.Alloc, p.Free); }
+        @{ RenderDeviceTable(p.SpecialDevices, "Special VDEV (Metadata/Small Blocks)", "diamond", p.SpecialSize, p.SpecialAlloc, p.SpecialFree); }
+        @{ RenderDeviceTable(p.CacheDevices, "L2ARC Cache", "lightning-charge"); }
+        @{ RenderDeviceTable(p.LogDevices, "ZFS Intent Log (SLOG)", "journal-text"); }
+        @{ RenderDeviceTable(p.SpareDevices, "Hot Spares", "shield-check"); }
+        @if (p.DataDevices.Count == 0 && p.SpecialDevices.Count == 0 && p.CacheDevices.Count == 0 && p.LogDevices.Count == 0 && p.SpareDevices.Count == 0)
+        {
+            <span class="text-body-secondary">No device information available</span>
+        }
+    </div>
+</div>
+
+@* ── Scrub ────────────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-shield-check text-info"></i>
+            Scrub Status
+        </h5>
+        @switch (Model.Scrub.State)
+        {
+            case "running":
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+                    <span>Scrub in progress &mdash; @Model.Scrub.ProgressPct.ToString("F2")% done</span>
+                </div>
+                <div class="progress mb-1" style="height: 6px;">
+                    <div class="progress-bar bg-info" style="width: @Model.Scrub.ProgressPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Scrub.TimeLeft))
+                {
+                    <small class="text-body-secondary">ETA: @Model.Scrub.TimeLeft</small>
+                }
+                break;
+            case "finished":
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed</span>
+                    <span class="text-body-secondary small">Duration: @Model.Scrub.Duration &middot; Errors: @Model.Scrub.Errors &middot; @Model.Scrub.FinishTime</span>
+                </div>
+                break;
+            case "canceled":
+                <span class="text-warning"><i class="bi bi-dash-circle me-1"></i>Canceled</span>
+                break;
+            default:
+                <span class="text-body-secondary"><i class="bi bi-clock me-1"></i>Idle &mdash; no scrub requested</span>
+                break;
+        }
+    </div>
+</div>
+
+<partial name="_CommandSuggestions" model="Model.Suggestions" />
