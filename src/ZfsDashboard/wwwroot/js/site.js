@@ -5,18 +5,18 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
 
 // Copy-to-clipboard for command blocks
 document.addEventListener('click', function (e) {
-    var btn = e.target.closest('.btn-copy');
+    const btn = e.target.closest('.btn-copy');
     if (!btn) return;
 
-    var target = btn.closest('.cmd-block');
+    const target = btn.closest('.cmd-block');
     if (!target) return;
 
-    var code = target.querySelector('code') || target.querySelector('pre');
+    const code = target.querySelector('code') || target.querySelector('pre');
     if (!code) return;
 
     navigator.clipboard.writeText(code.textContent.trim()).then(function () {
-        var icon = btn.querySelector('i');
-        var original = icon.className;
+        const icon = btn.querySelector('i');
+        const original = icon.className;
         icon.className = 'bi bi-check2';
         btn.classList.add('btn-success');
         btn.classList.remove('btn-outline-secondary');

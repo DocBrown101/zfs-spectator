@@ -3,7 +3,7 @@ namespace Zfs.Core.Services.Parser;
 using System.Text.Json;
 using Zfs.Core.Models;
 
-public class ZpoolParser
+public static class ZpoolParser
 {
     // ── Pool Listing (from zpool list -Hpj) ─────────────────────────────
 

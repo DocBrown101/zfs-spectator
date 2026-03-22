@@ -3,7 +3,7 @@ namespace Zfs.Core.Services.Parser;
 using System.Text.Json;
 using Zfs.Core.Models;
 
-public class ZfsParser
+public static class ZfsParser
 {
     // ── Datasets (from zfs list -Hpj -t filesystem) ─────────────────────
 
