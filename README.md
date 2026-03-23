@@ -4,6 +4,12 @@ A lightweight, read-only web dashboard for monitoring ZFS storage systems. ZFS S
 
 **Look, don't touch.** ZFS Spectator has zero write operations. It only reads publicly available ZFS status information, making it safe to run alongside production workloads.
 
+<p align="center">
+  <a href="https://sonarcloud.io/summary/new_code?id=DocBrown101_zfs-spectator">
+    <img src="https://sonarcloud.io/api/project_badges/quality_gate?project=DocBrown101_zfs-spectator" />
+  </a>
+</p>
+
 ## Features
 
 - **System Dashboard** — CPU, memory, swap, and uptime at a glance
