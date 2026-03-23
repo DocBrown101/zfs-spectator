@@ -279,7 +279,7 @@
           }
         },
         "usedbysnapshots": {
-          "value": "0",
+          "value": "57344",
           "source": {
             "type": "NONE",
             "data": "-"

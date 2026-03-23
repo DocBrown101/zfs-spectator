@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
 

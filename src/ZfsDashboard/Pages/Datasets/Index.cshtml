@@ -11,8 +11,8 @@
 
 <div class="row g-4">
 
-    @* ── Left Column: Datasets by Pool ───────────────────────── *@
-    <div class="col-lg-8">
+    @* ── Datasets by Pool ────────────────────────────────────── *@
+    <div class="col-12">
         @if (Model.TotalCount == 0)
         {
             <div class="alert alert-secondary">
@@ -34,12 +34,12 @@
                             <thead>
                                 <tr class="border-bottom border-secondary">
                                     <th class="text-body-secondary fw-normal">Name</th>
+                                    <th class="text-body-secondary fw-normal">Mountpoint</th>
                                     <th class="text-body-secondary fw-normal text-end">Used</th>
                                     <th class="text-body-secondary fw-normal text-end">Avail</th>
                                     <th class="text-body-secondary fw-normal text-end">Refer</th>
                                     <th class="text-body-secondary fw-normal text-end">Record Size</th>
                                     <th class="text-body-secondary fw-normal">Compression</th>
-                                    <th class="text-body-secondary fw-normal text-center">Mounted</th>
                                     <th class="text-body-secondary fw-normal" style="min-width:100px">Usage</th>
                                 </tr>
                             </thead>
@@ -67,21 +67,21 @@
                                                 }
                                             </span>
                                         </td>
+                                        <td class="font-monospace small">
+                                            @if (ds.Mounted)
+                                            {
+                                                <span class="text-warning">@ds.Mountpoint</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-secondary opacity-50">not mounted</span>
+                                            }
+                                        </td>
                                         <td class="small text-end">@ds.Used.FormatBytes()</td>
                                         <td class="small text-end">@ds.Avail.FormatBytes()</td>
                                         <td class="small text-end">@ds.Refer.FormatBytes()</td>
                                         <td class="small text-end">@ds.RecordSize.FormatBytes()</td>
                                         <td class="small">@ds.Compression (@ds.CompRatio)</td>
-                                        <td class="text-center">
-                                            @if (ds.Mounted)
-                                            {
-                                                <i class="bi bi-check-circle-fill text-success"></i>
-                                            }
-                                            else
-                                            {
-                                                <i class="bi bi-dash-circle text-secondary opacity-50"></i>
-                                            }
-                                        </td>
                                         <td>
                                             @{
                                                 var dsPct = ds.UsagePercent;
@@ -104,45 +104,6 @@
         }
     </div>
 
-    @* ── Right Column: Mounts ────────────────────────────────── *@
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-body bg-surface">
-                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-pin-map text-info"></i>
-                    Mounts
-                    <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.MountedDatasets.Count</span>
-                </h5>
-
-                @if (Model.MountedDatasets.Count == 0)
-                {
-                    <p class="text-body-secondary small mb-0">No mounted datasets.</p>
-                }
-                else
-                {
-                    <table class="table table-borderless table-sm mb-0">
-                        <thead>
-                            <tr class="border-bottom border-secondary">
-                                <th class="text-body-secondary fw-normal">Mountpoint</th>
-                                <th class="text-body-secondary fw-normal">Dataset</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var ds in Model.MountedDatasets)
-                            {
-                                <tr class="border-bottom border-secondary">
-                                    <td class="font-monospace small text-warning">@ds.Mountpoint</td>
-                                    <td class="small">
-                                        <a asp-page="Details" asp-route-name="@ds.Name" class="text-info text-decoration-none">@ds.Name</a>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </div>
-        </div>
-    </div>
 </div>
 
 <partial name="_CommandSuggestions" model="Model.Suggestions" />
