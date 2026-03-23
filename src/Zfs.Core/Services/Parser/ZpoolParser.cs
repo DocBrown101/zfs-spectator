@@ -22,12 +22,12 @@ public static class ZpoolParser
 
             result.Add(new Pool
             {
-                Name = GetString(pool, "name"),
-                Size = GetPropertyUlong(props, "size"),
-                Alloc = GetPropertyUlong(props, "allocated"),
-                Free = GetPropertyUlong(props, "free"),
-                Health = GetPropertyString(props, "health"),
-                Fragmentation = GetPropertyInt(props, "fragmentation"),
+                Name = JsonHelper.GetString(pool, "name"),
+                Size = JsonHelper.GetPropertyUlong(props, "size"),
+                Alloc = JsonHelper.GetPropertyUlong(props, "allocated"),
+                Free = JsonHelper.GetPropertyUlong(props, "free"),
+                Health = JsonHelper.GetPropertyString(props, "health"),
+                Fragmentation = JsonHelper.GetPropertyInt(props, "fragmentation"),
                 VdevType = "stripe",
                 Operation = "",
                 Compression = "lz4",
@@ -63,7 +63,7 @@ public static class ZpoolParser
         if (!pools.TryGetProperty(poolName, out var pool)) return 0;
         if (!pool.TryGetProperty("properties", out var props)) return 0;
 
-        return GetPropertyInt(props, "ashift");
+        return JsonHelper.GetPropertyInt(props, "ashift");
     }
 
     // ── Pool Layout (from zpool status -Pj) ─────────────────────────────
@@ -79,8 +79,8 @@ public static class ZpoolParser
         var operation = "";
         if (pool.TryGetProperty("scan_stats", out var scanStats))
         {
-            var function = GetString(scanStats, "function");
-            var state = GetString(scanStats, "state");
+            var function = JsonHelper.GetString(scanStats, "function");
+            var state = JsonHelper.GetString(scanStats, "state");
             if (state == "SCANNING")
             {
                 operation = function switch
@@ -99,16 +99,16 @@ public static class ZpoolParser
         if (pool.TryGetProperty("vdevs", out var vdevs) &&
             vdevs.TryGetProperty(poolName, out var rootVdev))
         {
-            poolErrR = GetLong(rootVdev, "read_errors");
-            poolErrW = GetLong(rootVdev, "write_errors");
-            poolErrC = GetLong(rootVdev, "checksum_errors");
+            poolErrR = JsonHelper.GetLong(rootVdev, "read_errors");
+            poolErrW = JsonHelper.GetLong(rootVdev, "write_errors");
+            poolErrC = JsonHelper.GetLong(rootVdev, "checksum_errors");
 
             if (rootVdev.TryGetProperty("vdevs", out var dataVdevs))
             {
                 foreach (var vdevEntry in dataVdevs.EnumerateObject())
                 {
                     var vdev = vdevEntry.Value;
-                    var vdevTypeName = GetString(vdev, "vdev_type");
+                    var vdevTypeName = JsonHelper.GetString(vdev, "vdev_type");
 
                     if (vdevTypeName == "disk")
                     {
@@ -163,30 +163,30 @@ public static class ZpoolParser
         if (!pools.TryGetProperty(poolName, out var pool)) return new ScrubInfo { State = "idle" };
         if (!pool.TryGetProperty("scan_stats", out var scan)) return new ScrubInfo { State = "idle" };
 
-        var function = GetString(scan, "function");
+        var function = JsonHelper.GetString(scan, "function");
         if (function is not ("SCRUB" or "RESILVER")) return new ScrubInfo { State = "idle" };
 
-        return GetString(scan, "state") switch
+        return JsonHelper.GetString(scan, "state") switch
         {
             "FINISHED" => new ScrubInfo
             {
                 State = "finished",
-                Errors = GetLong(scan, "errors"),
-                StartTime = GetString(scan, "start_time"),
-                FinishTime = GetString(scan, "end_time"),
+                Errors = JsonHelper.GetLong(scan, "errors"),
+                StartTime = JsonHelper.GetString(scan, "start_time"),
+                FinishTime = JsonHelper.GetString(scan, "end_time"),
             },
             "SCANNING" => new ScrubInfo
             {
                 State = "running",
-                StartTime = GetString(scan, "start_time"),
-                Errors = GetLong(scan, "errors"),
+                StartTime = JsonHelper.GetString(scan, "start_time"),
+                Errors = JsonHelper.GetLong(scan, "errors"),
             },
             "CANCELED" => new ScrubInfo
             {
                 State = "canceled",
-                Errors = GetLong(scan, "errors"),
-                StartTime = GetString(scan, "start_time"),
-                FinishTime = GetString(scan, "end_time"),
+                Errors = JsonHelper.GetLong(scan, "errors"),
+                StartTime = JsonHelper.GetString(scan, "start_time"),
+                FinishTime = JsonHelper.GetString(scan, "end_time"),
             },
             _ => new ScrubInfo { State = "idle" },
         };
@@ -212,9 +212,9 @@ public static class ZpoolParser
         {
             if (!vdev.Value.TryGetProperty("properties", out var props)) continue;
 
-            totalSize += GetPropertyUlong(props, "size");
-            totalAlloc += GetPropertyUlong(props, "allocated");
-            totalFree += GetPropertyUlong(props, "free");
+            totalSize += JsonHelper.GetPropertyUlong(props, "size");
+            totalAlloc += JsonHelper.GetPropertyUlong(props, "allocated");
+            totalFree += JsonHelper.GetPropertyUlong(props, "free");
         }
 
         return (totalSize, totalAlloc, totalFree);
@@ -230,7 +230,7 @@ public static class ZpoolParser
         foreach (var groupEntry in section.EnumerateObject())
         {
             var group = groupEntry.Value;
-            var groupType = GetString(group, "vdev_type");
+            var groupType = JsonHelper.GetString(group, "vdev_type");
 
             if (groupType == "disk")
             {
@@ -247,19 +247,19 @@ public static class ZpoolParser
 
     private static PoolDevice CreateDevice(JsonElement element, string role)
     {
-        var path = GetString(element, "path");
+        var path = JsonHelper.GetString(element, "path");
         if (path.Length == 0)
-            path = GetString(element, "name");
+            path = JsonHelper.GetString(element, "name");
 
         return new PoolDevice
         {
             Path = path,
             Role = role,
-            Status = GetString(element, "state"),
+            Status = JsonHelper.GetString(element, "state"),
             Present = false,
-            ErrorsRead = GetLong(element, "read_errors"),
-            ErrorsWrite = GetLong(element, "write_errors"),
-            ErrorsChecksum = GetLong(element, "checksum_errors"),
+            ErrorsRead = JsonHelper.GetLong(element, "read_errors"),
+            ErrorsWrite = JsonHelper.GetLong(element, "write_errors"),
+            ErrorsChecksum = JsonHelper.GetLong(element, "checksum_errors"),
         };
     }
 
@@ -271,47 +271,5 @@ public static class ZpoolParser
         if (name.StartsWith("raidz")) return "raidz1";
         if (name.StartsWith("draid")) return "draid";
         return "stripe";
-    }
-
-    private static ulong GetPropertyUlong(JsonElement properties, string name)
-    {
-        if (!properties.TryGetProperty(name, out var prop)) return 0;
-        if (!prop.TryGetProperty("value", out var val)) return 0;
-
-        var raw = val.GetString();
-        if (string.IsNullOrEmpty(raw) || raw == "-") return 0;
-
-        return ulong.TryParse(raw, out var result) ? result : 0;
-    }
-
-    private static string GetPropertyString(JsonElement properties, string name)
-    {
-        if (!properties.TryGetProperty(name, out var prop)) return "";
-        if (!prop.TryGetProperty("value", out var val)) return "";
-        return val.GetString() ?? "";
-    }
-
-    private static int GetPropertyInt(JsonElement properties, string name)
-    {
-        if (!properties.TryGetProperty(name, out var prop)) return 0;
-        if (!prop.TryGetProperty("value", out var val)) return 0;
-
-        var raw = val.GetString();
-        if (string.IsNullOrEmpty(raw) || raw == "-") return 0;
-
-        return int.TryParse(raw, out var result) ? result : 0;
-    }
-
-    private static string GetString(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var val)) return "";
-        return val.GetString() ?? "";
-    }
-
-    private static long GetLong(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var val)) return 0;
-        var raw = val.GetString();
-        return long.TryParse(raw, out var result) ? result : 0;
     }
 }
