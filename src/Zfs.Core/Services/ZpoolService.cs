@@ -3,7 +3,7 @@ using Zfs.Core.Services.Parser;
 
 namespace Zfs.Core.Services;
 
-public class ZpoolService(ICommandExecutor cmd)
+public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 {
     // ── Pools ─────────────────────────────────────────────────────────────
 

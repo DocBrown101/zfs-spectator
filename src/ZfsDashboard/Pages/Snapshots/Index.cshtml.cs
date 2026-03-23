@@ -4,7 +4,7 @@ using Zfs.Core.Services;
 
 namespace ZfsDashboard.Pages.Snapshots;
 
-public class IndexModel(ZfsService zfs, ZpoolService zpool) : PageModel
+public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 {
     public List<Snapshot> Snapshots { get; private set; } = [];
     public List<CommandSuggestion> Suggestions { get; } = [];

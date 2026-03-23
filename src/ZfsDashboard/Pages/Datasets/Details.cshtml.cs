@@ -5,7 +5,7 @@ using Zfs.Core.Services;
 
 namespace ZfsDashboard.Pages.Datasets;
 
-public class DetailsModel(ZfsService zfs) : PageModel
+public class DetailsModel(IZfsService zfs) : PageModel
 {
     public Dataset? Dataset { get; private set; }
     public List<Snapshot> Snapshots { get; private set; } = [];

@@ -18,7 +18,7 @@ public class SystemService()
 
     // ── Dashboard API ────────────────────────────────────────────────────
 
-    public async Task<DashboardData> GetDashboardDataAsync(ZfsService zfs, ZpoolService zpool)
+    public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
     {
         var systemTask = this.GetSystemInfoAsync();
         var memoryTask = this.GetMemoryInfoAsync();
@@ -419,7 +419,7 @@ public class SystemService()
 
     // ── Pool I/O ─────────────────────────────────────────────────────────
 
-    private async Task<List<IoStats>> GetAllPoolIoAsync(ZpoolService zpool)
+    private async Task<List<IoStats>> GetAllPoolIoAsync(IZpoolService zpool)
     {
         // Delta rates are computed from previous cumulative snapshot.
         var snapshots = await zpool.GetAllPoolIoSnapshotsAsync();

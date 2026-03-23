@@ -4,7 +4,7 @@ using Zfs.Core.Services;
 
 namespace ZfsDashboard.Pages.Pools;
 
-public class IndexModel(ZpoolService zpool) : PageModel
+public class IndexModel(IZpoolService zpool) : PageModel
 {
     public List<Pool> Pools { get; private set; } = [];
     public List<CommandSuggestion> Suggestions { get; } = [];

@@ -4,7 +4,7 @@ using Zfs.Core.Services.Parser;
 
 namespace Zfs.Core.Services;
 
-public partial class ZfsService(ICommandExecutor cmd, ZpoolService zpoolService)
+public partial class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfsService
 {
     // ── Datasets ──────────────────────────────────────────────────────────
 

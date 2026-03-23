@@ -4,7 +4,7 @@ using Zfs.Core.Services;
 
 namespace ZfsDashboard.Pages.ZVols;
 
-public class IndexModel(ZfsService zfs) : PageModel
+public class IndexModel(IZfsService zfs) : PageModel
 {
     public List<ZVol> ZVols { get; private set; } = [];
 

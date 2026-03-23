@@ -10,4 +10,8 @@
     <InternalsVisibleTo Include="Zfs.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\Zfs.Tests\TestData\*.json" LinkBase="TestData" />
+  </ItemGroup>
+
 </Project>

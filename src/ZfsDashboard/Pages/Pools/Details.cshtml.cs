@@ -5,7 +5,7 @@ using Zfs.Core.Services;
 
 namespace ZfsDashboard.Pages.Pools;
 
-public class DetailsModel(ZpoolService zpool) : PageModel
+public class DetailsModel(IZpoolService zpool) : PageModel
 {
     public Pool? Pool { get; private set; }
     public ScrubInfo Scrub { get; private set; } = new() { State = "idle" };

@@ -4,7 +4,7 @@ using Zfs.Core.Services;
 
 namespace ZfsDashboard.Pages;
 
-public class IndexModel(ZfsService zfs, ZpoolService zpool, SystemService system) : PageModel
+public class IndexModel(IZfsService zfs, IZpoolService zpool, SystemService system) : PageModel
 {
     public List<Pool> Pools { get; private set; } = [];
     public int DatasetCount { get; private set; }

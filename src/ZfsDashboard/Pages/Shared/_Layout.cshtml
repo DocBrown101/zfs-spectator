@@ -1,6 +1,6 @@
 @using Zfs.Core.Services
 @inject SystemService SystemSvc
-@inject ZfsService ZfsSvc
+@inject IZfsService ZfsSvc
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     string NavActive(string page) => currentPage.StartsWith(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
