@@ -175,12 +175,7 @@ public static class ZpoolParser
                 StartTime = JsonHelper.GetString(scan, "start_time"),
                 FinishTime = JsonHelper.GetString(scan, "end_time"),
             },
-            "SCANNING" => new ScrubInfo
-            {
-                State = "running",
-                StartTime = JsonHelper.GetString(scan, "start_time"),
-                Errors = JsonHelper.GetLong(scan, "errors"),
-            },
+            "SCANNING" => CreateRunningScrubInfo(scan),
             "CANCELED" => new ScrubInfo
             {
                 State = "canceled",
@@ -190,6 +185,16 @@ public static class ZpoolParser
             },
             _ => new ScrubInfo { State = "idle" },
         };
+    }
+
+    // ── Scrub text parsing (from zpool status without -j) ───────────────
+
+    public static string ParseScrubTimeLeft(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+
+        var match = RegexHelper.ScrubTimeLeft().Match(text);
+        return match.Success ? match.Groups[1].Value : "";
     }
 
     // ── Special VDEV Size (from zpool list -Hpvj) ───────────────────────
@@ -260,6 +265,21 @@ public static class ZpoolParser
             ErrorsRead = JsonHelper.GetLong(element, "read_errors"),
             ErrorsWrite = JsonHelper.GetLong(element, "write_errors"),
             ErrorsChecksum = JsonHelper.GetLong(element, "checksum_errors"),
+        };
+    }
+
+    private static ScrubInfo CreateRunningScrubInfo(JsonElement scan)
+    {
+        var toExamine = JsonHelper.ParseByteString(JsonHelper.GetString(scan, "to_examine"));
+        var issued = JsonHelper.ParseByteString(JsonHelper.GetString(scan, "issued"));
+        var progressPct = toExamine > 0 ? Math.Min(issued / toExamine * 100, 100) : 0;
+
+        return new ScrubInfo
+        {
+            State = "running",
+            StartTime = JsonHelper.GetString(scan, "start_time"),
+            Errors = JsonHelper.GetLong(scan, "errors"),
+            ProgressPct = Math.Round(progressPct, 2),
         };
     }
 

@@ -51,7 +51,7 @@ public partial class ZfsService(ICommandExecutor cmd, ZpoolService zpoolService)
     public async Task<string> GetZfsVersionAsync()
     {
         var output = await cmd.ExecuteAsync("zfs", "version");
-        var match = ZfsVersionRegex().Match(output);
+        var match = RegexHelper.ZfsVersionRegex().Match(output);
         return match.Success ? match.Value : "unknown";
     }
 
@@ -91,7 +91,4 @@ public partial class ZfsService(ICommandExecutor cmd, ZpoolService zpoolService)
             return new ArcStats();
         }
     }
-
-    [GeneratedRegex(@"\d+\.\d+(?:\.\d+)?")]
-    private static partial Regex ZfsVersionRegex();
 }

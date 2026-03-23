@@ -175,7 +175,17 @@ public class ZpoolService(ICommandExecutor cmd)
     public async Task<ScrubInfo> GetScrubStatusAsync(string poolName)
     {
         var json = await cmd.ExecuteAsync("zpool", $"status -Pj {poolName}");
-        return ZpoolParser.ParseScrubInfo(json, poolName);
+        var scrub = ZpoolParser.ParseScrubInfo(json, poolName);
+
+        if (scrub.State == "running")
+        {
+            var text = await cmd.ExecuteAsync("zpool", $"status {poolName}");
+            var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
+            if (!string.IsNullOrEmpty(timeLeft))
+                scrub = scrub with { TimeLeft = timeLeft };
+        }
+
+        return scrub;
     }
 
     // ── I/O Statistics ───────────────────────────────────────────────────

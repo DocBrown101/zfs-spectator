@@ -129,4 +129,59 @@ public class ZpoolParserTests
 
         Assert.Equal("idle", scrub.State);
     }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldParseScanningWithProgress()
+    {
+        var json = File.ReadAllText("TestData/zpool_status_scanning.json");
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "zfsPool");
+
+        Assert.Equal("running", scrub.State);
+        Assert.Equal(0, scrub.Errors);
+        Assert.Contains("09:07:04", scrub.StartTime);
+        // issued=7.65T / to_examine=8.64T ≈ 88.54%
+        Assert.True(scrub.ProgressPct > 88 && scrub.ProgressPct < 89,
+            $"Expected ~88.54% but got {scrub.ProgressPct}%");
+    }
+
+    [Fact]
+    public void ParsePoolLayout_ShouldDetectScrubOperation()
+    {
+        var json = File.ReadAllText("TestData/zpool_status_scanning.json");
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
+
+        Assert.Equal("scrubbing", layout.Operation);
+    }
+
+    [Fact]
+    public void ParseScrubTimeLeft_ShouldExtractTimeToGo()
+    {
+        var text = """
+              pool: zfsPool
+             state: ONLINE
+              scan: scrub in progress since Mon Mar 23 09:07:04 2026
+                    8.64T / 8.64T scanned, 4.70T / 8.64T issued at 488M/s
+                    0B repaired, 54.41% done, 02:20:57 to go
+            """;
+
+        var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
+
+        Assert.Equal("02:20:57", timeLeft);
+    }
+
+    [Fact]
+    public void ParseScrubTimeLeft_ShouldReturnEmptyWhenNoScrub()
+    {
+        var text = """
+              pool: zfsPool
+             state: ONLINE
+              scan: scrub repaired 0B in 04:27:25 with 0 errors on Wed Mar 27 17:22:17 2024
+            """;
+
+        var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
+
+        Assert.Equal("", timeLeft);
+    }
 }

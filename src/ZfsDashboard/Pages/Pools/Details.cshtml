@@ -229,10 +229,20 @@
                 <div class="progress mb-1" style="height: 6px;">
                     <div class="progress-bar bg-info" style="width: @Model.Scrub.ProgressPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
                 </div>
-                @if (!string.IsNullOrEmpty(Model.Scrub.TimeLeft))
-                {
-                    <small class="text-body-secondary">ETA: @Model.Scrub.TimeLeft</small>
-                }
+                <small class="text-body-secondary">
+                    @if (!string.IsNullOrEmpty(Model.Scrub.StartTime))
+                    {
+                        <span>Started: @Model.Scrub.StartTime</span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Scrub.TimeLeft))
+                    {
+                        <span>&middot; ETA: @Model.Scrub.TimeLeft</span>
+                    }
+                    @if (Model.Scrub.Errors > 0)
+                    {
+                        <span>&middot; Errors: @Model.Scrub.Errors</span>
+                    }
+                </small>
                 break;
             case "finished":
                 <div class="d-flex align-items-center gap-2">

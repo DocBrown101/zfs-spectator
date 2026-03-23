@@ -32,37 +32,46 @@
     @* ── Left Column: System Info ────────────────────────────── *@
     <div class="col-lg-6">
 
-        @* Network Information *@
+        @* Network *@
         <div class="card mb-4">
             <div class="card-body bg-surface">
                 <h5 class="card-title d-flex align-items-center gap-2 mb-3">
                     <i class="bi bi-ethernet text-info"></i>
-                    Network Information
+                    Network
                 </h5>
+                <canvas id="netCanvas"></canvas>
                 <div id="netCharts"></div>
-                <canvas id="netCanvas" height="160"></canvas>
             </div>
         </div>
 
-        @* System Information *@
+        @* CPU *@
         <div class="card mb-4">
             <div class="card-body bg-surface">
                 <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-display text-info"></i>
-                    System Information
+                    <i class="bi bi-cpu text-info"></i>
+                    CPU
                 </h5>
-                @{ Row("Processor", Model.SystemInfo.Processor, "sysProcessor"); }
-                @{ Row("CPU Usage", $"{Model.CpuUsagePercent:F1}%", "cpuUsage"); }
-                @{ Row("CPU Count", Model.SystemInfo.CpuCount.ToString(), "cpuCount", last: true); }
+                <div class="d-flex align-items-center gap-4">
+                    <div class="position-relative flex-shrink-0" style="width:110px;height:110px">
+                        <canvas id="cpuCanvas"></canvas>
+                        <div class="position-absolute top-50 start-50 translate-middle text-center">
+                            <span class="fw-bold fs-5" id="cpuPct">@Model.CpuUsagePercent.ToString("F1")%</span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        @{ Row("Processor", Model.SystemInfo.Processor, "sysProcessor"); }
+                        @{ Row("CPU Count", Model.SystemInfo.CpuCount.ToString(), "cpuCount", last: true); }
+                    </div>
+                </div>
             </div>
         </div>
 
-        @* Memory Information *@
+        @* Memory *@
         <div class="card mb-4">
             <div class="card-body bg-surface">
                 <h5 class="card-title d-flex align-items-center gap-2 mb-3">
                     <i class="bi bi-memory text-info"></i>
-                    Memory Information
+                    Memory
                 </h5>
                 @{ Row("Total Memory", Model.Memory.Total.FormatBytes(), "memTotal"); }
                 @{ Row("Available Memory", Model.Memory.Available.FormatBytes(), "memAvail"); }
@@ -119,7 +128,7 @@
                     <i class="bi bi-hdd text-info"></i>
                     Disk I/O
                 </h5>
-                <canvas id="diskCanvas" height="140"></canvas>
+                <canvas id="diskCanvas"></canvas>
                 <div class="table-responsive mt-2">
                     <table class="table table-borderless table-sm mb-0 small" style="table-layout:fixed">
                         <colgroup>
@@ -261,7 +270,7 @@
                     { label: label1, data: d1, borderColor: color1, backgroundColor: color1 + '18', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 },
                 ]},
                 options: {
-                    animation: false, responsive: true,
+                    animation: false, responsive: true, aspectRatio: 4,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { labels: { boxWidth: 10, color: '#adb5bd', font: { size: 11 } } },
@@ -283,12 +292,28 @@
         const pushNet  = rollingChart('netCanvas',  'Download', '#0dcaf0', 'Upload', '#ffc107');
         const pushDisk = rollingChart('diskCanvas', 'Read',     '#0dcaf0', 'Write',  '#ffc107');
 
+        function cpuColor(p) { return p > 85 ? '#dc3545' : p > 70 ? '#ffc107' : '#0dcaf0'; }
+        const initCpu = @(Model.CpuUsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        const cpuChart = new Chart(document.getElementById('cpuCanvas'), {
+            type: 'doughnut',
+            data: { datasets: [{ data: [initCpu, 100 - initCpu], backgroundColor: [cpuColor(initCpu), 'rgba(255,255,255,0.08)'], borderWidth: 0 }] },
+            options: { cutout: '75%', responsive: true, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 300 } },
+        });
+
         async function fetchData() {
             try {
                 const res = await fetch('/api/live');
                 const data = await res.json();
-                for (const id in data.text) { const el = document.getElementById(id); if (el) el.textContent = data.text[id]; }
+                for (const id in data.text) { if (id === 'cpuUsage') continue; const el = document.getElementById(id); if (el) el.textContent = data.text[id]; }
                 for (const id in data.html) { if (id === 'netBody' || id === 'diskBody') continue; const el = document.getElementById(id); if (el) el.innerHTML = data.html[id]; }
+
+                const cpuPct = parseFloat(data.text.cpuUsage);
+                if (!isNaN(cpuPct)) {
+                    cpuChart.data.datasets[0].data = [cpuPct, 100 - cpuPct];
+                    cpuChart.data.datasets[0].backgroundColor[0] = cpuColor(cpuPct);
+                    cpuChart.update();
+                    document.getElementById('cpuPct').textContent = cpuPct.toFixed(1) + '%';
+                }
 
                 if (data.networkRates && data.networkRates.length) {
                     const rx = data.networkRates.reduce((s, r) => s + r.rxBytesPerSec, 0);
