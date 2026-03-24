@@ -292,4 +292,86 @@ public static class ZpoolParser
         if (name.StartsWith("draid")) return "draid";
         return "stripe";
     }
+
+    // ── VDEV I/O cumulative output (from zpool iostat -vlHp) ────────────
+
+    /// <summary>
+    /// Parses the tab-separated cumulative output of <c>zpool iostat -vlHp</c>
+    /// into per-pool lists of vdev cumulative counters.
+    /// </summary>
+    public static List<PoolVdevCumulativeData> ParseVdevIostat(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+            return [];
+
+        var allLines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var result = new List<PoolVdevCumulativeData>();
+        var currentPool = "";
+        var currentSection = "data";
+        List<VdevCumulativeSnapshot>? currentDevices = null;
+
+        foreach (var line in allLines)
+        {
+            var fields = line.Split('\t');
+            if (fields.Length < 7) continue;
+
+            var rawName = fields[0];
+            var name = rawName.TrimStart();
+            var indent = rawName.Length - name.Length;
+
+            // Indent 0 = pool name or section header (cache, log, special, …)
+            if (indent == 0)
+            {
+                if (IsIostatSectionHeader(name))
+                {
+                    currentSection = NormalizeIostatSection(name);
+                }
+                else
+                {
+                    if (currentDevices != null)
+                        result.Add(new PoolVdevCumulativeData { PoolName = currentPool, Devices = currentDevices });
+                    currentPool = name;
+                    currentSection = "data";
+                    currentDevices = [];
+                }
+                continue;
+            }
+
+            // Skip group vdevs (mirror-0, raidz1-0, …) and placeholder dashes
+            if (IsGroupVdev(name) || fields[3] == "-" || currentDevices == null) continue;
+
+            var hasLatency = fields.Length > 10;
+            currentDevices.Add(new VdevCumulativeSnapshot(
+                DevicePath: name,
+                Role: currentSection,
+                ReadOps: ParseDouble(fields[3]),
+                WriteOps: ParseDouble(fields[4]),
+                ReadBytes: ParseDouble(fields[5]),
+                WriteBytes: ParseDouble(fields[6]),
+                TotalWaitReadNs: hasLatency ? ParseDouble(fields[7]) : 0,
+                TotalWaitWriteNs: hasLatency ? ParseDouble(fields[8]) : 0,
+                DiskWaitReadNs: hasLatency ? ParseDouble(fields[9]) : 0,
+                DiskWaitWriteNs: hasLatency ? ParseDouble(fields[10]) : 0));
+        }
+        if (currentDevices != null)
+            result.Add(new PoolVdevCumulativeData { PoolName = currentPool, Devices = currentDevices });
+
+        return result;
+    }
+
+    private static bool IsIostatSectionHeader(string name) =>
+        name is "cache" or "log" or "logs" or "special" or "spare" or "spares";
+
+    private static bool IsGroupVdev(string name) =>
+        name.StartsWith("mirror") || name.StartsWith("raidz") || name.StartsWith("draid");
+
+    private static string NormalizeIostatSection(string name) => name switch
+    {
+        "logs" => "log",
+        "spares" => "spare",
+        _ => name,
+    };
+
+    private static double ParseDouble(string s) =>
+        double.TryParse(s.Trim(), System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
 }

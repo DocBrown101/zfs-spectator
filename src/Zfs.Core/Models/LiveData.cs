@@ -5,17 +5,7 @@ public record DashboardData
     public Dictionary<string, string> Text { get; init; } = new();
     public Dictionary<string, string> Html { get; init; } = new();
     public List<NetworkRateInfo> NetworkRates { get; init; } = new();
-    public List<DiskIoRateInfo> DiskIoRates { get; init; } = new();
-}
-
-public record DiskIoRateInfo
-{
-    public string Device { get; init; } = "";
-    public double ReadBytesPerSec { get; init; }
-    public double WriteBytesPerSec { get; init; }
-    public double ReadOpsPerSec { get; init; }
-    public double WriteOpsPerSec { get; init; }
-    public ulong IoInProgress { get; init; }
+    public List<PoolLatencyData> PoolLatencies { get; init; } = new();
 }
 
 public record NetworkRateInfo
@@ -55,17 +45,3 @@ public record NetworkInterfaceInfo
     public ulong RxBytes { get; init; }
     public ulong TxBytes { get; init; }
 }
-
-public record DiskIoInfo
-{
-    public string Device { get; init; } = "";
-    public ulong ReadsCompleted { get; init; }
-    public ulong WritesCompleted { get; init; }
-    public ulong SectorsRead { get; init; }
-    public ulong SectorsWritten { get; init; }
-    public ulong ReadTimeMs { get; init; }
-    public ulong WriteTimeMs { get; init; }
-    public ulong IoInProgress { get; init; }
-    public ulong IoTimeMs { get; init; }
-}
-

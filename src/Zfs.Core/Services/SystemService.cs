@@ -11,10 +11,6 @@ public class SystemService()
     private ulong[] prevCpuJiffies = [];
     private List<NetworkInterfaceInfo>? prevNetwork;
     private DateTime prevNetworkTime;
-    private List<DiskIoInfo>? prevDisks;
-    private DateTime prevDiskTime;
-    private Dictionary<string, PoolIoSnapshot>? prevPoolIo;
-    private DateTime prevPoolIoTime;
 
     // ── Dashboard API ────────────────────────────────────────────────────
 
@@ -23,20 +19,17 @@ public class SystemService()
         var systemTask = this.GetSystemInfoAsync();
         var memoryTask = this.GetMemoryInfoAsync();
         var networkTask = this.GetNetworkInfoAsync();
-        var diskTask = this.GetDiskIoInfoAsync();
+        var vdevDataTask = zpool.GetAllPoolsVdevDataAsync();
         var arcTask = zfs.GetArcStatsAsync();
-        var poolIoTask = this.GetAllPoolIoAsync(zpool);
         var cpuTask = this.GetCpuUsagePercentAsync();
 
-        await Task.WhenAll(systemTask, memoryTask, networkTask, diskTask, arcTask, poolIoTask, cpuTask);
+        await Task.WhenAll(systemTask, memoryTask, networkTask, vdevDataTask, arcTask, cpuTask);
 
         var sys = systemTask.Result;
         var mem = memoryTask.Result;
         var arc = arcTask.Result;
         var cpu = cpuTask.Result;
         var network = networkTask.Result;
-        var disks = diskTask.Result;
-        var poolIo = poolIoTask.Result;
         var now = DateTime.UtcNow;
 
         // ── Text fields (set via textContent) ────────────────────────────
@@ -78,35 +71,13 @@ public class SystemService()
             }
         }
 
-        html["poolIoBody"] = BuildPoolIoHtml(poolIo);
         var (netHtml, netRates) = this.BuildNetworkData(network, now);
         html["netBody"] = netHtml;
-        var (diskHtml, diskRates) = this.BuildDiskIoData(disks, now);
-        html["diskBody"] = diskHtml;
 
-        return new DashboardData { Text = text, Html = html, NetworkRates = netRates, DiskIoRates = diskRates };
+        return new DashboardData { Text = text, Html = html, NetworkRates = netRates, PoolLatencies = vdevDataTask.Result };
     }
 
     // ── Table HTML builders ──────────────────────────────────────────────
-
-    private static string BuildPoolIoHtml(List<IoStats> poolIo)
-    {
-        if (poolIo.Count == 0)
-            return "<tr><td colspan=\"5\" class=\"text-body-secondary\">No pools</td></tr>";
-
-        var sb = new StringBuilder();
-        foreach (var p in poolIo)
-        {
-            sb.Append("<tr class=\"border-bottom border-secondary\">")
-              .Append($"<td class=\"fw-semibold\">{Enc(p.PoolName)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{Enc(p.ReadOps)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{Enc(p.WriteOps)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{Enc(p.ReadBw)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{Enc(p.WriteBw)}</td>")
-              .Append("</tr>");
-        }
-        return sb.ToString();
-    }
 
     private (string Html, List<NetworkRateInfo> Rates) BuildNetworkData(List<NetworkInterfaceInfo> network, DateTime now)
     {
@@ -156,62 +127,6 @@ public class SystemService()
               .Append("</tr>");
         }
 
-        return (sb.ToString(), rates);
-    }
-
-    private (string Html, List<DiskIoRateInfo> Rates) BuildDiskIoData(List<DiskIoInfo> disks, DateTime now)
-    {
-        var rates = new List<DiskIoRateInfo>();
-
-        if (disks.Count == 0)
-            return ("<tr><td colspan=\"6\" class=\"text-body-secondary\">No disks found</td></tr>", rates);
-
-        List<DiskIoInfo>? prev;
-        double elapsed;
-        lock (this.sync)
-        {
-            prev = this.prevDisks;
-            elapsed = prev != null ? (now - this.prevDiskTime).TotalSeconds : 0;
-            this.prevDisks = disks;
-            this.prevDiskTime = now;
-        }
-
-        var sb = new StringBuilder();
-        foreach (var dk in disks)
-        {
-            double readBps = 0, writeBps = 0, readOps = 0, writeOps = 0;
-
-            if (prev != null && elapsed > 0)
-            {
-                var p = prev.Find(d => d.Device == dk.Device);
-                if (p != null)
-                {
-                    readBps = SafeDelta(dk.SectorsRead, p.SectorsRead) * 512.0 / elapsed;
-                    writeBps = SafeDelta(dk.SectorsWritten, p.SectorsWritten) * 512.0 / elapsed;
-                    readOps = SafeDelta(dk.ReadsCompleted, p.ReadsCompleted) / elapsed;
-                    writeOps = SafeDelta(dk.WritesCompleted, p.WritesCompleted) / elapsed;
-                }
-            }
-
-            rates.Add(new DiskIoRateInfo
-            {
-                Device = dk.Device,
-                ReadBytesPerSec = readBps,
-                WriteBytesPerSec = writeBps,
-                ReadOpsPerSec = readOps,
-                WriteOpsPerSec = writeOps,
-                IoInProgress = dk.IoInProgress,
-            });
-
-            sb.Append("<tr class=\"border-bottom border-secondary\">")
-              .Append($"<td class=\"fw-semibold font-monospace\">{Enc(dk.Device)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{FormatExtensions.FormatNumber(dk.ReadsCompleted)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{FormatExtensions.FormatNumber(dk.WritesCompleted)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{(dk.SectorsRead * 512UL).FormatBytes()}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{(dk.SectorsWritten * 512UL).FormatBytes()}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{dk.IoInProgress}</td>")
-              .Append("</tr>");
-        }
         return (sb.ToString(), rates);
     }
 
@@ -377,103 +292,7 @@ public class SystemService()
         }
     }
 
-    // ── Disk I/O Info ────────────────────────────────────────────────────
-
-    private async Task<List<DiskIoInfo>> GetDiskIoInfoAsync()
-    {
-        try
-        {
-            var lines = await File.ReadAllLinesAsync("/proc/diskstats");
-            var disks = new List<DiskIoInfo>();
-
-            foreach (var line in lines)
-            {
-                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 14) continue;
-
-                var device = parts[2];
-
-                // Only show whole disks (sd*, nvme*n*, vd*) — skip partitions and virtual devices
-                if (!IsPhysicalDisk(device)) continue;
-
-                disks.Add(new DiskIoInfo
-                {
-                    Device = device,
-                    ReadsCompleted = ParseU(parts[3]),
-                    SectorsRead = ParseU(parts[5]),
-                    ReadTimeMs = ParseU(parts[6]),
-                    WritesCompleted = ParseU(parts[7]),
-                    SectorsWritten = ParseU(parts[9]),
-                    WriteTimeMs = ParseU(parts[10]),
-                    IoInProgress = ParseU(parts[11]),
-                    IoTimeMs = ParseU(parts[12]),
-                });
-            }
-            return disks.OrderBy(d => d.Device).ToList();
-        }
-        catch (Exception)
-        {
-            return [];
-        }
-    }
-
-    // ── Pool I/O ─────────────────────────────────────────────────────────
-
-    private async Task<List<IoStats>> GetAllPoolIoAsync(IZpoolService zpool)
-    {
-        // Delta rates are computed from previous cumulative snapshot.
-        var snapshots = await zpool.GetAllPoolIoSnapshotsAsync();
-        var now = DateTime.UtcNow;
-
-        Dictionary<string, PoolIoSnapshot>? prevIo;
-        double elapsed;
-        lock (this.sync)
-        {
-            prevIo = this.prevPoolIo;
-            elapsed = prevIo != null ? (now - this.prevPoolIoTime).TotalSeconds : 0;
-            this.prevPoolIo = snapshots.ToDictionary(s => s.Name, s => s);
-            this.prevPoolIoTime = now;
-        }
-
-        var result = new List<IoStats>();
-
-        foreach (var snap in snapshots)
-        {
-            double readOpsRate = 0, writeOpsRate = 0, readBwRate = 0, writeBwRate = 0;
-
-            if (prevIo != null && elapsed > 0 &&
-                prevIo.TryGetValue(snap.Name, out var prev))
-            {
-                readOpsRate = SafeDelta(snap.ReadOps, prev.ReadOps) / elapsed;
-                writeOpsRate = SafeDelta(snap.WriteOps, prev.WriteOps) / elapsed;
-                readBwRate = SafeDelta(snap.ReadBytes, prev.ReadBytes) / elapsed;
-                writeBwRate = SafeDelta(snap.WriteBytes, prev.WriteBytes) / elapsed;
-            }
-
-            result.Add(new IoStats
-            {
-                PoolName = snap.Name,
-                ReadOps = FormatExtensions.FormatOpsRate(readOpsRate),
-                WriteOps = FormatExtensions.FormatOpsRate(writeOpsRate),
-                ReadBw = readBwRate.FormatRate(),
-                WriteBw = writeBwRate.FormatRate(),
-            });
-        }
-
-        return result;
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────
-
-    private static bool IsPhysicalDisk(string device)
-    {
-        // sd[a-z] (SCSI/SATA), nvme[0-9]n[0-9] (NVMe), vd[a-z] (virtio)
-        if (device.StartsWith("sd") && device.Length == 3 && char.IsLetter(device[2])) return true;
-        if (device.StartsWith("nvme") && device.Contains('n') && !device.Contains('p')) return true;
-        if (device.StartsWith("vd") && device.Length == 3 && char.IsLetter(device[2])) return true;
-        if (device.StartsWith("xvd") && device.Length == 4 && char.IsLetter(device[3])) return true;
-        return false;
-    }
 
     private static double SafeDelta(ulong current, ulong previous) => current >= previous ? current - previous : 0;
 

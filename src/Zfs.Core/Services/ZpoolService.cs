@@ -5,6 +5,12 @@ namespace Zfs.Core.Services;
 
 public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 {
+    // ── VDEV delta state ──────────────────────────────────────────────────
+
+    private readonly Lock vdevLock = new();
+    private Dictionary<string, VdevCumulativeSnapshot>? prevVdevData;
+    private DateTime prevVdevTime;
+
     // ── Pools ─────────────────────────────────────────────────────────────
 
     public async Task<List<Pool>> GetAllPoolsAsync()
@@ -188,29 +194,90 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return scrub;
     }
 
-    // ── I/O Statistics ───────────────────────────────────────────────────
+    // ── VDEV Data for all pools (from zpool iostat -vlHp) ──────────────
 
-    public async Task<List<PoolIoSnapshot>> GetAllPoolIoSnapshotsAsync()
+    public async Task<List<PoolLatencyData>> GetAllPoolsVdevDataAsync()
     {
-        var output = await cmd.ExecuteAsync("zpool", "iostat -Hp");
-        var result = new List<PoolIoSnapshot>();
+        // Non-blocking cumulative counters (no interval argument).
+        // Rates and latencies are derived by comparing with the previous snapshot.
+        var output = await cmd.ExecuteAsync("zpool", "iostat -vlHp");
+        var pools = ZpoolParser.ParseVdevIostat(output);
 
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        // ── Swap previous snapshot under lock ─────────────────────────
+        var snapshot = new Dictionary<string, VdevCumulativeSnapshot>();
+        foreach (var pool in pools)
+            foreach (var dev in pool.Devices)
+                snapshot[dev.DevicePath] = dev;
+
+        var now = DateTime.UtcNow;
+        Dictionary<string, VdevCumulativeSnapshot>? prev;
+        double elapsed;
+        lock (this.vdevLock)
         {
-            // Columns: name  alloc  free  read_ops  write_ops  read_bw  write_bw
-            var f = line.Split(['\t', ' '], StringSplitOptions.RemoveEmptyEntries);
-            if (f.Length < 7) continue;
+            prev = this.prevVdevData;
+            elapsed = prev != null ? (now - this.prevVdevTime).TotalSeconds : 0;
+            this.prevVdevData = snapshot;
+            this.prevVdevTime = now;
+        }
 
-            result.Add(new PoolIoSnapshot(
-                Name: f[0],
-                ReadOps: ParseUlong(f[3]),
-                WriteOps: ParseUlong(f[4]),
-                ReadBytes: ParseUlong(f[5]),
-                WriteBytes: ParseUlong(f[6])));
+        // ── Compute per-second rates from deltas ──────────────────────
+        var result = new List<PoolLatencyData>();
+        foreach (var pool in pools)
+        {
+            var vdevInfos = new List<VdevLatencyInfo>();
+            foreach (var d in pool.Devices)
+            {
+                double readOps = 0, writeOps = 0, readBw = 0, writeBw = 0;
+                double readLatencyMs = 0, writeLatencyMs = 0;
+                double queueDepth = 0, utilPct = 0;
+
+                if (prev != null && elapsed > 0 && prev.TryGetValue(d.DevicePath, out var p))
+                {
+                    var dReadOps = Math.Max(d.ReadOps - p.ReadOps, 0);
+                    var dWriteOps = Math.Max(d.WriteOps - p.WriteOps, 0);
+                    var dTotalWaitRead = Math.Max(d.TotalWaitReadNs - p.TotalWaitReadNs, 0);
+                    var dTotalWaitWrite = Math.Max(d.TotalWaitWriteNs - p.TotalWaitWriteNs, 0);
+                    var dDiskWaitRead = Math.Max(d.DiskWaitReadNs - p.DiskWaitReadNs, 0);
+                    var dDiskWaitWrite = Math.Max(d.DiskWaitWriteNs - p.DiskWaitWriteNs, 0);
+
+                    readOps = dReadOps / elapsed;
+                    writeOps = dWriteOps / elapsed;
+                    readBw = Math.Max(d.ReadBytes - p.ReadBytes, 0) / elapsed;
+                    writeBw = Math.Max(d.WriteBytes - p.WriteBytes, 0) / elapsed;
+
+                    // Average latency per op = delta_total_wait / delta_ops
+                    readLatencyMs = dReadOps > 0 ? dTotalWaitRead / dReadOps / 1_000_000 : 0;
+                    writeLatencyMs = dWriteOps > 0 ? dTotalWaitWrite / dWriteOps / 1_000_000 : 0;
+
+                    // Queue depth via Little's Law: total_wait_delta / wall_time
+                    queueDepth = (dTotalWaitRead + dTotalWaitWrite) / (elapsed * 1_000_000_000);
+                    // Utilisation: disk_wait_delta / wall_time (capped at 100%)
+                    utilPct = Math.Min(
+                        (dDiskWaitRead + dDiskWaitWrite) / (elapsed * 1_000_000_000) * 100, 100);
+                }
+
+                vdevInfos.Add(new VdevLatencyInfo
+                {
+                    DevicePath = d.DevicePath,
+                    DeviceName = VdevLatencyInfo.ShortenDeviceName(Path.GetFileName(d.DevicePath)),
+                    Role = d.Role,
+                    ReadLatencyMs = Math.Round(readLatencyMs, 2),
+                    WriteLatencyMs = Math.Round(writeLatencyMs, 2),
+                    ReadOpsPerSec = Math.Round(readOps, 1),
+                    WriteOpsPerSec = Math.Round(writeOps, 1),
+                    ReadBytesPerSec = Math.Round(readBw, 1),
+                    WriteBytesPerSec = Math.Round(writeBw, 1),
+                    QueueDepth = Math.Round(queueDepth, 2),
+                    UtilizationPct = Math.Round(utilPct, 1),
+                });
+            }
+            result.Add(new PoolLatencyData { PoolName = pool.PoolName, Devices = vdevInfos });
         }
 
         return result;
     }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
 
     private static ulong ParseUlong(string s) => ulong.TryParse(s.Trim(), out var v) ? v : 0;
 }

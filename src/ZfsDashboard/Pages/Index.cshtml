@@ -121,12 +121,12 @@
 
     @* ── Right Column: ZFS Pools ─────────────────────────────── *@
     <div class="col-lg-6">
-        @* Disk I/O *@
+        @* VDEV I/O *@
         <div class="card mb-4">
             <div class="card-body bg-surface">
                 <h5 class="card-title d-flex align-items-center gap-2 mb-3">
                     <i class="bi bi-hdd text-info"></i>
-                    Disk I/O
+                    VDEV I/O
                 </h5>
                 <canvas id="diskCanvas"></canvas>
                 <div class="table-responsive mt-2">
@@ -151,32 +151,6 @@
             </div>
         </div>
 
-        @* Pool I/O *@
-        <div class="card mb-4">
-            <div class="card-body bg-surface">
-                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-activity text-info"></i>
-                    Pool I/O
-                </h5>
-                <div class="table-responsive">
-                    <table class="table table-borderless table-sm mb-0">
-                        <thead>
-                            <tr class="border-bottom border-secondary">
-                                <th class="text-body-secondary fw-normal">Pool</th>
-                                <th class="text-body-secondary fw-normal text-end">Read Ops</th>
-                                <th class="text-body-secondary fw-normal text-end">Write Ops</th>
-                                <th class="text-body-secondary fw-normal text-end">Read BW</th>
-                                <th class="text-body-secondary fw-normal text-end">Write BW</th>
-                            </tr>
-                        </thead>
-                        <tbody id="poolIoBody">
-                            <tr><td colspan="5" class="text-body-secondary">Loading&hellip;</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
         @* ZFS Pools *@
         <div class="card mb-4">
             <div class="card-body bg-surface">
@@ -186,6 +160,16 @@
                         ZFS Pools
                     </h5>
                     <span class="badge bg-body-tertiary text-body-secondary border">@Model.Pools.Count pools</span>
+                </div>
+
+                @* Heatmap Legend *@
+                <div class="d-flex flex-wrap gap-3 mb-3 small text-body-secondary">
+                    <span><span class="heatmap-legend-swatch" style="background:#198754"></span> &lt;1 ms</span>
+                    <span><span class="heatmap-legend-swatch" style="background:#20c997"></span> 1–5 ms</span>
+                    <span><span class="heatmap-legend-swatch" style="background:#ffc107"></span> 5–10 ms</span>
+                    <span><span class="heatmap-legend-swatch" style="background:#fd7e14"></span> 10–20 ms</span>
+                    <span><span class="heatmap-legend-swatch" style="background:#dc3545"></span> 20–50 ms</span>
+                    <span><span class="heatmap-legend-swatch" style="background:#b02a37"></span> &gt;50 ms</span>
                 </div>
 
                 @if (Model.Pools.Count == 0)
@@ -244,6 +228,8 @@
                                     </div>
                                 </div>
                             </div>
+                            @* VDEV Latency Heatmap for this pool *@
+                            <div class="row g-2 mt-2" id="heatmap-@pool.Name"></div>
                         </div>
                     </div>
                 }
@@ -260,7 +246,6 @@
             for (let i = 0; i < u.length; i++) { if (v < 1024 || i === u.length - 1) return v.toFixed(1) + ' ' + u[i]; v /= 1024; }
         }
 
-        // Rolling 2-line chart (e.g. read/write or down/up) with shared labels
         function rollingChart(canvasId, label0, color0, label1, color1) {
             const labels = [], d0 = [], d1 = [];
             const chart = new Chart(document.getElementById(canvasId), {
@@ -300,12 +285,52 @@
             options: { cutout: '75%', responsive: true, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 300 } },
         });
 
+        // ── Heatmap helpers ─────────────────────────────────────
+        const hColors = [[0,'#6c757d','rgba(108,117,125,0.12)'],[1,'#198754','rgba(25,135,84,0.20)'],
+            [5,'#20c997','rgba(32,201,151,0.20)'],[10,'#ffc107','rgba(255,193,7,0.20)'],
+            [20,'#fd7e14','rgba(253,126,20,0.22)'],[50,'#dc3545','rgba(220,53,69,0.25)'],
+            [Infinity,'#b02a37','rgba(176,42,55,0.30)']];
+        function pick(ms, i) { for (const [t,fg,bg] of hColors) if (ms < t) return i ? bg : fg; return hColors[0][i?2:1]; }
+        function fmtMs(ms) { return ms <= 0 ? 'idle' : ms < 10 ? ms.toFixed(2) : ms.toFixed(1); }
+        function fmtOps(o) { return o >= 1000 ? (o/1000).toFixed(1)+'K' : o < 10 ? o.toFixed(1) : Math.round(o)+''; }
+        const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+        function heatCell(d) {
+            const c = pick(Math.max(d.readLatencyMs, d.writeLatencyMs), 0);
+            const hot = d.utilizationPct > 80 ? ' heatmap-hot' : '';
+            const ub = d.utilizationPct > 80 ? 'bg-danger' : d.utilizationPct > 50 ? 'bg-warning' : 'bg-info';
+            return `<div class="col-6 col-xl-4"><div class="card heatmap-cell${hot}" style="border-left:4px solid ${c}">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="font-monospace small fw-semibold text-truncate me-2" title="${esc(d.devicePath)}">${esc(d.deviceName)}</span>
+                        <span class="badge bg-secondary flex-shrink-0">${esc(d.role)}</span>
+                    </div>
+                    <div class="row g-1 text-center mb-2">
+                        <div class="col-6"><div class="heatmap-value rounded" style="background:${pick(d.readLatencyMs,1)}">
+                            <div class="text-uppercase text-body-secondary" style="font-size:.6rem">Read</div>
+                            <div class="fw-semibold" style="color:${pick(d.readLatencyMs,0)}">${fmtMs(d.readLatencyMs)} ms</div>
+                        </div></div>
+                        <div class="col-6"><div class="heatmap-value rounded" style="background:${pick(d.writeLatencyMs,1)}">
+                            <div class="text-uppercase text-body-secondary" style="font-size:.6rem">Write</div>
+                            <div class="fw-semibold" style="color:${pick(d.writeLatencyMs,0)}">${fmtMs(d.writeLatencyMs)} ms</div>
+                        </div></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-body-secondary">
+                        <span>IOPS ${fmtOps(d.readOpsPerSec + d.writeOpsPerSec)}</span>
+                        <span>Q ${d.queueDepth.toFixed(1)}</span>
+                        <span>Util ${d.utilizationPct.toFixed(1)}%</span>
+                    </div>
+                    <div class="progress mt-1" style="height:3px"><div class="progress-bar ${ub}" style="width:${Math.min(d.utilizationPct, 100)}%"></div></div>
+                </div>
+            </div></div>`;
+        }
+
         async function fetchData() {
             try {
                 const res = await fetch('/api/live');
                 const data = await res.json();
                 for (const id in data.text) { if (id === 'cpuUsage') continue; const el = document.getElementById(id); if (el) el.textContent = data.text[id]; }
-                for (const id in data.html) { if (id === 'netBody' || id === 'diskBody') continue; const el = document.getElementById(id); if (el) el.innerHTML = data.html[id]; }
+                for (const id in data.html) { if (id === 'netBody') continue; const el = document.getElementById(id); if (el) el.innerHTML = data.html[id]; }
 
                 const cpuPct = parseFloat(data.text.cpuUsage);
                 if (!isNaN(cpuPct)) {
@@ -326,16 +351,28 @@
                     ).join(' &nbsp; ');
                 }
 
-                if (data.diskIoRates && data.diskIoRates.length) {
-                    const rd = data.diskIoRates.reduce((s, r) => s + r.readBytesPerSec, 0);
-                    const wr = data.diskIoRates.reduce((s, r) => s + r.writeBytesPerSec, 0);
+                // VDEV I/O chart, detail table + per-pool heatmaps
+                if (data.poolLatencies && data.poolLatencies.length) {
+                    const allDevs = data.poolLatencies.flatMap(p => p.devices);
+                    const rd = allDevs.reduce((s, d) => s + d.readBytesPerSec, 0);
+                    const wr = allDevs.reduce((s, d) => s + d.writeBytesPerSec, 0);
                     pushDisk(rd, wr);
-                    document.getElementById('diskDetail').innerHTML = data.diskIoRates.map(r =>
+
+                    document.getElementById('diskDetail').innerHTML = allDevs.map(r =>
                         '<tr class="border-bottom border-secondary">' +
-                        '<td class="fw-semibold font-monospace">' + r.device + '</td>' +
+                        '<td class="fw-semibold font-monospace">' + esc(r.deviceName) + '</td>' +
                         '<td class="text-end font-monospace">' + fmtRate(r.readBytesPerSec) + '</td>' +
                         '<td class="text-end font-monospace">' + fmtRate(r.writeBytesPerSec) + '</td></tr>'
                     ).join('');
+
+                    for (const pool of data.poolLatencies) {
+                        const grid = document.getElementById('heatmap-' + pool.poolName);
+                        if (grid) {
+                            grid.innerHTML = pool.devices.length
+                                ? pool.devices.map(heatCell).join('')
+                                : '<div class="col-12 text-body-secondary small"><i class="bi bi-info-circle me-1"></i>No I/O data</div>';
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('live update failed:', err.message);
