@@ -312,12 +312,10 @@ public static class ZpoolParser
 
         foreach (var line in allLines)
         {
-            var fields = line.Split('\t');
-            if (fields.Length < 7) continue;
+            var (indent, fields) = SplitIostatLine(line);
+            if (fields.Count < 7) continue;
 
-            var rawName = fields[0];
-            var name = rawName.TrimStart();
-            var indent = rawName.Length - name.Length;
+            var name = fields[0];
 
             // Indent 0 = pool name or section header (cache, log, special, …)
             if (indent == 0)
@@ -340,7 +338,7 @@ public static class ZpoolParser
             // Skip group vdevs (mirror-0, raidz1-0, …) and placeholder dashes
             if (IsGroupVdev(name) || fields[3] == "-" || currentDevices == null) continue;
 
-            var hasLatency = fields.Length > 10;
+            var hasLatency = fields.Count > 10;
             currentDevices.Add(new VdevCumulativeSnapshot(
                 DevicePath: name,
                 Role: currentSection,
@@ -357,6 +355,33 @@ public static class ZpoolParser
             result.Add(new PoolVdevCumulativeData { PoolName = currentPool, Devices = currentDevices });
 
         return result;
+    }
+
+    /// <summary>
+    /// Splits an iostat line into an indent level and logical fields
+    /// (where fields[0] is always the name, fields[1] is alloc, etc.).
+    /// Handles both tab-indented (<c>-H</c> flag) and space-indented formats.
+    /// </summary>
+    private static (int Indent, ArraySegment<string> Fields) SplitIostatLine(string line)
+    {
+        var raw = line.Split('\t');
+
+        // Count leading empty fields produced by tab-based indentation
+        int tabIndent = 0;
+        while (tabIndent < raw.Length && raw[tabIndent].Length == 0)
+            tabIndent++;
+
+        if (tabIndent >= raw.Length)
+            return (0, ArraySegment<string>.Empty);
+
+        // Detect space-based indentation within the name field
+        var trimmed = raw[tabIndent].TrimStart();
+        var spaceIndent = raw[tabIndent].Length - trimmed.Length;
+        if (spaceIndent > 0)
+            raw[tabIndent] = trimmed;
+
+        return (tabIndent > 0 ? tabIndent : spaceIndent,
+                new ArraySegment<string>(raw, tabIndent, raw.Length - tabIndent));
     }
 
     private static bool IsIostatSectionHeader(string name) =>

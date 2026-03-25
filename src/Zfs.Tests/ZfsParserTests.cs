@@ -310,4 +310,69 @@ public class ZfsParserTests
         Assert.Empty(ZpoolParser.ParseVdevIostat(""));
         Assert.Empty(ZpoolParser.ParseVdevIostat("  "));
     }
+
+    // ── Tab-indented output (real -H flag format) ────────────────────────
+
+    private const string IostatTabIndented =
+        "zfsPool\t9498246037504\t500437827584\t1440\t28\t479086551\t187441\t135867147\t1457085\t4440265\t642660\t1947\t1002\t1689\t934943\t128590\t679\t-\t-\n" +
+        "\traidz1-0\t9498246037504\t500437827584\t1440\t28\t479086991\t187441\t135866967\t1457085\t4440268\t642660\t1947\t1002\t1689\t934943\t128590501\t-\t-\n" +
+        "\t\twwn-0x5000c5008777065b\t0\t0\t354\t5\t95823749\t37406\t87812816\t979023\t1927042\t481442\t1736\t1378\t2112\t576987\t860753\t51\t-\t-\n" +
+        "\t\twwn-0x5000c5008776f851\t0\t0\t355\t5\t95823384\t37225\t84857309\t952150\t1875803\t452213\t2072\t775\t768\t575279\t830536\t77\t-\t-\n" +
+        "\t\tata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1\t0\t0\t329\t6\t95824746\t37685\t100575225\t935708\t2897365\t626297\t2041\t904\t1152\t342134\t98042477\t-\t-\n" +
+        "\t\twwn-0x50004cf2070dcd38\t0\t0\t299\t6\t95823818\t37603\t161325283\t519098\t5342844\t275069\t1916\t968\t1632\t277170\t157026624\t-\t-\n" +
+        "\t\twwn-0x50014ee1af651273\t0\t0\t101\t5\t95791085\t37521\t520345475\t3857767\t24467762\t1358787\t1950\t987\t1824\t287542\t7450849917\t-\t-\n";
+
+    [Fact]
+    public void ParseVdevIostat_ShouldHandleTabIndentation()
+    {
+        var pools = ZpoolParser.ParseVdevIostat(IostatTabIndented);
+
+        Assert.Single(pools);
+        Assert.Equal("zfsPool", pools[0].PoolName);
+        Assert.Equal(5, pools[0].Devices.Count);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_TabIndent_ShouldSkipGroupVdevs()
+    {
+        var pools = ZpoolParser.ParseVdevIostat(IostatTabIndented);
+        var devicePaths = pools[0].Devices.Select(d => d.DevicePath).ToList();
+
+        Assert.DoesNotContain("raidz1-0", devicePaths);
+        Assert.Contains("wwn-0x5000c5008777065b", devicePaths);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_TabIndent_ShouldParseCorrectFieldValues()
+    {
+        var pools = ZpoolParser.ParseVdevIostat(IostatTabIndented);
+        var dev = pools[0].Devices.First(d => d.DevicePath == "wwn-0x5000c5008777065b");
+
+        Assert.Equal(354, dev.ReadOps);
+        Assert.Equal(5, dev.WriteOps);
+        Assert.Equal(95823749, dev.ReadBytes);
+        Assert.Equal(37406, dev.WriteBytes);
+        Assert.Equal(87812816, dev.TotalWaitReadNs);
+        Assert.Equal(979023, dev.TotalWaitWriteNs);
+        Assert.Equal(1927042, dev.DiskWaitReadNs);
+        Assert.Equal(481442, dev.DiskWaitWriteNs);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_TabIndent_ShouldHandleSectionsAndRoles()
+    {
+        var output =
+            "poolA\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "\tmirror-0\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "\t\t/dev/sda\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "cache\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\n" +
+            "\t/dev/nvme0n1\t50\t100\t5\t10\t500\t1000\t50\t100\t25\t50\n";
+
+        var pools = ZpoolParser.ParseVdevIostat(output);
+
+        Assert.Single(pools);
+        Assert.Equal(2, pools[0].Devices.Count);
+        Assert.Equal("data", pools[0].Devices[0].Role);
+        Assert.Equal("cache", pools[0].Devices[1].Role);
+    }
 }
