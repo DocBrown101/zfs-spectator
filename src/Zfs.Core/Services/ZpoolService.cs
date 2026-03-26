@@ -52,7 +52,8 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             ? await this.GetSpecialVdevSizeAsync(pool.Name)
             : (0UL, 0UL, 0UL);
 
-        return pool with
+        var enriched = layout.ApplyTo(pool, specialSize, specialAlloc, specialFree);
+        return enriched with
         {
             UsableUsed = usableUsed,
             UsableAvail = usableAvail,
@@ -63,22 +64,9 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             Sync = sync,
             Atime = atime,
             Ashift = await this.GetPoolAshiftAsync(pool.Name),
-            VdevType = layout.VdevType,
-            Operation = layout.Operation,
             Encrypted = encrypted,
             KeyLocked = keyLocked,
             EncryptionAlgorithm = algorithm,
-            DataDevices = layout.DataDevices,
-            CacheDevices = layout.CacheDevices,
-            LogDevices = layout.LogDevices,
-            SpareDevices = layout.SpareDevices,
-            SpecialDevices = layout.SpecialDevices,
-            SpecialSize = specialSize,
-            SpecialAlloc = specialAlloc,
-            SpecialFree = specialFree,
-            ErrorsRead = layout.PoolErrorsRead,
-            ErrorsWrite = layout.PoolErrorsWrite,
-            ErrorsChecksum = layout.PoolErrorsChecksum,
         };
     }
 
@@ -225,25 +213,25 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    private static VdevLatencyInfo ToLatencyInfo(VdevCumulativeSnapshot d, VdevCumulativeSnapshot? p, double elapsed)
+    private static VdevLatencyInfo ToLatencyInfo(VdevCumulativeSnapshot d, VdevCumulativeSnapshot? prev, double elapsed)
     {
         double readOps = 0, writeOps = 0, readBw = 0, writeBw = 0;
         double readLatMs = 0, writeLatMs = 0, queueDepth = 0, utilPct = 0;
 
-        if (p is not null && elapsed > 0)
+        if (prev is not null && elapsed > 0)
         {
-            var dReadOps = Math.Max(d.ReadOps - p.ReadOps, 0);
-            var dWriteOps = Math.Max(d.WriteOps - p.WriteOps, 0);
-            var dTotalR = Math.Max(d.TotalWaitReadNs - p.TotalWaitReadNs, 0);
-            var dTotalW = Math.Max(d.TotalWaitWriteNs - p.TotalWaitWriteNs, 0);
-            var dDiskR = Math.Max(d.DiskWaitReadNs - p.DiskWaitReadNs, 0);
-            var dDiskW = Math.Max(d.DiskWaitWriteNs - p.DiskWaitWriteNs, 0);
+            var dReadOps = Math.Max(d.ReadOps - prev.ReadOps, 0);
+            var dWriteOps = Math.Max(d.WriteOps - prev.WriteOps, 0);
+            var dTotalR = Math.Max(d.TotalWaitReadNs - prev.TotalWaitReadNs, 0);
+            var dTotalW = Math.Max(d.TotalWaitWriteNs - prev.TotalWaitWriteNs, 0);
+            var dDiskR = Math.Max(d.DiskWaitReadNs - prev.DiskWaitReadNs, 0);
+            var dDiskW = Math.Max(d.DiskWaitWriteNs - prev.DiskWaitWriteNs, 0);
             var wallNs = elapsed * 1_000_000_000;
 
             readOps = dReadOps / elapsed;
             writeOps = dWriteOps / elapsed;
-            readBw = Math.Max(d.ReadBytes - p.ReadBytes, 0) / elapsed;
-            writeBw = Math.Max(d.WriteBytes - p.WriteBytes, 0) / elapsed;
+            readBw = Math.Max(d.ReadBytes - prev.ReadBytes, 0) / elapsed;
+            writeBw = Math.Max(d.WriteBytes - prev.WriteBytes, 0) / elapsed;
             readLatMs = dReadOps > 0 ? dTotalR / dReadOps / 1_000_000.0 : 0;
             writeLatMs = dWriteOps > 0 ? dTotalW / dWriteOps / 1_000_000.0 : 0;
             queueDepth = (dTotalR + dTotalW) / wallNs;

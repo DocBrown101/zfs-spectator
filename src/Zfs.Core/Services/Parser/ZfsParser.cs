@@ -28,12 +28,6 @@ public static class ZfsParser
             var encrypted = encValue is not ("off" or "-" or "");
             var keyLocked = JsonHelper.GetPropertyString(props, "keystatus") == "unavailable";
 
-            var comment = JsonHelper.GetPropertyString(props, "zfsnas:comment");
-            if (comment == "-") comment = "";
-
-            var compRatio = JsonHelper.GetPropertyString(props, "compressratio");
-            if (!compRatio.EndsWith('x')) compRatio += "x";
-
             result.Add(new Dataset
             {
                 Name = name,
@@ -44,14 +38,14 @@ public static class ZfsParser
                 Quota = JsonHelper.GetPropertyUlong(props, "quota"),
                 RefQuota = JsonHelper.GetPropertyUlong(props, "refquota"),
                 Compression = JsonHelper.GetPropertyString(props, "compression"),
-                CompRatio = compRatio,
+                CompRatio = NormalizeCompRatio(props),
                 RecordSize = JsonHelper.GetPropertyUlong(props, "recordsize"),
                 Mountpoint = JsonHelper.GetPropertyString(props, "mountpoint"),
                 Sync = JsonHelper.GetPropertyString(props, "sync"),
                 Dedup = JsonHelper.GetPropertyString(props, "dedup"),
                 CaseSensitivity = JsonHelper.GetPropertyString(props, "casesensitivity"),
                 Refreservation = JsonHelper.GetPropertyUlong(props, "refreservation"),
-                Comment = comment,
+                Comment = NormalizeComment(props),
                 Depth = depth,
                 Encrypted = encrypted,
                 KeyLocked = keyLocked,
@@ -127,12 +121,6 @@ public static class ZfsParser
             var name = JsonHelper.GetString(vol, "name");
             var encValue = JsonHelper.GetPropertyString(props, "encryption");
 
-            var comment = JsonHelper.GetPropertyString(props, "zfsnas:comment");
-            if (comment == "-") comment = "";
-
-            var compRatio = JsonHelper.GetPropertyString(props, "compressratio");
-            if (!compRatio.EndsWith('x')) compRatio += "x";
-
             result.Add(new ZVol
             {
                 Name = name,
@@ -141,15 +129,29 @@ public static class ZfsParser
                 Used = JsonHelper.GetPropertyUlong(props, "used"),
                 Refer = JsonHelper.GetPropertyUlong(props, "referenced"),
                 Compression = JsonHelper.GetPropertyString(props, "compression"),
-                CompRatio = compRatio,
+                CompRatio = NormalizeCompRatio(props),
                 Sync = JsonHelper.GetPropertyString(props, "sync"),
                 Dedup = JsonHelper.GetPropertyString(props, "dedup"),
                 VolBlockSize = JsonHelper.GetPropertyString(props, "volblocksize"),
                 Encrypted = encValue is not ("off" or "-" or ""),
-                Comment = comment,
+                Comment = NormalizeComment(props),
                 Refreservation = JsonHelper.GetPropertyUlong(props, "refreservation"),
             });
         }
         return result;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static string NormalizeComment(JsonElement props)
+    {
+        var comment = JsonHelper.GetPropertyString(props, "zfsnas:comment");
+        return comment == "-" ? "" : comment;
+    }
+
+    private static string NormalizeCompRatio(JsonElement props)
+    {
+        var ratio = JsonHelper.GetPropertyString(props, "compressratio");
+        return ratio.EndsWith('x') ? ratio : ratio + "x";
     }
 }

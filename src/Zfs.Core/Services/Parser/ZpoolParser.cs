@@ -156,15 +156,15 @@ public static class ZpoolParser
 
     public static ScrubInfo ParseScrubInfo(string json, string poolName)
     {
-        if (string.IsNullOrWhiteSpace(json)) return new ScrubInfo { State = "idle" };
+        if (string.IsNullOrWhiteSpace(json)) return ScrubInfo.Idle;
 
         using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return new ScrubInfo { State = "idle" };
-        if (!pools.TryGetProperty(poolName, out var pool)) return new ScrubInfo { State = "idle" };
-        if (!pool.TryGetProperty("scan_stats", out var scan)) return new ScrubInfo { State = "idle" };
+        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return ScrubInfo.Idle;
+        if (!pools.TryGetProperty(poolName, out var pool)) return ScrubInfo.Idle;
+        if (!pool.TryGetProperty("scan_stats", out var scan)) return ScrubInfo.Idle;
 
         var function = JsonHelper.GetString(scan, "function");
-        if (function is not ("SCRUB" or "RESILVER")) return new ScrubInfo { State = "idle" };
+        if (function is not ("SCRUB" or "RESILVER")) return ScrubInfo.Idle;
 
         return JsonHelper.GetString(scan, "state") switch
         {
@@ -183,7 +183,7 @@ public static class ZpoolParser
                 StartTime = JsonHelper.GetString(scan, "start_time"),
                 FinishTime = JsonHelper.GetString(scan, "end_time"),
             },
-            _ => new ScrubInfo { State = "idle" },
+            _ => ScrubInfo.Idle,
         };
     }
 
@@ -204,9 +204,7 @@ public static class ZpoolParser
         if (string.IsNullOrWhiteSpace(json)) return (0, 0, 0);
 
         using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        if (!root.TryGetProperty("pools", out var pools)) return (0, 0, 0);
+        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return (0, 0, 0);
         if (!pools.TryGetProperty(poolName, out var pool)) return (0, 0, 0);
         if (!pool.TryGetProperty("vdevs", out var vdevs)) return (0, 0, 0);
         if (!vdevs.TryGetProperty("special", out var special)) return (0, 0, 0);

@@ -23,30 +23,12 @@ public class TestDataZpoolService : IZpoolService
                 ? ZpoolParser.ParseSpecialVdevSize(vdevJson, pool.Name)
                 : (0UL, 0UL, 0UL);
 
-            result.Add(pool with
+            result.Add(layout.ApplyTo(pool, specialSize, specialAlloc, specialFree) with
             {
                 UsableUsed = pool.Alloc,
                 UsableAvail = pool.Free,
                 UsableSize = pool.Alloc + pool.Free,
-                Compression = "lz4",
-                CompRatio = "1.00x",
-                Dedup = "off",
-                Sync = "standard",
-                Atime = "off",
                 Ashift = ashift,
-                VdevType = layout.VdevType,
-                Operation = layout.Operation,
-                DataDevices = layout.DataDevices,
-                CacheDevices = layout.CacheDevices,
-                LogDevices = layout.LogDevices,
-                SpareDevices = layout.SpareDevices,
-                SpecialDevices = layout.SpecialDevices,
-                SpecialSize = specialSize,
-                SpecialAlloc = specialAlloc,
-                SpecialFree = specialFree,
-                ErrorsRead = layout.PoolErrorsRead,
-                ErrorsWrite = layout.PoolErrorsWrite,
-                ErrorsChecksum = layout.PoolErrorsChecksum,
             });
         }
 
