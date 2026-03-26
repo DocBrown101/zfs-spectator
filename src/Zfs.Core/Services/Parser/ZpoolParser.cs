@@ -281,15 +281,15 @@ public static class ZpoolParser
         };
     }
 
-    private static string DetectVdevType(string name)
+    private static string DetectVdevType(string name) => name switch
     {
-        if (name.StartsWith("mirror")) return "mirror";
-        if (name.StartsWith("raidz3")) return "raidz3";
-        if (name.StartsWith("raidz2")) return "raidz2";
-        if (name.StartsWith("raidz")) return "raidz1";
-        if (name.StartsWith("draid")) return "draid";
-        return "stripe";
-    }
+        _ when name.StartsWith("mirror") => "mirror",
+        _ when name.StartsWith("raidz3") => "raidz3",
+        _ when name.StartsWith("raidz2") => "raidz2",
+        _ when name.StartsWith("raidz") => "raidz1",
+        _ when name.StartsWith("draid") => "draid",
+        _ => "stripe",
+    };
 
     // ── VDEV I/O cumulative output (from zpool iostat -vlHp) ────────────
 
@@ -322,11 +322,11 @@ public static class ZpoolParser
         var result = new List<PoolVdevCumulativeData>();
         var skippedLines = new List<string>();
 
-        string currentPool = "";
-        string currentSection = "data";
+        var currentPool = "";
+        var currentSection = "data";
         List<VdevCumulativeSnapshot>? currentDevices = null;
 
-        bool hasIndentation = DetectHierarchicalIndentation(allLines);
+        var hasIndentation = DetectHierarchicalIndentation(allLines);
         var depthStack = new Stack<int>();
 
         foreach (var line in allLines)
@@ -345,7 +345,7 @@ public static class ZpoolParser
             switch (role)
             {
                 case LineRole.SectionHeader:
-                    currentSection = NormalizeIostatSection(name);
+                    currentSection = SectionMap.GetValueOrDefault(name, name);
                     while (depthStack.Count > 1) depthStack.Pop();
                     break;
 
@@ -427,7 +427,7 @@ public static class ZpoolParser
     private static LineRole ClassifyLine(string name, int indent, ArraySegment<string> fields,
         bool hasIndentation, bool insidePool, string currentSection)
     {
-        if (IsIostatSectionHeader(name))
+        if (SectionMap.ContainsKey(name))
             return LineRole.SectionHeader;
 
         if (IsGroupVdev(name))
@@ -444,10 +444,10 @@ public static class ZpoolParser
         if (fields[IdxAlloc].Trim() == "0" && fields[IdxFree].Trim() == "0")
             return LineRole.LeafDevice;
 
-        if (currentSection != "data")
-            return LineRole.LeafDevice;
-
-        return LineRole.Pool;
+        // Non-zero alloc/free inside a pool: treat as device to avoid misclassifying
+        // devices with non-zero values as new pools. New pools only appear when not
+        // already inside one (handled above).
+        return LineRole.LeafDevice;
     }
 
     /// <summary>
@@ -457,10 +457,9 @@ public static class ZpoolParser
     /// syncq_wait, asyncq_wait …). Only total_wait and disk_wait are captured;
     /// additional pairs are silently ignored.
     /// </summary>
-    private static VdevCumulativeSnapshot ExtractSnapshot(
-        string name, string section, ArraySegment<string> fields)
+    private static VdevCumulativeSnapshot ExtractSnapshot(string name, string section, ArraySegment<string> fields)
     {
-        int latencyPairs = Math.Max((fields.Count - CoreFieldCount) / 2, 0);
+        var latencyPairs = Math.Max((fields.Count - CoreFieldCount) / 2, 0);
 
         return new VdevCumulativeSnapshot(
             DevicePath: name,
@@ -485,7 +484,7 @@ public static class ZpoolParser
         var raw = line.Split('\t');
 
         // Count leading empty fields produced by tab-based indentation
-        int tabIndent = 0;
+        var tabIndent = 0;
         while (tabIndent < raw.Length && raw[tabIndent].Length == 0)
             tabIndent++;
 
@@ -502,18 +501,19 @@ public static class ZpoolParser
                 new ArraySegment<string>(raw, tabIndent, raw.Length - tabIndent));
     }
 
-    private static bool IsIostatSectionHeader(string name) =>
-        name is "cache" or "dedup" or "log" or "logs" or "special" or "spare" or "spares";
+    private static readonly Dictionary<string, string> SectionMap = new()
+    {
+        ["cache"] = "cache",
+        ["dedup"] = "dedup",
+        ["log"] = "log",
+        ["logs"] = "log",
+        ["special"] = "special",
+        ["spare"] = "spare",
+        ["spares"] = "spare",
+    };
 
     private static bool IsGroupVdev(string name) =>
         name.StartsWith("mirror") || name.StartsWith("raidz") || name.StartsWith("draid");
-
-    private static string NormalizeIostatSection(string name) => name switch
-    {
-        "logs" => "log",
-        "spares" => "spare",
-        _ => name,
-    };
 
     private static double ParseDouble(string s) =>
         double.TryParse(s.Trim(), System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
