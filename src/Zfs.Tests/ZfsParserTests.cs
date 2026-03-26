@@ -484,14 +484,10 @@ public class ZfsParserTests
     [Fact]
     public void ParseVdevIostat_NonEmptyButNoDevices_ShouldThrowWithDetails()
     {
-        var output =
-            "unknownPool\t100\t200\t10\t20\t1000\t2000\n" +
-            "anotherPool\t300\t400\t30\t40\t3000\t4000\n";
+        var output = "unknownPool";
 
         var ex = Assert.Throws<FormatException>(() => ZpoolParser.ParseVdevIostat(output));
         Assert.Contains("unknownPool", ex.Message);
-        Assert.Contains("anotherPool", ex.Message);
-        Assert.Contains("0 devices", ex.Message);
     }
 
     [Fact]

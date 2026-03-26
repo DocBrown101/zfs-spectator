@@ -46,6 +46,7 @@ public class ZpoolServiceTests
         var zpoolStatusJson = File.ReadAllText("TestData/zpool_status.json");
         var zpoolAshiftJson = File.ReadAllText("TestData/zpool_get_ashift.json");
         var zpoolListVdevJson = File.ReadAllText("TestData/zpool_list_vdev.json");
+        var zfsGetPropsJson = File.ReadAllText("TestData/zfs_get_pool_props.json");
 
         return new FakeCommandExecutor()
             .On("zpool", $"list -Hpj -o name,size,alloc,free,health,frag {poolName}", zpoolListJson)
@@ -54,15 +55,7 @@ public class ZpoolServiceTests
             .On("zpool", $"status -Pj {poolName}", zpoolStatusJson)
             .On("zpool", $"get -Hpj ashift {poolName}", zpoolAshiftJson)
             .On("zpool", $"list -Hpvj -o name,size,alloc,free {poolName}", zpoolListVdevJson)
-            .On("zfs", $"list -Hp -o used,avail {poolName}", "9309523489840\t6526155148240")
-            .On("zfs", $"get -Hp compression,compressratio,dedup,sync,atime {poolName}",
-                $"{poolName}\tcompression\tlz4\tlocal\n" +
-                $"{poolName}\tcompressratio\t1.85x\t-\n" +
-                $"{poolName}\tdedup\toff\t-\n" +
-                $"{poolName}\tsync\tstandard\t-\n" +
-                $"{poolName}\tatime\toff\t-\n")
-            .On("zfs", $"get -Hp -o property,value encryption,keystatus {poolName}",
-                "encryption\taes-256-gcm\nkeystatus\tavailable\n");
+            .On("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}", zfsGetPropsJson);
     }
 
     // ── GetPoolNamesAsync ────────────────────────────────────────────────
@@ -296,8 +289,8 @@ public class ZpoolServiceTests
     public async Task GetAllPoolsAsync_UnencryptedPool_ShouldSetEncryptedFalse()
     {
         var executor = CreateExecutorForPool();
-        executor.On("zfs", "get -Hp -o property,value encryption,keystatus zfsPool",
-            "encryption\toff\nkeystatus\t-\n");
+        executor.On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus zfsPool",
+            BuildZfsGetJson("zfsPool", ("encryption", "off"), ("keystatus", "-")));
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -310,8 +303,8 @@ public class ZpoolServiceTests
     public async Task GetAllPoolsAsync_LockedKey_ShouldSetKeyLockedTrue()
     {
         var executor = CreateExecutorForPool();
-        executor.On("zfs", "get -Hp -o property,value encryption,keystatus zfsPool",
-            "encryption\taes-256-gcm\nkeystatus\tunavailable\n");
+        executor.On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus zfsPool",
+            BuildZfsGetJson("zfsPool", ("encryption", "aes-256-gcm"), ("keystatus", "unavailable")));
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -323,10 +316,11 @@ public class ZpoolServiceTests
     // ── Pool root properties edge cases ──────────────────────────────────
 
     [Fact]
-    public async Task GetAllPoolsAsync_MalformedUsageOutput_ShouldDefaultToZero()
+    public async Task GetAllPoolsAsync_MalformedPropsOutput_ShouldDefaultToZero()
     {
         var executor = CreateExecutorForPool();
-        executor.On("zfs", "list -Hp -o used,avail zfsPool", "garbage");
+        executor.On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus zfsPool",
+            "not valid json {{{");
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -339,8 +333,8 @@ public class ZpoolServiceTests
     public async Task GetAllPoolsAsync_PartialPropsOutput_ShouldUseDefaults()
     {
         var executor = CreateExecutorForPool();
-        executor.On("zfs", "get -Hp compression,compressratio,dedup,sync,atime zfsPool",
-            "zfsPool\tcompression\tzstd\tlocal\n");
+        executor.On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus zfsPool",
+            BuildZfsGetJson("zfsPool", ("compression", "zstd")));
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -505,15 +499,43 @@ public class ZpoolServiceTests
     [Fact]
     public async Task GetAllPoolsVdevDataAsync_UnparseableOutput_ShouldThrow()
     {
-        var iostatOutput =
-            "unknownPool\t100\t200\t10\t20\t1000\t2000\n" +
-            "anotherPool\t300\t400\t30\t40\t3000\t4000\n";
+        var iostatOutput = "unknownPool";
 
         var executor = new FakeCommandExecutor()
             .On("zpool", "iostat -vlHp", iostatOutput);
         var service = new ZpoolService(executor);
 
         await Assert.ThrowsAsync<FormatException>(() => service.GetAllPoolsVdevDataAsync());
+    }
+
+    // ── Helper: build a zfs get JSON response with selective property overrides ──
+
+    private static string BuildZfsGetJson(string poolName, params (string Name, string Value)[] properties)
+    {
+        var propsJson = string.Join(",\n", properties.Select(p =>
+            $$"""
+                    "{{p.Name}}": {
+                      "value": "{{p.Value}}",
+                      "source": { "type": "LOCAL", "data": "-" }
+                    }
+            """));
+
+        return $$"""
+            {
+              "output_version": { "command": "zfs get", "vers_major": 0, "vers_minor": 1 },
+              "datasets": {
+                "{{poolName}}": {
+                  "name": "{{poolName}}",
+                  "type": "FILESYSTEM",
+                  "pool": "{{poolName}}",
+                  "createtxg": "1",
+                  "properties": {
+            {{propsJson}}
+                  }
+                }
+              }
+            }
+            """;
     }
 }
 

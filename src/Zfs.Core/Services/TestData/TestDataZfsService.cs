@@ -7,8 +7,8 @@ public class TestDataZfsService(IZpoolService zpoolService) : IZfsService
 {
     public async Task<List<Dataset>> GetAllDatasetsAsync()
     {
-        var pools = await zpoolService.GetAllPoolsAsync();
-        var tasks = pools.Select(pool => this.GetDatasetsAsync(pool.Name));
+        var names = await zpoolService.GetPoolNamesAsync();
+        var tasks = names.Select(name => this.GetDatasetsAsync(name));
         var results = await Task.WhenAll(tasks);
         return results.SelectMany(r => r).ToList();
     }

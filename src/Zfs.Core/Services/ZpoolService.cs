@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
 
@@ -15,11 +16,8 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     public async Task<List<Pool>> GetAllPoolsAsync()
     {
-        var json = await cmd.ExecuteAsync("zpool", "list -Hpj -o name,size,alloc,free,health,frag");
-        if (string.IsNullOrWhiteSpace(json)) return [];
-
-        var pools = ZpoolParser.ParsePools(json);
-        var result = new List<Pool>();
+        var pools = await this.ListPoolsAsync();
+        var result = new List<Pool>(pools.Count);
         foreach (var pool in pools)
             result.Add(await this.EnrichPoolAsync(pool));
         return result;
@@ -33,20 +31,20 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     public async Task<Pool?> GetPoolByNameAsync(string name)
     {
-        var json = await cmd.ExecuteAsync("zpool", $"list -Hpj -o name,size,alloc,free,health,frag {name}");
-        if (string.IsNullOrWhiteSpace(json)) return null;
+        var pools = await this.ListPoolsAsync();
+        var pool = pools.FirstOrDefault(p => p.Name == name);
+        return pool == null ? null : await this.EnrichPoolAsync(pool);
+    }
 
-        var pools = ZpoolParser.ParsePools(json);
-        if (pools.Count == 0) return null;
-
-        return await this.EnrichPoolAsync(pools[0]);
+    private async Task<List<Pool>> ListPoolsAsync()
+    {
+        var json = await cmd.ExecuteAsync("zpool", "list -Hpj -o name,size,alloc,free,health,frag");
+        return string.IsNullOrWhiteSpace(json) ? [] : ZpoolParser.ParsePools(json);
     }
 
     private async Task<Pool> EnrichPoolAsync(Pool pool)
     {
-        var (usableUsed, usableAvail) = await this.GetPoolRootUsageAsync(pool.Name);
-        var (compression, compRatio, dedup, sync, atime) = await this.GetPoolRootPropsAsync(pool.Name);
-        var (encrypted, keyLocked, algorithm) = await this.GetPoolEncryptionStatusAsync(pool.Name);
+        var props = await this.GetPoolPropertiesAsync(pool.Name);
         var layout = await this.ParsePoolLayoutAsync(pool.Name);
         var (specialSize, specialAlloc, specialFree) = layout.SpecialDevices.Count > 0
             ? await this.GetSpecialVdevSizeAsync(pool.Name)
@@ -55,48 +53,57 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var enriched = layout.ApplyTo(pool, specialSize, specialAlloc, specialFree);
         return enriched with
         {
-            UsableUsed = usableUsed,
-            UsableAvail = usableAvail,
-            UsableSize = usableUsed + usableAvail,
-            Compression = compression,
-            CompRatio = compRatio,
-            Dedup = dedup,
-            Sync = sync,
-            Atime = atime,
+            UsableUsed = props.UsableUsed,
+            UsableAvail = props.UsableAvail,
+            UsableSize = props.UsableUsed + props.UsableAvail,
+            Compression = props.Compression,
+            CompRatio = props.CompRatio,
+            Dedup = props.Dedup,
+            Sync = props.Sync,
+            Atime = props.Atime,
             Ashift = await this.GetPoolAshiftAsync(pool.Name),
-            Encrypted = encrypted,
-            KeyLocked = keyLocked,
-            EncryptionAlgorithm = algorithm,
+            Encrypted = props.Encrypted,
+            KeyLocked = props.KeyLocked,
+            EncryptionAlgorithm = props.EncryptionAlgorithm,
         };
     }
 
-    private async Task<(ulong Used, ulong Avail)> GetPoolRootUsageAsync(string poolName)
+    private async Task<PoolProperties> GetPoolPropertiesAsync(string poolName)
     {
-        var output = await cmd.ExecuteAsync("zfs", $"list -Hp -o used,avail {poolName}");
-        var f = output.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
-        if (f.Length < 2) return (0, 0);
-        return (ParseUlong(f[0]), ParseUlong(f[1]));
-    }
+        var json = await cmd.ExecuteAsync("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}");
 
-    private async Task<(string Compression, string CompRatio, string Dedup, string Sync, string Atime)> GetPoolRootPropsAsync(string poolName)
-    {
-        var output = await cmd.ExecuteAsync("zfs", $"get -Hp compression,compressratio,dedup,sync,atime {poolName}");
-        string compression = "lz4", compRatio = "1.00x", dedup = "off", sync = "standard", atime = "off";
+        if (string.IsNullOrWhiteSpace(json))
+            return DefaultPoolProperties;
 
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        JsonDocument doc;
+        try { doc = JsonDocument.Parse(json); }
+        catch (JsonException) { return DefaultPoolProperties; }
+
+        using (doc)
         {
-            var f = line.Split('\t');
-            if (f.Length < 3) continue;
-            switch (f[1])
-            {
-                case "compression": compression = f[2]; break;
-                case "compressratio": compRatio = f[2]; break;
-                case "dedup": dedup = f[2]; break;
-                case "sync": sync = f[2]; break;
-                case "atime": atime = f[2]; break;
-            }
+            if (!doc.RootElement.TryGetProperty("datasets", out var datasets))
+                return DefaultPoolProperties;
+            if (!datasets.TryGetProperty(poolName, out var ds))
+                return DefaultPoolProperties;
+            if (!ds.TryGetProperty("properties", out var props))
+                return DefaultPoolProperties;
+
+            var encryption = JsonHelper.GetPropertyString(props, "encryption");
+            var encrypted = encryption is not ("off" or "-" or "");
+            var keystatus = JsonHelper.GetPropertyString(props, "keystatus");
+
+            return new PoolProperties(
+                UsableUsed: JsonHelper.GetPropertyUlong(props, "used"),
+                UsableAvail: JsonHelper.GetPropertyUlong(props, "available"),
+                Compression: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "compression"), "lz4"),
+                CompRatio: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "compressratio"), "1.00x"),
+                Dedup: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "dedup"), "off"),
+                Sync: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "sync"), "standard"),
+                Atime: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "atime"), "off"),
+                Encrypted: encrypted,
+                KeyLocked: keystatus == "unavailable",
+                EncryptionAlgorithm: encrypted ? encryption : "");
         }
-        return (compression, compRatio, dedup, sync, atime);
     }
 
     private async Task<int> GetPoolAshiftAsync(string poolName)
@@ -105,29 +112,13 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return ZpoolParser.ParseAshift(json, poolName);
     }
 
-    private async Task<(bool Encrypted, bool KeyLocked, string Algorithm)> GetPoolEncryptionStatusAsync(string poolName)
-    {
-        var output = await cmd.ExecuteAsync("zfs", $"get -Hp -o property,value encryption,keystatus {poolName}");
-        bool encrypted = false, keyLocked = false;
-        var algorithm = "";
+    private static readonly PoolProperties DefaultPoolProperties =
+        new(0, 0, "n/a", "n/a", "n/a", "n/a", "n/a", false, false, "n/a");
 
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var f = line.Split('\t');
-            if (f.Length < 2) continue;
-            switch (f[0])
-            {
-                case "encryption" when f[1] is not ("off" or "-"):
-                    encrypted = true;
-                    algorithm = f[1];
-                    break;
-                case "keystatus":
-                    keyLocked = f[1] == "unavailable";
-                    break;
-            }
-        }
-        return (encrypted, keyLocked, algorithm);
-    }
+    private record PoolProperties(
+        ulong UsableUsed, ulong UsableAvail,
+        string Compression, string CompRatio, string Dedup, string Sync, string Atime,
+        bool Encrypted, bool KeyLocked, string EncryptionAlgorithm);
 
     // ── Pool Layout ──────────────────────────────────────────────────────
 
@@ -254,5 +245,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         };
     }
 
-    private static ulong ParseUlong(string s) => ulong.TryParse(s.Trim(), out var v) ? v : 0;
+    private static string DefaultIfEmpty(string value, string fallback)
+        => string.IsNullOrEmpty(value) ? fallback : value;
 }

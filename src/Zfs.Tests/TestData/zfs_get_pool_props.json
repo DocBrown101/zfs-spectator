@@ -1,0 +1,80 @@
+{
+  "output_version": {
+    "command": "zfs get",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "datasets": {
+    "zfsPool": {
+      "name": "zfsPool",
+      "type": "FILESYSTEM",
+      "pool": "zfsPool",
+      "createtxg": "1",
+      "properties": {
+        "used": {
+          "value": "9309523489840",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "available": {
+          "value": "6526155148240",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "compression": {
+          "value": "lz4",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "compressratio": {
+          "value": "1.85x",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "dedup": {
+          "value": "off",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "sync": {
+          "value": "standard",
+          "source": {
+            "type": "DEFAULT",
+            "data": "-"
+          }
+        },
+        "atime": {
+          "value": "off",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "encryption": {
+          "value": "aes-256-gcm",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        },
+        "keystatus": {
+          "value": "available",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
+    }
+  }
+}
