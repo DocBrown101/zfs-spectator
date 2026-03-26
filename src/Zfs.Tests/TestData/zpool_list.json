@@ -49,6 +49,52 @@
             "data": "-"
           }
         }
+      },
+      "vdevs": {
+        "raidz1-0": {
+          "name": "raidz1-0",
+          "vdev_type": "raidz",
+          "guid": "1664598526836095681",
+          "class": "normal",
+          "state": "ONLINE",
+          "properties": {
+            "size": {
+              "value": "23983097380864",
+              "source": { "type": "NONE", "data": "-" }
+            },
+            "allocated": {
+              "value": "13969689903104",
+              "source": { "type": "NONE", "data": "-" }
+            },
+            "free": {
+              "value": "10013407477760",
+              "source": { "type": "NONE", "data": "-" }
+            }
+          }
+        },
+        "special": {
+          "mirror-1": {
+            "name": "mirror-1",
+            "vdev_type": "mirror",
+            "guid": "9631090888487347532",
+            "class": "special",
+            "state": "ONLINE",
+            "properties": {
+              "size": {
+                "value": "255550554112",
+                "source": { "type": "NONE", "data": "-" }
+              },
+              "allocated": {
+                "value": "5491740672",
+                "source": { "type": "NONE", "data": "-" }
+              },
+              "free": {
+                "value": "250058813440",
+                "source": { "type": "NONE", "data": "-" }
+              }
+            }
+          }
+        }
       }
     }
   }

@@ -45,16 +45,14 @@ public class ZpoolServiceTests
         var zpoolListJson = File.ReadAllText("TestData/zpool_list.json");
         var zpoolStatusJson = File.ReadAllText("TestData/zpool_status.json");
         var zpoolAshiftJson = File.ReadAllText("TestData/zpool_get_ashift.json");
-        var zpoolListVdevJson = File.ReadAllText("TestData/zpool_list_vdev.json");
         var zfsGetPropsJson = File.ReadAllText("TestData/zfs_get_pool_props.json");
 
         return new FakeCommandExecutor()
-            .On("zpool", $"list -Hpj -o name,size,alloc,free,health,frag {poolName}", zpoolListJson)
-            .On("zpool", "list -Hpj -o name,size,alloc,free,health,frag", zpoolListJson)
+            .On("zpool", $"list -Hpvj -o name,size,alloc,free,health,frag {poolName}", zpoolListJson)
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", zpoolListJson)
             .On("zpool", "list -Hpj -o name", zpoolListJson)
             .On("zpool", $"status -Pj {poolName}", zpoolStatusJson)
             .On("zpool", $"get -Hpj ashift {poolName}", zpoolAshiftJson)
-            .On("zpool", $"list -Hpvj -o name,size,alloc,free {poolName}", zpoolListVdevJson)
             .On("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}", zfsGetPropsJson);
     }
 
@@ -165,7 +163,7 @@ public class ZpoolServiceTests
     public async Task GetAllPoolsAsync_EmptyResponse_ShouldReturnEmpty()
     {
         var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpj -o name,size,alloc,free,health,frag", "");
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "");
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -177,7 +175,7 @@ public class ZpoolServiceTests
     public async Task GetAllPoolsAsync_WhitespaceResponse_ShouldReturnEmpty()
     {
         var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpj -o name,size,alloc,free,health,frag", "   ");
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "   ");
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -205,7 +203,7 @@ public class ZpoolServiceTests
     public async Task GetPoolByNameAsync_EmptyResponse_ShouldReturnNull()
     {
         var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpj -o name,size,alloc,free,health,frag nonexistent", "");
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag nonexistent", "");
         var service = new ZpoolService(executor);
 
         var pool = await service.GetPoolByNameAsync("nonexistent");
@@ -219,7 +217,7 @@ public class ZpoolServiceTests
         // JSON with a different pool name than the one requested
         var json = """{"output_version":{"command":"zpool list"},"pools":{}}""";
         var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpj -o name,size,alloc,free,health,frag otherPool", json);
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag otherPool", json);
         var service = new ZpoolService(executor);
 
         var pool = await service.GetPoolByNameAsync("otherPool");
@@ -355,7 +353,7 @@ public class ZpoolServiceTests
         var pools = await service.GetAllPoolsAsync();
         var pool = pools[0];
 
-        // Values from zpool_list_vdev.json special mirror-1
+        // Values from zpool_list.json special mirror-1
         Assert.Equal(255550554112UL, pool.SpecialSize);
         Assert.Equal(5491740672UL, pool.SpecialAlloc);
         Assert.Equal(250058813440UL, pool.SpecialFree);

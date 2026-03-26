@@ -38,7 +38,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     private async Task<List<Pool>> ListPoolsAsync()
     {
-        var json = await cmd.ExecuteAsync("zpool", "list -Hpj -o name,size,alloc,free,health,frag");
+        var json = await cmd.ExecuteAsync("zpool", "list -Hpvj -o name,size,alloc,free,health,frag");
         return string.IsNullOrWhiteSpace(json) ? [] : ZpoolParser.ParsePools(json);
     }
 
@@ -46,11 +46,8 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     {
         var props = await this.GetPoolPropertiesAsync(pool.Name);
         var layout = await this.ParsePoolLayoutAsync(pool.Name);
-        var (specialSize, specialAlloc, specialFree) = layout.SpecialDevices.Count > 0
-            ? await this.GetSpecialVdevSizeAsync(pool.Name)
-            : (0UL, 0UL, 0UL);
 
-        var enriched = layout.ApplyTo(pool, specialSize, specialAlloc, specialFree);
+        var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree);
         return enriched with
         {
             UsableUsed = props.UsableUsed,
@@ -145,14 +142,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
                           File.Exists(path.StartsWith('/') ? path : $"/dev/{path}");
             devices[i] = devices[i] with { Present = present };
         }
-    }
-
-    // ── Special VDEV Size ────────────────────────────────────────────────
-
-    private async Task<(ulong Size, ulong Alloc, ulong Free)> GetSpecialVdevSizeAsync(string poolName)
-    {
-        var json = await cmd.ExecuteAsync("zpool", $"list -Hpvj -o name,size,alloc,free {poolName}");
-        return ZpoolParser.ParseSpecialVdevSize(json, poolName);
     }
 
     // ── Scrub ─────────────────────────────────────────────────────────────

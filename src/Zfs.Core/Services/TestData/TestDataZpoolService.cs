@@ -12,18 +12,14 @@ public class TestDataZpoolService : IZpoolService
 
         var statusJson = TestDataHelper.ReadEmbeddedJson("zpool_status.json");
         var ashiftJson = TestDataHelper.ReadEmbeddedJson("zpool_get_ashift.json");
-        var vdevJson = TestDataHelper.ReadEmbeddedJson("zpool_list_vdev.json");
 
         var result = new List<Pool>();
         foreach (var pool in pools)
         {
             var layout = ZpoolParser.ParsePoolLayout(statusJson, pool.Name);
             var ashift = ZpoolParser.ParseAshift(ashiftJson, pool.Name);
-            var (specialSize, specialAlloc, specialFree) = layout.SpecialDevices.Count > 0
-                ? ZpoolParser.ParseSpecialVdevSize(vdevJson, pool.Name)
-                : (0UL, 0UL, 0UL);
 
-            result.Add(layout.ApplyTo(pool, specialSize, specialAlloc, specialFree) with
+            result.Add(layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree) with
             {
                 UsableUsed = pool.Alloc,
                 UsableAvail = pool.Free,

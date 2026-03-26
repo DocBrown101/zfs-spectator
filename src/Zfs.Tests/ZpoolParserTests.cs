@@ -5,15 +5,16 @@ using Zfs.Core.Services.Parser;
 public class ZpoolParserTests
 {
     [Fact]
-    public void ParseSpecialVdev_ShouldSumCorrectly()
+    public void ParsePools_ShouldParseSpecialVdevSizes()
     {
-        var json = File.ReadAllText("TestData/zpool_list_vdev.json");
+        var json = File.ReadAllText("TestData/zpool_list.json");
 
-        var (Size, Alloc, Free) = ZpoolParser.ParseSpecialVdevSize(json, "zfsPool");
+        var pools = ZpoolParser.ParsePools(json);
 
-        Assert.Equal(255550554112UL, Size);
-        Assert.Equal(5491740672UL, Alloc);
-        Assert.Equal(250058813440UL, Free);
+        var pool = Assert.Single(pools);
+        Assert.Equal(255550554112UL, pool.SpecialSize);
+        Assert.Equal(5491740672UL, pool.SpecialAlloc);
+        Assert.Equal(250058813440UL, pool.SpecialFree);
     }
 
     [Fact]

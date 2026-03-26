@@ -20,6 +20,8 @@ public static class ZpoolParser
             var pool = poolEntry.Value;
             if (!pool.TryGetProperty("properties", out var props)) continue;
 
+            var (specialSize, specialAlloc, specialFree) = ParseSpecialVdevSizes(pool);
+
             result.Add(new Pool
             {
                 Name = JsonHelper.GetString(pool, "name"),
@@ -28,6 +30,9 @@ public static class ZpoolParser
                 Free = JsonHelper.GetPropertyUlong(props, "free"),
                 Health = JsonHelper.GetPropertyString(props, "health"),
                 Fragmentation = JsonHelper.GetPropertyInt(props, "fragmentation"),
+                SpecialSize = specialSize,
+                SpecialAlloc = specialAlloc,
+                SpecialFree = specialFree,
                 VdevType = "stripe",
                 Operation = "",
                 Compression = "lz4",
@@ -197,15 +202,8 @@ public static class ZpoolParser
         return match.Success ? match.Groups[1].Value : "";
     }
 
-    // ── Special VDEV Size (from zpool list -Hpvj) ───────────────────────
-
-    public static (ulong Size, ulong Alloc, ulong Free) ParseSpecialVdevSize(string json, string poolName)
+    private static (ulong Size, ulong Alloc, ulong Free) ParseSpecialVdevSizes(JsonElement pool)
     {
-        if (string.IsNullOrWhiteSpace(json)) return (0, 0, 0);
-
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return (0, 0, 0);
-        if (!pools.TryGetProperty(poolName, out var pool)) return (0, 0, 0);
         if (!pool.TryGetProperty("vdevs", out var vdevs)) return (0, 0, 0);
         if (!vdevs.TryGetProperty("special", out var special)) return (0, 0, 0);
 
