@@ -479,6 +479,42 @@ public class ZpoolServiceTests
 
         Assert.Empty(result);
     }
+
+    [Fact]
+    public async Task GetAllPoolsVdevDataAsync_FlatFormat_ShouldParseDevices()
+    {
+        var iostatOutput =
+            "zfsPool\t9498246504448\t500437360640\t1478\t33\t478637151\t216065\t202939312\t2012362\t4761478\t1199300\t1764\t1015\t1740\t972507\t195123305\t-\t-\n" +
+            "raidz1-0\t9498246504448\t500437360640\t1478\t33\t478636988\t216065\t202939312\t2012362\t4761478\t1199300\t1764\t1015\t1740\t972507\t195123305\t-\t-\n" +
+            "wwn-0x5000c5008777065b\t0\t0\t361\t6\t95741779\t43936\t133872288\t951629\t2216043\t475225\t1621\t1565\t2016\t536282\t131877267\t-\t-\n" +
+            "wwn-0x5000c5008776f851\t0\t0\t361\t6\t95742037\t42844\t128973719\t950737\t2172519\t465334\t1688\t762\t1280\t536658\t125089897\t-\t-\n";
+
+        var executor = new FakeCommandExecutor()
+            .On("zpool", "iostat -vlHp", iostatOutput);
+        var service = new ZpoolService(executor);
+
+        var result = await service.GetAllPoolsVdevDataAsync();
+
+        Assert.Single(result);
+        Assert.Equal("zfsPool", result[0].PoolName);
+        Assert.Equal(2, result[0].Devices.Count);
+        Assert.Equal("wwn-0x5000c5008777065b", result[0].Devices[0].DevicePath);
+        Assert.Equal("wwn-0x5000c5008776f851", result[0].Devices[1].DevicePath);
+    }
+
+    [Fact]
+    public async Task GetAllPoolsVdevDataAsync_UnparseableOutput_ShouldThrow()
+    {
+        var iostatOutput =
+            "unknownPool\t100\t200\t10\t20\t1000\t2000\n" +
+            "anotherPool\t300\t400\t30\t40\t3000\t4000\n";
+
+        var executor = new FakeCommandExecutor()
+            .On("zpool", "iostat -vlHp", iostatOutput);
+        var service = new ZpoolService(executor);
+
+        await Assert.ThrowsAsync<FormatException>(() => service.GetAllPoolsVdevDataAsync());
+    }
 }
 
 /// <summary>

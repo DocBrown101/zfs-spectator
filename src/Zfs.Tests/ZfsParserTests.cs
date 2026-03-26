@@ -395,6 +395,116 @@ public class ZfsParserTests
         Assert.Equal("dedup", pools[0].Devices[1].Role);
     }
 
+    // ── Flat format (no tab indentation) ────────────────────────────────
+
+    private const string IostatFlatRaidz =
+        "zfsPool\t9498246504448\t500437360640\t1478\t33\t478637151\t216065\t202939312\t2012362\t4761478\t1199300\t1764\t1015\t1740\t972507\t195123305\t-\t-\n" +
+        "raidz1-0\t9498246504448\t500437360640\t1478\t33\t478636988\t216065\t202939312\t2012362\t4761478\t1199300\t1764\t1015\t1740\t972507\t195123305\t-\t-\n" +
+        "wwn-0x5000c5008777065b\t0\t0\t361\t6\t95741779\t43936\t133872288\t951629\t2216043\t475225\t1621\t1565\t2016\t536282\t131877267\t-\t-\n" +
+        "wwn-0x5000c5008776f851\t0\t0\t361\t6\t95742037\t42844\t128973719\t950737\t2172519\t465334\t1688\t762\t1280\t536658\t125089897\t-\t-\n" +
+        "ata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1\t0\t0\t335\t7\t95741941\t42801\t159472636\t656664\t3221035\t346722\t1890\t915\t1536\t358408\t156040021\t-\t-\n" +
+        "wwn-0x50004cf2070dcd38\t0\t0\t312\t7\t95728273\t42844\t240254258\t458041\t5580534\t278584\t1800\t833\t2304\t206670\t234747863\t-\t-\n" +
+        "wwn-0x50014ee1af651273\t0\t0\t107\t6\t95684198\t43638\t710662660\t7000395\t24436809\t4392612\t1829\t998\t1612\t321089\t644206088\t-\t-\n";
+
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_ShouldParseRaidzWithoutIndentation()
+    {
+        var pools = ZpoolParser.ParseVdevIostat(IostatFlatRaidz);
+
+        Assert.Single(pools);
+        Assert.Equal("zfsPool", pools[0].PoolName);
+        Assert.Equal(5, pools[0].Devices.Count);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_ShouldSkipGroupVdevs()
+    {
+        var pools = ZpoolParser.ParseVdevIostat(IostatFlatRaidz);
+        var paths = pools[0].Devices.Select(d => d.DevicePath).ToList();
+
+        Assert.DoesNotContain("raidz1-0", paths);
+        Assert.Contains("wwn-0x5000c5008777065b", paths);
+        Assert.Contains("ata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1", paths);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_ShouldParseFieldValues()
+    {
+        var pools = ZpoolParser.ParseVdevIostat(IostatFlatRaidz);
+        var dev = pools[0].Devices.First(d => d.DevicePath == "wwn-0x5000c5008777065b");
+
+        Assert.Equal(361, dev.ReadOps);
+        Assert.Equal(6, dev.WriteOps);
+        Assert.Equal(95741779, dev.ReadBytes);
+        Assert.Equal(43936, dev.WriteBytes);
+        Assert.Equal(133872288, dev.TotalWaitReadNs);
+        Assert.Equal(951629, dev.TotalWaitWriteNs);
+        Assert.Equal(2216043, dev.DiskWaitReadNs);
+        Assert.Equal(475225, dev.DiskWaitWriteNs);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_ShouldHandleSectionsAndRoles()
+    {
+        var output =
+            "poolA\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "raidz1-0\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "wwn-0x1234\t0\t0\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "cache\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\n" +
+            "nvme0n1\t50\t100\t5\t10\t500\t1000\t50\t100\t25\t50\n";
+
+        var pools = ZpoolParser.ParseVdevIostat(output);
+
+        Assert.Single(pools);
+        Assert.Equal(2, pools[0].Devices.Count);
+        Assert.Equal("data", pools[0].Devices[0].Role);
+        Assert.Equal("cache", pools[0].Devices[1].Role);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_MirrorShouldBeSkipped()
+    {
+        var output =
+            "tank\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "mirror-0\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "sda\t0\t0\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "sdb\t0\t0\t10\t20\t1000\t2000\t100\t200\t50\t100\n";
+
+        var pools = ZpoolParser.ParseVdevIostat(output);
+
+        Assert.Single(pools);
+        Assert.Equal("tank", pools[0].PoolName);
+        Assert.Equal(2, pools[0].Devices.Count);
+        Assert.Equal("sda", pools[0].Devices[0].DevicePath);
+        Assert.Equal("sdb", pools[0].Devices[1].DevicePath);
+    }
+
+    // ── Error handling ───────────────────────────────────────────────────
+
+    [Fact]
+    public void ParseVdevIostat_NonEmptyButNoDevices_ShouldThrowWithDetails()
+    {
+        var output =
+            "unknownPool\t100\t200\t10\t20\t1000\t2000\n" +
+            "anotherPool\t300\t400\t30\t40\t3000\t4000\n";
+
+        var ex = Assert.Throws<FormatException>(() => ZpoolParser.ParseVdevIostat(output));
+        Assert.Contains("unknownPool", ex.Message);
+        Assert.Contains("anotherPool", ex.Message);
+        Assert.Contains("0 devices", ex.Message);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_TooFewFieldsOnly_ShouldThrowWithSkippedLines()
+    {
+        var output = "garbage\t1\t2\n" +
+                     "more\t3\t4\n";
+
+        var ex = Assert.Throws<FormatException>(() => ZpoolParser.ParseVdevIostat(output));
+        Assert.Contains("too few fields", ex.Message);
+        Assert.Contains("No pools detected", ex.Message);
+    }
+
     // ── JSON Serialization (verifies property names match frontend JS) ───
 
     [Fact]

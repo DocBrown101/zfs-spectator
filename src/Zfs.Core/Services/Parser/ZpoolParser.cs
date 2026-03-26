@@ -293,9 +293,25 @@ public static class ZpoolParser
 
     // ── VDEV I/O cumulative output (from zpool iostat -vlHp) ────────────
 
+    // Core fields always present in zpool iostat -v output:
+    //   name(0), alloc(1), free(2), read_ops(3), write_ops(4), read_bw(5), write_bw(6)
+    private const int IdxAlloc = 1;
+    private const int IdxFree = 2;
+    private const int IdxReadOps = 3;
+    private const int IdxWriteOps = 4;
+    private const int IdxReadBytes = 5;
+    private const int IdxWriteBytes = 6;
+    private const int CoreFieldCount = 7;
+    private const int LatencyStart = CoreFieldCount;
+
+    private enum LineRole { Pool, GroupVdev, SectionHeader, LeafDevice }
+
     /// <summary>
     /// Parses the tab-separated cumulative output of <c>zpool iostat -vlHp</c>
     /// into per-pool lists of vdev cumulative counters.
+    /// Uses a depth stack to resolve the vdev hierarchy and dynamic field counting
+    /// to handle variable numbers of latency columns across ZFS versions.
+    /// Throws <see cref="FormatException"/> when non-empty output produces no devices.
     /// </summary>
     public static List<PoolVdevCumulativeData> ParseVdevIostat(string output)
     {
@@ -304,55 +320,159 @@ public static class ZpoolParser
 
         var allLines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var result = new List<PoolVdevCumulativeData>();
-        var currentPool = "";
-        var currentSection = "data";
+        var skippedLines = new List<string>();
+
+        string currentPool = "";
+        string currentSection = "data";
         List<VdevCumulativeSnapshot>? currentDevices = null;
+
+        bool hasIndentation = DetectHierarchicalIndentation(allLines);
+        var depthStack = new Stack<int>();
 
         foreach (var line in allLines)
         {
             var (indent, fields) = SplitIostatLine(line);
-            if (fields.Count < 7) continue;
+            if (fields.Count < CoreFieldCount)
+            {
+                skippedLines.Add($"too few fields ({fields.Count}): {line.TrimEnd()}");
+                continue;
+            }
 
             var name = fields[0];
+            var role = ClassifyLine(name, indent, fields, hasIndentation,
+                                    insidePool: currentDevices != null, currentSection);
 
-            // Indent 0 = pool name or section header (cache, log, special, …)
-            if (indent == 0)
+            switch (role)
             {
-                if (IsIostatSectionHeader(name))
-                {
+                case LineRole.SectionHeader:
                     currentSection = NormalizeIostatSection(name);
-                }
-                else
-                {
+                    while (depthStack.Count > 1) depthStack.Pop();
+                    break;
+
+                case LineRole.Pool:
                     if (currentDevices != null)
                         result.Add(new PoolVdevCumulativeData { PoolName = currentPool, Devices = currentDevices });
                     currentPool = name;
                     currentSection = "data";
                     currentDevices = [];
-                }
-                continue;
+                    depthStack.Clear();
+                    depthStack.Push(indent);
+                    break;
+
+                case LineRole.GroupVdev:
+                    while (depthStack.Count > 1 && depthStack.Peek() >= indent)
+                        depthStack.Pop();
+                    depthStack.Push(indent);
+                    break;
+
+                case LineRole.LeafDevice:
+                    if (currentDevices == null)
+                    {
+                        skippedLines.Add($"device line outside any pool: {line.TrimEnd()}");
+                        break;
+                    }
+                    if (fields[IdxReadOps] == "-") break;
+                    currentDevices.Add(ExtractSnapshot(name, currentSection, fields));
+                    break;
             }
-
-            // Skip group vdevs (mirror-0, raidz1-0, …) and placeholder dashes
-            if (IsGroupVdev(name) || fields[3] == "-" || currentDevices == null) continue;
-
-            var hasLatency = fields.Count > 10;
-            currentDevices.Add(new VdevCumulativeSnapshot(
-                DevicePath: name,
-                Role: currentSection,
-                ReadOps: ParseDouble(fields[3]),
-                WriteOps: ParseDouble(fields[4]),
-                ReadBytes: ParseDouble(fields[5]),
-                WriteBytes: ParseDouble(fields[6]),
-                TotalWaitReadNs: hasLatency ? ParseDouble(fields[7]) : 0,
-                TotalWaitWriteNs: hasLatency ? ParseDouble(fields[8]) : 0,
-                DiskWaitReadNs: hasLatency ? ParseDouble(fields[9]) : 0,
-                DiskWaitWriteNs: hasLatency ? ParseDouble(fields[10]) : 0));
         }
         if (currentDevices != null)
             result.Add(new PoolVdevCumulativeData { PoolName = currentPool, Devices = currentDevices });
 
+        // Non-empty output must produce at least one pool with devices
+        if (result.Count == 0 || result.All(p => p.Devices.Count == 0))
+        {
+            var poolInfo = result.Count > 0
+                ? $"Detected pool(s): {string.Join(", ", result.Select(p => $"'{p.PoolName}' ({p.Devices.Count} devices)"))}"
+                : "No pools detected.";
+            var skippedInfo = skippedLines.Count > 0
+                ? $"\nSkipped lines:\n{string.Join("\n", skippedLines.Select(s => $"  - {s}"))}"
+                : "";
+            var sampleLines = string.Join("\n", allLines.Take(10).Select((l, i) => $"  [{i}] {l.TrimEnd()}"));
+            if (allLines.Length > 10)
+                sampleLines += $"\n  ... ({allLines.Length - 10} more lines)";
+
+            throw new FormatException(
+                $"zpool iostat output ({allLines.Length} lines) could not be parsed into any pool with devices.\n" +
+                $"{poolInfo}{skippedInfo}\n" +
+                $"First lines:\n{sampleLines}");
+        }
+
         return result;
+    }
+
+    /// <summary>
+    /// Checks whether any data line in the output uses leading whitespace
+    /// (tab or space) for hierarchical vdev indentation.
+    /// Only considers lines with enough fields to be real data (not wrapped fragments).
+    /// </summary>
+    private static bool DetectHierarchicalIndentation(string[] lines)
+    {
+        foreach (var line in lines)
+        {
+            if (line.Length == 0 || (line[0] != '\t' && line[0] != ' '))
+                continue;
+            if (line.Split('\t').Length >= CoreFieldCount)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Determines the role of a parsed iostat line within the vdev hierarchy.
+    /// With indentation the depth is unambiguous; in flat format (some ZFS versions
+    /// omit tab-indent in -H mode) heuristics based on name patterns, alloc/free
+    /// values, and current section are used.
+    /// </summary>
+    private static LineRole ClassifyLine(string name, int indent, ArraySegment<string> fields,
+        bool hasIndentation, bool insidePool, string currentSection)
+    {
+        if (IsIostatSectionHeader(name))
+            return LineRole.SectionHeader;
+
+        if (IsGroupVdev(name))
+            return LineRole.GroupVdev;
+
+        // With hierarchical indentation, indent 0 = pool, indent > 0 = leaf device
+        if (hasIndentation)
+            return indent == 0 ? LineRole.Pool : LineRole.LeafDevice;
+
+        // Flat format fallback: no indentation available
+        if (!insidePool)
+            return LineRole.Pool;
+
+        if (fields[IdxAlloc].Trim() == "0" && fields[IdxFree].Trim() == "0")
+            return LineRole.LeafDevice;
+
+        if (currentSection != "data")
+            return LineRole.LeafDevice;
+
+        return LineRole.Pool;
+    }
+
+    /// <summary>
+    /// Extracts a <see cref="VdevCumulativeSnapshot"/> from the parsed fields.
+    /// Latency columns are detected dynamically: after the 7 core fields,
+    /// each pair of values represents a latency category (total_wait, disk_wait,
+    /// syncq_wait, asyncq_wait …). Only total_wait and disk_wait are captured;
+    /// additional pairs are silently ignored.
+    /// </summary>
+    private static VdevCumulativeSnapshot ExtractSnapshot(
+        string name, string section, ArraySegment<string> fields)
+    {
+        int latencyPairs = Math.Max((fields.Count - CoreFieldCount) / 2, 0);
+
+        return new VdevCumulativeSnapshot(
+            DevicePath: name,
+            Role: section,
+            ReadOps: ParseDouble(fields[IdxReadOps]),
+            WriteOps: ParseDouble(fields[IdxWriteOps]),
+            ReadBytes: ParseDouble(fields[IdxReadBytes]),
+            WriteBytes: ParseDouble(fields[IdxWriteBytes]),
+            TotalWaitReadNs: latencyPairs >= 1 ? ParseDouble(fields[LatencyStart]) : 0,
+            TotalWaitWriteNs: latencyPairs >= 1 ? ParseDouble(fields[LatencyStart + 1]) : 0,
+            DiskWaitReadNs: latencyPairs >= 2 ? ParseDouble(fields[LatencyStart + 2]) : 0,
+            DiskWaitWriteNs: latencyPairs >= 2 ? ParseDouble(fields[LatencyStart + 3]) : 0);
     }
 
     /// <summary>
