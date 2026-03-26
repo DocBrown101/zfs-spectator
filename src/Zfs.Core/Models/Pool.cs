@@ -21,11 +21,11 @@ public record Pool
     public bool Encrypted { get; init; }
     public bool KeyLocked { get; init; }
     public string EncryptionAlgorithm { get; init; } = "";
-    public List<PoolDevice> DataDevices { get; init; } = [];
-    public List<PoolDevice> CacheDevices { get; init; } = [];
-    public List<PoolDevice> LogDevices { get; init; } = [];
-    public List<PoolDevice> SpareDevices { get; init; } = [];
-    public List<PoolDevice> SpecialDevices { get; init; } = [];
+    public IReadOnlyList<PoolDevice> DataDevices { get; init; } = [];
+    public IReadOnlyList<PoolDevice> CacheDevices { get; init; } = [];
+    public IReadOnlyList<PoolDevice> LogDevices { get; init; } = [];
+    public IReadOnlyList<PoolDevice> SpareDevices { get; init; } = [];
+    public IReadOnlyList<PoolDevice> SpecialDevices { get; init; } = [];
     public ulong SpecialSize { get; init; }
     public ulong SpecialAlloc { get; init; }
     public ulong SpecialFree { get; init; }

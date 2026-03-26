@@ -130,7 +130,7 @@
 
 @* ── Devices ─────────────────────────────────────────────────── *@
 @{
-    void RenderDeviceTable(List<PoolDevice> devices, string title, string icon, ulong size = 0, ulong alloc = 0, ulong free = 0)
+    void RenderDeviceTable(IReadOnlyList<PoolDevice> devices, string title, string icon, ulong size = 0, ulong alloc = 0, ulong free = 0)
     {
         if (devices.Count == 0) return;
         <h6 class="mt-3 mb-2 d-flex align-items-center gap-1">

@@ -43,6 +43,14 @@ public class TestDataZpoolService : IZpoolService
         return pools.FirstOrDefault(p => p.Name == name);
     }
 
+    public async Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
+    {
+        var pool = await this.GetPoolByNameAsync(name);
+        if (pool == null) return null;
+        var scrub = await this.GetScrubStatusAsync(name);
+        return (pool, scrub);
+    }
+
     public Task<ScrubInfo> GetScrubStatusAsync(string poolName)
     {
         var json = TestDataHelper.ReadEmbeddedJson("zpool_status.json");

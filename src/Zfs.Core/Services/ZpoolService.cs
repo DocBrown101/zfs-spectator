@@ -19,7 +19,10 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var pools = await this.ListPoolsAsync();
         var result = new List<Pool>(pools.Count);
         foreach (var pool in pools)
-            result.Add(await this.EnrichPoolAsync(pool));
+        {
+            var (enriched, _) = await this.EnrichPoolAsync(pool);
+            result.Add(enriched);
+        }
         return result;
     }
 
@@ -33,7 +36,27 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     {
         var pools = await this.ListPoolsAsync();
         var pool = pools.FirstOrDefault(p => p.Name == name);
-        return pool == null ? null : await this.EnrichPoolAsync(pool);
+        if (pool == null) return null;
+        var (enriched, _) = await this.EnrichPoolAsync(pool);
+        return enriched;
+    }
+
+    public async Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
+    {
+        var pools = await this.ListPoolsAsync();
+        var pool = pools.FirstOrDefault(p => p.Name == name);
+        if (pool == null) return null;
+        var (enriched, scrub) = await this.EnrichPoolAsync(pool);
+
+        if (scrub.State == "running")
+        {
+            var text = await cmd.ExecuteAsync("zpool", $"status {name}");
+            var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
+            if (!string.IsNullOrEmpty(timeLeft))
+                scrub = scrub with { TimeLeft = timeLeft };
+        }
+
+        return (enriched, scrub);
     }
 
     private async Task<List<Pool>> ListPoolsAsync()
@@ -42,13 +65,17 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return string.IsNullOrWhiteSpace(json) ? [] : ZpoolParser.ParsePools(json);
     }
 
-    private async Task<Pool> EnrichPoolAsync(Pool pool)
+    private async Task<(Pool Pool, ScrubInfo Scrub)> EnrichPoolAsync(Pool pool)
     {
-        var props = await this.GetPoolPropertiesAsync(pool.Name);
-        var layout = await this.ParsePoolLayoutAsync(pool.Name);
+        var propsTask = this.GetPoolPropertiesAsync(pool.Name);
+        var statusJson = await cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}");
 
+        var layout = ParsePoolLayout(statusJson, pool.Name);
+        var scrub = ParseScrubInfo(statusJson, pool.Name);
+
+        var props = await propsTask;
         var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree);
-        return enriched with
+        return (enriched with
         {
             UsableUsed = props.UsableUsed,
             UsableAvail = props.UsableAvail,
@@ -62,7 +89,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             Encrypted = props.Encrypted,
             KeyLocked = props.KeyLocked,
             EncryptionAlgorithm = props.EncryptionAlgorithm,
-        };
+        }, scrub);
     }
 
     private async Task<PoolProperties> GetPoolPropertiesAsync(string poolName)
@@ -117,39 +144,44 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         string Compression, string CompRatio, string Dedup, string Sync, string Atime,
         bool Encrypted, bool KeyLocked, string EncryptionAlgorithm);
 
-    // ── Pool Layout ──────────────────────────────────────────────────────
+    // ── Pool Layout & Scrub ──────────────────────────────────────────────
 
-    private async Task<PoolLayout> ParsePoolLayoutAsync(string poolName)
+    private static PoolLayout ParsePoolLayout(string statusJson, string poolName)
     {
-        var json = await cmd.ExecuteAsync("zpool", $"status -Pj {poolName}");
-        var layout = ZpoolParser.ParsePoolLayout(json, poolName);
+        var layout = ZpoolParser.ParsePoolLayout(statusJson, poolName);
 
-        UpdatePresence(layout.DataDevices);
-        UpdatePresence(layout.CacheDevices);
-        UpdatePresence(layout.LogDevices);
-        UpdatePresence(layout.SpareDevices);
-        UpdatePresence(layout.SpecialDevices);
-
-        return layout;
+        return layout with
+        {
+            DataDevices = WithPresence(layout.DataDevices),
+            CacheDevices = WithPresence(layout.CacheDevices),
+            LogDevices = WithPresence(layout.LogDevices),
+            SpareDevices = WithPresence(layout.SpareDevices),
+            SpecialDevices = WithPresence(layout.SpecialDevices),
+        };
     }
 
-    private static void UpdatePresence(List<PoolDevice> devices)
+    private static IReadOnlyList<PoolDevice> WithPresence(IReadOnlyList<PoolDevice> devices)
     {
+        var result = new PoolDevice[devices.Count];
         for (var i = 0; i < devices.Count; i++)
         {
             var path = devices[i].Path;
             var present = File.Exists(path) ||
                           File.Exists(path.StartsWith('/') ? path : $"/dev/{path}");
-            devices[i] = devices[i] with { Present = present };
+            result[i] = devices[i] with { Present = present };
         }
+        return result;
     }
 
-    // ── Scrub ─────────────────────────────────────────────────────────────
+    private static ScrubInfo ParseScrubInfo(string statusJson, string poolName)
+    {
+        return ZpoolParser.ParseScrubInfo(statusJson, poolName);
+    }
 
     public async Task<ScrubInfo> GetScrubStatusAsync(string poolName)
     {
         var json = await cmd.ExecuteAsync("zpool", $"status -Pj {poolName}");
-        var scrub = ZpoolParser.ParseScrubInfo(json, poolName);
+        var scrub = ParseScrubInfo(json, poolName);
 
         if (scrub.State == "running")
         {

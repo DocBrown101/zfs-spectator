@@ -31,7 +31,7 @@ public record VdevLatencyInfo
 public record PoolLatencyData
 {
     public string PoolName { get; init; } = "";
-    public List<VdevLatencyInfo> Devices { get; init; } = [];
+    public IReadOnlyList<VdevLatencyInfo> Devices { get; init; } = [];
 }
 
 /// <summary>
@@ -46,5 +46,5 @@ public record VdevCumulativeSnapshot(
 public record PoolVdevCumulativeData
 {
     public string PoolName { get; init; } = "";
-    public List<VdevCumulativeSnapshot> Devices { get; init; } = [];
+    public IReadOnlyList<VdevCumulativeSnapshot> Devices { get; init; } = [];
 }

@@ -13,10 +13,10 @@ public class DetailsModel(IZpoolService zpool) : PageModel
 
     public async Task<IActionResult> OnGetAsync(string name)
     {
-        this.Pool = await zpool.GetPoolByNameAsync(name);
-        if (this.Pool is null) return this.NotFound();
+        var result = await zpool.GetPoolWithScrubAsync(name);
+        if (result is null) return this.NotFound();
 
-        this.Scrub = await zpool.GetScrubStatusAsync(name);
+        (this.Pool, this.Scrub) = result.Value;
 
         this.Suggestions.Add(CommandSuggestionsService.SuggestCreateChildDataset(name));
         this.Suggestions.Add(CommandSuggestionsService.SuggestScrub(name));
