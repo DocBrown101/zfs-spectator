@@ -385,7 +385,7 @@ public static class ZpoolParser
     }
 
     private static bool IsIostatSectionHeader(string name) =>
-        name is "cache" or "log" or "logs" or "special" or "spare" or "spares";
+        name is "cache" or "dedup" or "log" or "logs" or "special" or "spare" or "spares";
 
     private static bool IsGroupVdev(string name) =>
         name.StartsWith("mirror") || name.StartsWith("raidz") || name.StartsWith("draid");

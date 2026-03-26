@@ -1,5 +1,6 @@
 namespace Zfs.Tests;
 
+using System.Text.Json;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
 
@@ -374,5 +375,91 @@ public class ZfsParserTests
         Assert.Equal(2, pools[0].Devices.Count);
         Assert.Equal("data", pools[0].Devices[0].Role);
         Assert.Equal("cache", pools[0].Devices[1].Role);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_ShouldRecognizeDedupSectionHeader()
+    {
+        var output =
+            "poolA\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "\t/dev/sda\t100\t200\t10\t20\t1000\t2000\t100\t200\t50\t100\n" +
+            "dedup\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\n" +
+            "\t/dev/sdb\t50\t100\t5\t10\t500\t1000\t50\t100\t25\t50\n";
+
+        var pools = ZpoolParser.ParseVdevIostat(output);
+
+        Assert.Single(pools);
+        Assert.Equal("poolA", pools[0].PoolName);
+        Assert.Equal(2, pools[0].Devices.Count);
+        Assert.Equal("data", pools[0].Devices[0].Role);
+        Assert.Equal("dedup", pools[0].Devices[1].Role);
+    }
+
+    // ── JSON Serialization (verifies property names match frontend JS) ───
+
+    [Fact]
+    public void DashboardData_ShouldSerializeWithCamelCasePropertyNames()
+    {
+        var data = new DashboardData
+        {
+            Text = new() { ["cpuUsage"] = "5.0%" },
+            Html = new(),
+            NetworkRates = [],
+            PoolLatencies =
+            [
+                new PoolLatencyData
+                {
+                    PoolName = "tank",
+                    Devices =
+                    [
+                        new VdevLatencyInfo
+                        {
+                            DevicePath = "/dev/sda",
+                            DeviceName = "sda",
+                            Role = "data",
+                            ReadLatencyMs = 1.5,
+                            WriteLatencyMs = 2.0,
+                            ReadOpsPerSec = 100,
+                            WriteOpsPerSec = 50,
+                            ReadBytesPerSec = 1024,
+                            WriteBytesPerSec = 512,
+                            QueueDepth = 0.5,
+                            UtilizationPct = 25.0,
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(data, options);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        // Top-level properties
+        Assert.True(root.TryGetProperty("poolLatencies", out var latencies));
+        Assert.True(root.TryGetProperty("networkRates", out _));
+        Assert.True(root.TryGetProperty("text", out _));
+        Assert.True(root.TryGetProperty("html", out _));
+
+        // Pool-level properties
+        var pool = latencies[0];
+        Assert.True(pool.TryGetProperty("poolName", out var poolName));
+        Assert.Equal("tank", poolName.GetString());
+        Assert.True(pool.TryGetProperty("devices", out var devices));
+
+        // Device-level properties (must match JS property access in Index.cshtml)
+        var dev = devices[0];
+        Assert.True(dev.TryGetProperty("devicePath", out _));
+        Assert.True(dev.TryGetProperty("deviceName", out _));
+        Assert.True(dev.TryGetProperty("role", out _));
+        Assert.True(dev.TryGetProperty("readLatencyMs", out _));
+        Assert.True(dev.TryGetProperty("writeLatencyMs", out _));
+        Assert.True(dev.TryGetProperty("readOpsPerSec", out _));
+        Assert.True(dev.TryGetProperty("writeOpsPerSec", out _));
+        Assert.True(dev.TryGetProperty("readBytesPerSec", out _));
+        Assert.True(dev.TryGetProperty("writeBytesPerSec", out _));
+        Assert.True(dev.TryGetProperty("queueDepth", out _));
+        Assert.True(dev.TryGetProperty("utilizationPct", out _));
     }
 }
