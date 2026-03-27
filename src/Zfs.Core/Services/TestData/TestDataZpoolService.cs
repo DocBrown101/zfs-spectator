@@ -5,12 +5,17 @@ namespace Zfs.Core.Services.TestData;
 
 public class TestDataZpoolService : IZpoolService
 {
+    // private const string ZpoolListData = "zpool_list.json";
+    // private const string ZpoolStatus = "zpool_status.json";
+    private const string ZpoolListData = "zpool_list_dual_pool.json";
+    private const string ZpoolStatus = "zpool_status_dual_pool.json";
+
     public Task<List<Pool>> GetAllPoolsAsync()
     {
-        var poolListJson = TestDataHelper.ReadEmbeddedJson("zpool_list.json");
+        var poolListJson = TestDataHelper.ReadEmbeddedJson(ZpoolListData);
         var pools = ZpoolParser.ParsePools(poolListJson);
 
-        var statusJson = TestDataHelper.ReadEmbeddedJson("zpool_status.json");
+        var statusJson = TestDataHelper.ReadEmbeddedJson(ZpoolStatus);
         var ashiftJson = TestDataHelper.ReadEmbeddedJson("zpool_get_ashift.json");
 
         var result = new List<Pool>();
@@ -33,7 +38,7 @@ public class TestDataZpoolService : IZpoolService
 
     public Task<List<string>> GetPoolNamesAsync()
     {
-        var json = TestDataHelper.ReadEmbeddedJson("zpool_list.json");
+        var json = TestDataHelper.ReadEmbeddedJson(ZpoolListData);
         return Task.FromResult(ZpoolParser.ParsePoolNames(json));
     }
 
@@ -53,7 +58,7 @@ public class TestDataZpoolService : IZpoolService
 
     public Task<ScrubInfo> GetScrubStatusAsync(string poolName)
     {
-        var json = TestDataHelper.ReadEmbeddedJson("zpool_status.json");
+        var json = TestDataHelper.ReadEmbeddedJson(ZpoolStatus);
         var scrub = ZpoolParser.ParseScrubInfo(json, poolName);
         return Task.FromResult(scrub);
     }

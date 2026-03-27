@@ -479,6 +479,54 @@ public class ZfsParserTests
         Assert.Equal("sdb", pools[0].Devices[1].DevicePath);
     }
 
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_DualPoolShouldSplitByKnownNames()
+    {
+        var output =
+            "miniTank\t21095649280\t1971769176064\t0\t0\t0\t0\t0\t0\t0\t0\n" +
+            "wwn-0x50014ee2b702ad1b\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\n" +
+            "wwn-0x50014ee2b2d93b72\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\n" +
+            "zfsPool\t9498245939200\t500437925888\t1478\t33\t478637151\t216065\t202939312\t2012362\t4761478\t1199300\n" +
+            "raidz1-0\t9498245939200\t500437925888\t1478\t33\t478636988\t216065\t202939312\t2012362\t4761478\t1199300\n" +
+            "wwn-0x5000c5008777065b\t0\t0\t361\t6\t95741779\t43936\t133872288\t951629\t2216043\t475225\n" +
+            "wwn-0x5000c5008776f851\t0\t0\t361\t6\t95742037\t42844\t128973719\t950737\t2172519\t465334\n" +
+            "ata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1\t0\t0\t335\t7\t95741941\t42801\t159472636\t656664\t3221035\t346722\n" +
+            "wwn-0x50004cf2070dcd38\t0\t0\t312\t7\t95728273\t42844\t240254258\t458041\t5580534\t278584\n" +
+            "wwn-0x50014ee1af651273\t0\t0\t107\t6\t95684198\t43638\t710662660\t7000395\t24436809\t4392612\n";
+
+        var knownPools = new[] { "miniTank", "zfsPool" };
+        var pools = ZpoolParser.ParseVdevIostat(output, knownPools);
+
+        Assert.Equal(2, pools.Count);
+        Assert.Equal("miniTank", pools[0].PoolName);
+        Assert.Equal(2, pools[0].Devices.Count);
+        Assert.Equal("zfsPool", pools[1].PoolName);
+        Assert.Equal(5, pools[1].Devices.Count);
+    }
+
+    [Fact]
+    public void ParseVdevIostat_FlatFormat_DualPoolWithoutKnownNames_MisclassifiesSecondPool()
+    {
+        // Without known pool names, flat format cannot distinguish the second pool
+        // from a leaf device when it has non-zero alloc/free values.
+        var output =
+            "miniTank\t21095649280\t1971769176064\t0\t0\t0\t0\t0\t0\t0\t0\n" +
+            "wwn-0x50014ee2b702ad1b\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\n" +
+            "zfsPool\t9498245939200\t500437925888\t1478\t33\t478637151\t216065\t202939312\t2012362\t4761478\t1199300\n" +
+            "raidz1-0\t9498245939200\t500437925888\t1478\t33\t478636988\t216065\t202939312\t2012362\t4761478\t1199300\n" +
+            "wwn-0x5000c5008777065b\t0\t0\t361\t6\t95741779\t43936\t133872288\t951629\t2216043\t475225\n";
+
+        // Without known names: only 1 pool detected (zfsPool absorbed into miniTank)
+        var withoutNames = ZpoolParser.ParseVdevIostat(output);
+        Assert.Single(withoutNames);
+        Assert.Equal("miniTank", withoutNames[0].PoolName);
+
+        // With known names: correctly splits into 2 pools
+        var withNames = ZpoolParser.ParseVdevIostat(output, ["miniTank", "zfsPool"]);
+        Assert.Equal(2, withNames.Count);
+        Assert.Equal("zfsPool", withNames[1].PoolName);
+    }
+
     // ── Error handling ───────────────────────────────────────────────────
 
     [Fact]

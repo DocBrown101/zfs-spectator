@@ -1,40 +1,7 @@
 namespace Zfs.Tests;
 
-using Zfs.Core;
 using Zfs.Core.Services;
-
-/// <summary>
-/// A fake command executor that returns canned responses based on exact command + arguments match,
-/// falling back to substring matching. Later registrations take priority (override earlier ones).
-/// </summary>
-internal class FakeCommandExecutor : ICommandExecutor
-{
-    private readonly List<(string Command, string Args, bool Exact, string Response)> responses = [];
-
-    public FakeCommandExecutor On(string command, string args, string response)
-    {
-        // Insert at front so later registrations win (last-registered-wins override semantics)
-        this.responses.Insert(0, (command, args, Exact: true, response));
-        return this;
-    }
-
-    public FakeCommandExecutor OnContains(string command, string argsContains, string response)
-    {
-        this.responses.Insert(0, (command, argsContains, Exact: false, response));
-        return this;
-    }
-
-    public Task<string> ExecuteAsync(string command, string arguments)
-    {
-        foreach (var (cmd, args, exact, response) in this.responses)
-        {
-            if (command != cmd) continue;
-            if (exact ? arguments == args : arguments.Contains(args))
-                return Task.FromResult(response);
-        }
-        return Task.FromResult("");
-    }
-}
+using Zfs.Tests.Helper;
 
 public class ZpoolServiceTests
 {
@@ -549,19 +516,5 @@ public class ZpoolServiceTests
               }
             }
             """;
-    }
-}
-
-/// <summary>
-/// An executor that returns different responses on successive calls for a specific command+args pair.
-/// Returns empty string for unmatched commands.
-/// </summary>
-internal class SequentialExecutor(string expectedCommand, string expectedArgs, Func<string> responseFactory) : ICommandExecutor
-{
-    public Task<string> ExecuteAsync(string command, string arguments)
-    {
-        if (command == expectedCommand && arguments == expectedArgs)
-            return Task.FromResult(responseFactory());
-        return Task.FromResult("");
     }
 }

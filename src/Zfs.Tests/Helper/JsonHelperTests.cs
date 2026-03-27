@@ -1,4 +1,4 @@
-namespace Zfs.Tests;
+namespace Zfs.Tests.Helper;
 
 using Zfs.Core.Services.Parser;
 

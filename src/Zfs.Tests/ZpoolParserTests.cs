@@ -185,4 +185,96 @@ public class ZpoolParserTests
 
         Assert.Equal("", timeLeft);
     }
+
+    [Fact]
+    public void ParsePools_DualPool_ShouldReturnBothPoolsWithCorrectProperties()
+    {
+        var json = File.ReadAllText("TestData/zpool_list_dual_pool.json");
+
+        var pools = ZpoolParser.ParsePools(json);
+
+        Assert.Equal(2, pools.Count);
+
+        var miniTank = pools.Single(p => p.Name == "miniTank");
+        Assert.Equal(1992864825344UL, miniTank.Size);
+        Assert.Equal(21095649280UL, miniTank.Alloc);
+        Assert.Equal(1971769176064UL, miniTank.Free);
+        Assert.Equal("ONLINE", miniTank.Health);
+        Assert.Equal(0, miniTank.Fragmentation);
+        Assert.Equal(0UL, miniTank.SpecialSize);
+
+        var zfsPool = pools.Single(p => p.Name == "zfsPool");
+        Assert.Equal(9998683865088UL, zfsPool.Size);
+        Assert.Equal(9498245939200UL, zfsPool.Alloc);
+        Assert.Equal(500437925888UL, zfsPool.Free);
+        Assert.Equal("ONLINE", zfsPool.Health);
+        Assert.Equal(0, zfsPool.Fragmentation);
+        Assert.Equal(0UL, zfsPool.SpecialSize);
+    }
+
+    [Fact]
+    public void ParsePoolNames_DualPool_ShouldReturnBothNames()
+    {
+        var json = File.ReadAllText("TestData/zpool_list_dual_pool.json");
+
+        var names = ZpoolParser.ParsePoolNames(json);
+
+        Assert.Equal(2, names.Count);
+        Assert.Contains("miniTank", names);
+        Assert.Contains("zfsPool", names);
+    }
+
+    [Fact]
+    public void ParsePoolLayout_DualPool_MiniTankShouldBeStripeWithTwoDisks()
+    {
+        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "miniTank");
+
+        Assert.Equal("stripe", layout.VdevType);
+        Assert.Equal("", layout.Operation);
+        Assert.Equal(2, layout.DataDevices.Count);
+        Assert.Empty(layout.CacheDevices);
+        Assert.Empty(layout.LogDevices);
+        Assert.Empty(layout.SpareDevices);
+        Assert.Empty(layout.SpecialDevices);
+        Assert.All(layout.DataDevices, d => Assert.Equal("stripe", d.Role));
+        Assert.All(layout.DataDevices, d => Assert.Equal("ONLINE", d.Status));
+    }
+
+    [Fact]
+    public void ParsePoolLayout_DualPool_ZfsPoolShouldBeRaidz1WithFiveDisks()
+    {
+        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
+
+        Assert.Equal("raidz1", layout.VdevType);
+        Assert.Equal("", layout.Operation);
+        Assert.Equal(5, layout.DataDevices.Count);
+        Assert.Empty(layout.SpecialDevices);
+        Assert.All(layout.DataDevices, d => Assert.Equal("raidz1", d.Role));
+        Assert.All(layout.DataDevices, d => Assert.Equal("ONLINE", d.Status));
+    }
+
+    [Fact]
+    public void ParseScrubInfo_DualPool_MiniTankShouldBeIdle()
+    {
+        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "miniTank");
+
+        Assert.Equal("idle", scrub.State);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_DualPool_ZfsPoolShouldBeCanceled()
+    {
+        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "zfsPool");
+
+        Assert.Equal("canceled", scrub.State);
+        Assert.Equal(0, scrub.Errors);
+    }
 }

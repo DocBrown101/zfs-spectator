@@ -213,7 +213,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     public async Task<List<PoolLatencyData>> GetAllPoolsVdevDataAsync()
     {
         var output = await cmd.ExecuteAsync("zpool", "iostat -vlHp");
-        var pools = ZpoolParser.ParseVdevIostat(output);
+        var pools = ZpoolParser.ParseVdevIostat(output, this.cachedPoolNames);
 
         var snapshot = pools.SelectMany(p => p.Devices).ToDictionary(d => d.DevicePath);
 

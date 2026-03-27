@@ -311,7 +311,7 @@ public static class ZpoolParser
     /// to handle variable numbers of latency columns across ZFS versions.
     /// Throws <see cref="FormatException"/> when non-empty output produces no devices.
     /// </summary>
-    public static List<PoolVdevCumulativeData> ParseVdevIostat(string output)
+    public static List<PoolVdevCumulativeData> ParseVdevIostat(string output, IReadOnlyCollection<string>? knownPoolNames = null)
     {
         if (string.IsNullOrWhiteSpace(output))
             return [];
@@ -324,6 +324,9 @@ public static class ZpoolParser
         var currentSection = "data";
         List<VdevCumulativeSnapshot>? currentDevices = null;
 
+        var poolNameSet = knownPoolNames is { Count: > 0 }
+            ? new HashSet<string>(knownPoolNames)
+            : null;
         var hasIndentation = DetectHierarchicalIndentation(allLines);
         var depthStack = new Stack<int>();
 
@@ -338,7 +341,8 @@ public static class ZpoolParser
 
             var name = fields[0];
             var role = ClassifyLine(name, indent, fields, hasIndentation,
-                                    insidePool: currentDevices != null, currentSection);
+                                    insidePool: currentDevices != null, currentSection,
+                                    poolNameSet);
 
             switch (role)
             {
@@ -423,8 +427,14 @@ public static class ZpoolParser
     /// values, and current section are used.
     /// </summary>
     private static LineRole ClassifyLine(string name, int indent, ArraySegment<string> fields,
-        bool hasIndentation, bool insidePool, string currentSection)
+        bool hasIndentation, bool insidePool, string currentSection,
+        HashSet<string>? knownPoolNames)
     {
+        // Known pool names are authoritative — checked first so that pools
+        // named after section headers or vdev prefixes are classified correctly.
+        if (knownPoolNames != null && knownPoolNames.Contains(name))
+            return LineRole.Pool;
+
         if (SectionMap.ContainsKey(name))
             return LineRole.SectionHeader;
 
