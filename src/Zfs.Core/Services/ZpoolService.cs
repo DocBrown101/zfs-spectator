@@ -6,6 +6,10 @@ namespace Zfs.Core.Services;
 
 public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 {
+    // ── Pool name cache (kept warm by ListPoolsAsync) ─────────────────────
+
+    private volatile IReadOnlyList<string>? cachedPoolNames;
+
     // ── VDEV delta state ──────────────────────────────────────────────────
 
     private readonly Lock vdevLock = new();
@@ -28,8 +32,14 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     public async Task<List<string>> GetPoolNamesAsync()
     {
-        var json = await cmd.ExecuteAsync("zpool", "list -Hpj -o name");
-        return ZpoolParser.ParsePoolNames(json);
+        var snapshot = this.cachedPoolNames;
+        if (snapshot == null)
+        {
+            _ = await this.ListPoolsAsync();
+            snapshot = this.cachedPoolNames;
+        }
+
+        return snapshot?.ToList() ?? [];
     }
 
     public async Task<Pool?> GetPoolByNameAsync(string name)
@@ -62,7 +72,11 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     private async Task<List<Pool>> ListPoolsAsync()
     {
         var json = await cmd.ExecuteAsync("zpool", "list -Hpvj -o name,size,alloc,free,health,frag");
-        return string.IsNullOrWhiteSpace(json) ? [] : ZpoolParser.ParsePools(json);
+        var pools = string.IsNullOrWhiteSpace(json) ? [] : ZpoolParser.ParsePools(json);
+
+        this.cachedPoolNames = pools.Select(p => p.Name).ToList().AsReadOnly();
+
+        return pools;
     }
 
     private async Task<(Pool Pool, ScrubInfo Scrub)> EnrichPoolAsync(Pool pool)

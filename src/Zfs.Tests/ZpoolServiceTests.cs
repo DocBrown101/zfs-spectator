@@ -81,6 +81,21 @@ public class ZpoolServiceTests
         Assert.Empty(names);
     }
 
+    [Fact]
+    public async Task GetPoolNamesAsync_AfterListPools_ShouldReturnFromCache()
+    {
+        var executor = CreateExecutorForPool();
+        var service = new ZpoolService(executor);
+
+        // Warm the cache via GetAllPoolsAsync (which calls ListPoolsAsync internally)
+        await service.GetAllPoolsAsync();
+
+        // Cache is now populated — this call should not hit the executor
+        var names = await service.GetPoolNamesAsync();
+
+        Assert.Contains("zfsPool", names);
+    }
+
     // ── GetAllPoolsAsync ─────────────────────────────────────────────────
 
     [Fact]
