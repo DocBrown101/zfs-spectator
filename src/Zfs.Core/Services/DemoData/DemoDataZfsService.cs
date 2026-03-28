@@ -3,7 +3,7 @@ using Zfs.Core.Services.Parser;
 
 namespace Zfs.Core.Services.TestData;
 
-public class TestDataZfsService(IZpoolService zpoolService) : IZfsService
+public class DemoDataZfsService(IZpoolService zpoolService) : IZfsService
 {
     public async Task<List<Dataset>> GetAllDatasetsAsync()
     {
@@ -15,19 +15,19 @@ public class TestDataZfsService(IZpoolService zpoolService) : IZfsService
 
     public Task<List<Dataset>> GetDatasetsAsync(string poolName)
     {
-        var json = TestDataHelper.ReadEmbeddedJson("zfs_list_datasets.json");
+        var json = DemoDataHelper.ReadEmbeddedJson("zfs_list_datasets.json");
         return Task.FromResult(ZfsParser.ParseDatasets(json, poolName));
     }
 
     public Task<List<Snapshot>> GetSnapshotsAsync(string poolName)
     {
-        var json = TestDataHelper.ReadEmbeddedJson("zfs_list_snapshots.json");
+        var json = DemoDataHelper.ReadEmbeddedJson("zfs_list_snapshots.json");
         return Task.FromResult(ZfsParser.ParseSnapshots(json));
     }
 
     public Task<List<ZVol>> GetAllZVolsAsync()
     {
-        var json = TestDataHelper.ReadEmbeddedJson("zfs_list_zvols.json");
+        var json = DemoDataHelper.ReadEmbeddedJson("zfs_list_zvols.json");
         return Task.FromResult(ZfsParser.ParseZVols(json));
     }
 

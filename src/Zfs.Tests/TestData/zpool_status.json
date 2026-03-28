@@ -5,7 +5,66 @@
     "vers_minor": 1
   },
   "pools": {
-    "zfsPool": {
+    "miniTank": {
+      "name": "miniTank",
+      "state": "ONLINE",
+      "pool_guid": "5520906748354305024",
+      "txg": "202",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "vdevs": {
+        "miniTank": {
+          "name": "miniTank",
+          "vdev_type": "root",
+          "guid": "5520906748354305024",
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": "23.6G",
+          "total_space": "1.81T",
+          "def_space": "1.81T",
+          "read_errors": "0",
+          "write_errors": "0",
+          "checksum_errors": "0",
+          "vdevs": {
+            "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1": {
+              "name": "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1",
+              "vdev_type": "disk",
+              "guid": "12254774331337977879",
+              "path": "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1",
+              "class": "normal",
+              "state": "ONLINE",
+              "alloc_space": "11.8G",
+              "total_space": "928G",
+              "def_space": "928G",
+              "rep_dev_size": "928G",
+              "phys_space": "932G",
+              "read_errors": "0",
+              "write_errors": "0",
+              "checksum_errors": "0",
+              "slow_ios": "0"
+            },
+            "/dev/disk/by-id/wwn-0x50014ee2b2d93b72-part1": {
+              "name": "/dev/disk/by-id/wwn-0x50014ee2b2d93b72-part1",
+              "vdev_type": "disk",
+              "guid": "1430970708519930439",
+              "path": "/dev/disk/by-id/wwn-0x50014ee2b2d93b72-part1",
+              "class": "normal",
+              "state": "ONLINE",
+              "alloc_space": "11.8G",
+              "total_space": "928G",
+              "def_space": "928G",
+              "rep_dev_size": "928G",
+              "phys_space": "932G",
+              "read_errors": "0",
+              "write_errors": "0",
+              "checksum_errors": "0",
+              "slow_ios": "0"
+            }
+          }
+        }
+      },
+      "error_count": "0"
+    },    "zfsPool": {
       "name": "zfsPool",
       "state": "ONLINE",
       "pool_guid": "10653252733543182891",

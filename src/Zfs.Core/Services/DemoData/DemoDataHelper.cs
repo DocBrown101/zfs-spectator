@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace Zfs.Core.Services.TestData;
 
-internal static class TestDataHelper
+internal static class DemoDataHelper
 {
     internal static string ReadEmbeddedJson(string fileName)
     {

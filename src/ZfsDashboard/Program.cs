@@ -9,8 +9,8 @@ builder.Services.AddSingleton<SystemService>();
 
 if (builder.Environment.IsDevelopment())
 {
-    builder.Services.AddSingleton<IZpoolService, TestDataZpoolService>();
-    builder.Services.AddSingleton<IZfsService, TestDataZfsService>();
+    builder.Services.AddSingleton<IZpoolService, DemoDataZpoolService>();
+    builder.Services.AddSingleton<IZfsService, DemoDataZfsService>();
 }
 else
 {

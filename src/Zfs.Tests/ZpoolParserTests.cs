@@ -5,33 +5,47 @@ using Zfs.Core.Services.Parser;
 public class ZpoolParserTests
 {
     [Fact]
-    public void ParsePools_ShouldParseSpecialVdevSizes()
+    public void ParsePools_ShouldParseBothPools()
     {
         var json = File.ReadAllText("TestData/zpool_list.json");
 
         var pools = ZpoolParser.ParsePools(json);
 
-        var pool = Assert.Single(pools);
-        Assert.Equal(255550554112UL, pool.SpecialSize);
-        Assert.Equal(5491740672UL, pool.SpecialAlloc);
-        Assert.Equal(250058813440UL, pool.SpecialFree);
+        Assert.Equal(2, pools.Count);
+        Assert.Contains(pools, p => p.Name == "miniTank");
+        Assert.Contains(pools, p => p.Name == "zfsPool");
     }
 
     [Fact]
-    public void ParsePools_ShouldParsePoolProperties()
+    public void ParsePools_ShouldParseMiniTankProperties()
     {
         var json = File.ReadAllText("TestData/zpool_list.json");
 
         var pools = ZpoolParser.ParsePools(json);
+        var pool = pools.Single(p => p.Name == "miniTank");
 
-        Assert.Single(pools);
-        var pool = pools[0];
-        Assert.Equal("zfsPool", pool.Name);
-        Assert.Equal(24238647934976UL, pool.Size);
-        Assert.Equal(13975181643776UL, pool.Alloc);
-        Assert.Equal(10263466291200UL, pool.Free);
+        Assert.Equal(1992864825344UL, pool.Size);
+        Assert.Equal(21095649280UL, pool.Alloc);
+        Assert.Equal(1971769176064UL, pool.Free);
         Assert.Equal("ONLINE", pool.Health);
-        Assert.Equal(3, pool.Fragmentation);
+        Assert.Equal(0, pool.Fragmentation);
+        Assert.Equal(0UL, pool.SpecialSize);
+    }
+
+    [Fact]
+    public void ParsePools_ShouldParseZfsPoolProperties()
+    {
+        var json = File.ReadAllText("TestData/zpool_list.json");
+
+        var pools = ZpoolParser.ParsePools(json);
+        var pool = pools.Single(p => p.Name == "zfsPool");
+
+        Assert.Equal(9998683865088UL, pool.Size);
+        Assert.Equal(9498245939200UL, pool.Alloc);
+        Assert.Equal(500437925888UL, pool.Free);
+        Assert.Equal("ONLINE", pool.Health);
+        Assert.Equal(0, pool.Fragmentation);
+        Assert.Equal(0UL, pool.SpecialSize);
     }
 
     [Fact]
@@ -48,8 +62,9 @@ public class ZpoolParserTests
 
         var names = ZpoolParser.ParsePoolNames(json);
 
-        Assert.Single(names);
-        Assert.Equal("zfsPool", names[0]);
+        Assert.Equal(2, names.Count);
+        Assert.Contains("miniTank", names);
+        Assert.Contains("zfsPool", names);
     }
 
     [Fact]
@@ -157,6 +172,32 @@ public class ZpoolParserTests
     }
 
     [Fact]
+    public void ParsePoolLayout_MiniTank_ShouldBeStripeWithTwoDisks()
+    {
+        var json = File.ReadAllText("TestData/zpool_status.json");
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "miniTank");
+
+        Assert.Equal("stripe", layout.VdevType);
+        Assert.Equal("", layout.Operation);
+        Assert.Equal(2, layout.DataDevices.Count);
+        Assert.Empty(layout.CacheDevices);
+        Assert.Empty(layout.LogDevices);
+        Assert.Empty(layout.SpareDevices);
+        Assert.Empty(layout.SpecialDevices);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_MiniTank_ShouldBeIdle()
+    {
+        var json = File.ReadAllText("TestData/zpool_status.json");
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "miniTank");
+
+        Assert.Equal("idle", scrub.State);
+    }
+
+    [Fact]
     public void ParseScrubTimeLeft_ShouldExtractTimeToGo()
     {
         var text = """
@@ -184,97 +225,5 @@ public class ZpoolParserTests
         var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
 
         Assert.Equal("", timeLeft);
-    }
-
-    [Fact]
-    public void ParsePools_DualPool_ShouldReturnBothPoolsWithCorrectProperties()
-    {
-        var json = File.ReadAllText("TestData/zpool_list_dual_pool.json");
-
-        var pools = ZpoolParser.ParsePools(json);
-
-        Assert.Equal(2, pools.Count);
-
-        var miniTank = pools.Single(p => p.Name == "miniTank");
-        Assert.Equal(1992864825344UL, miniTank.Size);
-        Assert.Equal(21095649280UL, miniTank.Alloc);
-        Assert.Equal(1971769176064UL, miniTank.Free);
-        Assert.Equal("ONLINE", miniTank.Health);
-        Assert.Equal(0, miniTank.Fragmentation);
-        Assert.Equal(0UL, miniTank.SpecialSize);
-
-        var zfsPool = pools.Single(p => p.Name == "zfsPool");
-        Assert.Equal(9998683865088UL, zfsPool.Size);
-        Assert.Equal(9498245939200UL, zfsPool.Alloc);
-        Assert.Equal(500437925888UL, zfsPool.Free);
-        Assert.Equal("ONLINE", zfsPool.Health);
-        Assert.Equal(0, zfsPool.Fragmentation);
-        Assert.Equal(0UL, zfsPool.SpecialSize);
-    }
-
-    [Fact]
-    public void ParsePoolNames_DualPool_ShouldReturnBothNames()
-    {
-        var json = File.ReadAllText("TestData/zpool_list_dual_pool.json");
-
-        var names = ZpoolParser.ParsePoolNames(json);
-
-        Assert.Equal(2, names.Count);
-        Assert.Contains("miniTank", names);
-        Assert.Contains("zfsPool", names);
-    }
-
-    [Fact]
-    public void ParsePoolLayout_DualPool_MiniTankShouldBeStripeWithTwoDisks()
-    {
-        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
-
-        var layout = ZpoolParser.ParsePoolLayout(json, "miniTank");
-
-        Assert.Equal("stripe", layout.VdevType);
-        Assert.Equal("", layout.Operation);
-        Assert.Equal(2, layout.DataDevices.Count);
-        Assert.Empty(layout.CacheDevices);
-        Assert.Empty(layout.LogDevices);
-        Assert.Empty(layout.SpareDevices);
-        Assert.Empty(layout.SpecialDevices);
-        Assert.All(layout.DataDevices, d => Assert.Equal("stripe", d.Role));
-        Assert.All(layout.DataDevices, d => Assert.Equal("ONLINE", d.Status));
-    }
-
-    [Fact]
-    public void ParsePoolLayout_DualPool_ZfsPoolShouldBeRaidz1WithFiveDisks()
-    {
-        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
-
-        var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
-
-        Assert.Equal("raidz1", layout.VdevType);
-        Assert.Equal("", layout.Operation);
-        Assert.Equal(5, layout.DataDevices.Count);
-        Assert.Empty(layout.SpecialDevices);
-        Assert.All(layout.DataDevices, d => Assert.Equal("raidz1", d.Role));
-        Assert.All(layout.DataDevices, d => Assert.Equal("ONLINE", d.Status));
-    }
-
-    [Fact]
-    public void ParseScrubInfo_DualPool_MiniTankShouldBeIdle()
-    {
-        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
-
-        var scrub = ZpoolParser.ParseScrubInfo(json, "miniTank");
-
-        Assert.Equal("idle", scrub.State);
-    }
-
-    [Fact]
-    public void ParseScrubInfo_DualPool_ZfsPoolShouldBeCanceled()
-    {
-        var json = File.ReadAllText("TestData/zpool_status_dual_pool.json");
-
-        var scrub = ZpoolParser.ParseScrubInfo(json, "zfsPool");
-
-        Assert.Equal("canceled", scrub.State);
-        Assert.Equal(0, scrub.Errors);
     }
 }

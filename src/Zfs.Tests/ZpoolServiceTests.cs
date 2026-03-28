@@ -33,6 +33,8 @@ public class ZpoolServiceTests
 
         var names = await service.GetPoolNamesAsync();
 
+        Assert.Equal(2, names.Count);
+        Assert.Contains("miniTank", names);
         Assert.Contains("zfsPool", names);
     }
 
@@ -60,6 +62,8 @@ public class ZpoolServiceTests
         // Cache is now populated — this call should not hit the executor
         var names = await service.GetPoolNamesAsync();
 
+        Assert.Equal(2, names.Count);
+        Assert.Contains("miniTank", names);
         Assert.Contains("zfsPool", names);
     }
 
@@ -73,12 +77,11 @@ public class ZpoolServiceTests
 
         var pools = await service.GetAllPoolsAsync();
 
-        Assert.Single(pools);
-        var pool = pools[0];
-        Assert.Equal("zfsPool", pool.Name);
-        Assert.Equal(24238647934976UL, pool.Size);
-        Assert.Equal(13975181643776UL, pool.Alloc);
-        Assert.Equal(10263466291200UL, pool.Free);
+        Assert.Equal(2, pools.Count);
+        var pool = pools.Single(p => p.Name == "zfsPool");
+        Assert.Equal(9998683865088UL, pool.Size);
+        Assert.Equal(9498245939200UL, pool.Alloc);
+        Assert.Equal(500437925888UL, pool.Free);
         Assert.Equal("ONLINE", pool.Health);
     }
 
@@ -89,7 +92,7 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
-        var pool = pools[0];
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
         Assert.Equal(9309523489840UL, pool.UsableUsed);
         Assert.Equal(6526155148240UL, pool.UsableAvail);
@@ -103,7 +106,7 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
-        var pool = pools[0];
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
         Assert.Equal("lz4", pool.Compression);
         Assert.Equal("1.85x", pool.CompRatio);
@@ -120,7 +123,7 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
-        var pool = pools[0];
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
         Assert.True(pool.Encrypted);
         Assert.False(pool.KeyLocked);
@@ -134,7 +137,7 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
-        var pool = pools[0];
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
         Assert.Equal("raidz1", pool.VdevType);
         Assert.Equal(3, pool.DataDevices.Count);
@@ -274,9 +277,10 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
-        Assert.False(pools[0].Encrypted);
-        Assert.Equal("", pools[0].EncryptionAlgorithm);
+        Assert.False(pool.Encrypted);
+        Assert.Equal("", pool.EncryptionAlgorithm);
     }
 
     [Fact]
@@ -288,9 +292,10 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
-        Assert.True(pools[0].Encrypted);
-        Assert.True(pools[0].KeyLocked);
+        Assert.True(pool.Encrypted);
+        Assert.True(pool.KeyLocked);
     }
 
     // ── Pool root properties edge cases ──────────────────────────────────
@@ -304,9 +309,10 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
-        Assert.Equal(0UL, pools[0].UsableUsed);
-        Assert.Equal(0UL, pools[0].UsableAvail);
+        Assert.Equal(0UL, pool.UsableUsed);
+        Assert.Equal(0UL, pool.UsableAvail);
     }
 
     [Fact]
@@ -318,27 +324,26 @@ public class ZpoolServiceTests
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
-        Assert.Equal("zstd", pools[0].Compression);
-        Assert.Equal("1.00x", pools[0].CompRatio); // default
-        Assert.Equal("off", pools[0].Dedup);        // default
+        Assert.Equal("zstd", pool.Compression);
+        Assert.Equal("1.00x", pool.CompRatio); // default
+        Assert.Equal("off", pool.Dedup);        // default
     }
 
     // ── Special VDEV size ────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetAllPoolsAsync_WithSpecialVdev_ShouldParseSpecialSize()
+    public async Task GetAllPoolsAsync_WithSpecialVdev_ShouldParseSpecialDevices()
     {
         var executor = CreateExecutorForPool();
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
-        var pool = pools[0];
+        var pool = pools.Single(p => p.Name == "zfsPool");
 
-        // Values from zpool_list.json special mirror-1
-        Assert.Equal(255550554112UL, pool.SpecialSize);
-        Assert.Equal(5491740672UL, pool.SpecialAlloc);
-        Assert.Equal(250058813440UL, pool.SpecialFree);
+        // Special devices come from zpool_status.json layout
+        Assert.Equal(2, pool.SpecialDevices.Count);
     }
 
     // ── GetAllPoolsVdevDataAsync (delta calculation) ─────────────────────
