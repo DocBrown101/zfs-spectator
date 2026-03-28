@@ -293,8 +293,6 @@ public static class ZpoolParser
 
     // Core fields always present in zpool iostat -v output:
     //   name(0), alloc(1), free(2), read_ops(3), write_ops(4), read_bw(5), write_bw(6)
-    private const int IdxAlloc = 1;
-    private const int IdxFree = 2;
     private const int IdxReadOps = 3;
     private const int IdxWriteOps = 4;
     private const int IdxReadBytes = 5;
@@ -406,15 +404,12 @@ public static class ZpoolParser
     /// <summary>
     /// Checks whether any data line in the output uses leading whitespace
     /// (tab or space) for hierarchical vdev indentation.
-    /// Only considers lines with enough fields to be real data (not wrapped fragments).
     /// </summary>
     private static bool DetectHierarchicalIndentation(string[] lines)
     {
         foreach (var line in lines)
         {
-            if (line.Length == 0 || (line[0] != '\t' && line[0] != ' '))
-                continue;
-            if (line.Split('\t').Length >= CoreFieldCount)
+            if (line.Length > 0 && (line[0] == '\t' || (line[0] == ' ' && line.Contains('\t'))))
                 return true;
         }
         return false;
@@ -445,17 +440,12 @@ public static class ZpoolParser
         if (hasIndentation)
             return indent == 0 ? LineRole.Pool : LineRole.LeafDevice;
 
-        // Flat format fallback: no indentation available
-        if (!insidePool)
-            return LineRole.Pool;
-
-        if (fields[IdxAlloc].Trim() == "0" && fields[IdxFree].Trim() == "0")
-            return LineRole.LeafDevice;
-
-        // Non-zero alloc/free inside a pool: treat as device to avoid misclassifying
-        // devices with non-zero values as new pools. New pools only appear when not
-        // already inside one (handled above).
-        return LineRole.LeafDevice;
+        // Flat format fallback: no indentation available.
+        // Without knownPoolNames, only the first unrecognised name is treated as a pool;
+        // subsequent names (including a second pool) are classified as leaf devices.
+        // This is a documented limitation — callers should supply knownPoolNames for
+        // multi-pool flat-format output.
+        return insidePool ? LineRole.LeafDevice : LineRole.Pool;
     }
 
     /// <summary>
@@ -521,8 +511,8 @@ public static class ZpoolParser
     };
 
     private static bool IsGroupVdev(string name) =>
-        name.StartsWith("mirror") || name.StartsWith("raidz") || name.StartsWith("draid");
+        name.StartsWith("mirror-") || name.StartsWith("raidz") || name.StartsWith("draid");
 
     private static double ParseDouble(string s) =>
-        double.TryParse(s.Trim(), System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
+        double.TryParse(s.AsSpan().Trim(), System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
 }
