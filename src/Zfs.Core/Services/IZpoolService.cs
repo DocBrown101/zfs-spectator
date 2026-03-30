@@ -9,5 +9,4 @@ public interface IZpoolService
     Task<Pool?> GetPoolByNameAsync(string name);
     Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name);
     Task<ScrubInfo> GetScrubStatusAsync(string poolName);
-    Task<List<PoolLatencyData>> GetAllPoolsVdevDataAsync();
 }

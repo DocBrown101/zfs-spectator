@@ -10,12 +10,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     private volatile IReadOnlyList<string>? cachedPoolNames;
 
-    // ── VDEV delta state ──────────────────────────────────────────────────
-
-    private readonly Lock vdevLock = new();
-    private Dictionary<string, VdevCumulativeSnapshot>? prevVdevData;
-    private DateTime prevVdevTime;
-
     // ── Pools ─────────────────────────────────────────────────────────────
 
     public async Task<List<Pool>> GetAllPoolsAsync()
@@ -208,77 +202,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return scrub;
     }
 
-    // ── VDEV Data for all pools (from zpool iostat -vlHp) ──────────────
-
-    public async Task<List<PoolLatencyData>> GetAllPoolsVdevDataAsync()
-    {
-        var output = await cmd.ExecuteAsync("zpool", "iostat -vlHp");
-        var pools = ZpoolParser.ParseVdevIostat(output, this.cachedPoolNames);
-
-        var snapshot = pools.SelectMany(p => p.Devices).ToDictionary(d => d.DevicePath);
-
-        var now = DateTime.UtcNow;
-        Dictionary<string, VdevCumulativeSnapshot>? prev;
-        double elapsed;
-        lock (this.vdevLock)
-        {
-            prev = this.prevVdevData;
-            elapsed = prev != null ? (now - this.prevVdevTime).TotalSeconds : 0;
-            this.prevVdevData = snapshot;
-            this.prevVdevTime = now;
-        }
-
-        return pools.Select(pool => new PoolLatencyData
-        {
-            PoolName = pool.PoolName,
-            Devices = pool.Devices
-                .Select(d => ToLatencyInfo(d, prev?.GetValueOrDefault(d.DevicePath), elapsed))
-                .ToList(),
-        }).ToList();
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────
-
-    private static VdevLatencyInfo ToLatencyInfo(VdevCumulativeSnapshot d, VdevCumulativeSnapshot? prev, double elapsed)
-    {
-        double readOps = 0, writeOps = 0, readBw = 0, writeBw = 0;
-        double readLatMs = 0, writeLatMs = 0, queueDepth = 0, utilPct = 0;
-
-        if (prev is not null && elapsed > 0)
-        {
-            var dReadOps = Math.Max(d.ReadOps - prev.ReadOps, 0);
-            var dWriteOps = Math.Max(d.WriteOps - prev.WriteOps, 0);
-            var dTotalR = Math.Max(d.TotalWaitReadNs - prev.TotalWaitReadNs, 0);
-            var dTotalW = Math.Max(d.TotalWaitWriteNs - prev.TotalWaitWriteNs, 0);
-            var dDiskR = Math.Max(d.DiskWaitReadNs - prev.DiskWaitReadNs, 0);
-            var dDiskW = Math.Max(d.DiskWaitWriteNs - prev.DiskWaitWriteNs, 0);
-            var wallNs = elapsed * 1_000_000_000;
-
-            readOps = dReadOps / elapsed;
-            writeOps = dWriteOps / elapsed;
-            readBw = Math.Max(d.ReadBytes - prev.ReadBytes, 0) / elapsed;
-            writeBw = Math.Max(d.WriteBytes - prev.WriteBytes, 0) / elapsed;
-            readLatMs = dReadOps > 0 ? dTotalR / dReadOps / 1_000_000.0 : 0;
-            writeLatMs = dWriteOps > 0 ? dTotalW / dWriteOps / 1_000_000.0 : 0;
-            queueDepth = (dTotalR + dTotalW) / wallNs;
-            utilPct = Math.Min((dDiskR + dDiskW) / wallNs * 100, 100);
-        }
-
-        return new VdevLatencyInfo
-        {
-            DevicePath = d.DevicePath,
-            DeviceName = VdevLatencyInfo.ShortenDeviceName(Path.GetFileName(d.DevicePath)),
-            Role = d.Role,
-            ReadLatencyMs = Math.Round(readLatMs, 2),
-            WriteLatencyMs = Math.Round(writeLatMs, 2),
-            ReadOpsPerSec = Math.Round(readOps, 1),
-            WriteOpsPerSec = Math.Round(writeOps, 1),
-            ReadBytesPerSec = Math.Round(readBw, 1),
-            WriteBytesPerSec = Math.Round(writeBw, 1),
-            QueueDepth = Math.Round(queueDepth, 2),
-            UtilizationPct = Math.Round(utilPct, 1),
-        };
-    }
 
     private static string DefaultIfEmpty(string value, string fallback)
         => string.IsNullOrEmpty(value) ? fallback : value;

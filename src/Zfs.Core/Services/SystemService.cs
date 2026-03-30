@@ -5,12 +5,14 @@ using Zfs.Core.Models;
 
 namespace Zfs.Core.Services;
 
-public class SystemService()
+public class SystemService() : ISystemService
 {
     private readonly Lock sync = new();
     private ulong[] prevCpuJiffies = [];
     private List<NetworkInterfaceInfo>? prevNetwork;
     private DateTime prevNetworkTime;
+    private List<DiskIoInfo>? prevDisks;
+    private DateTime prevDiskTime;
 
     // ── Dashboard API ────────────────────────────────────────────────────
 
@@ -19,17 +21,20 @@ public class SystemService()
         var systemTask = this.GetSystemInfoAsync();
         var memoryTask = this.GetMemoryInfoAsync();
         var networkTask = this.GetNetworkInfoAsync();
-        var vdevDataTask = zpool.GetAllPoolsVdevDataAsync();
+        var diskTask = GetDiskIoInfoAsync();
         var arcTask = zfs.GetArcStatsAsync();
         var cpuTask = this.GetCpuUsagePercentAsync();
+        var poolsTask = zpool.GetAllPoolsAsync();
 
-        await Task.WhenAll(systemTask, memoryTask, networkTask, vdevDataTask, arcTask, cpuTask);
+        await Task.WhenAll(systemTask, memoryTask, networkTask, diskTask, arcTask, cpuTask, poolsTask);
 
         var sys = systemTask.Result;
         var mem = memoryTask.Result;
         var arc = arcTask.Result;
         var cpu = cpuTask.Result;
         var network = networkTask.Result;
+        var disks = diskTask.Result;
+        var pools = poolsTask.Result;
         var now = DateTime.UtcNow;
 
         // ── Text fields (set via textContent) ────────────────────────────
@@ -73,8 +78,76 @@ public class SystemService()
 
         var (netHtml, netRates) = this.BuildNetworkData(network, now);
         html["netBody"] = netHtml;
+        var diskRates = this.BuildDiskIoRates(disks, now);
+        var poolDiskRates = BuildPoolDiskGroups(pools, diskRates);
 
-        return new DashboardData { Text = text, Html = html, NetworkRates = netRates, PoolLatencies = vdevDataTask.Result };
+        return new DashboardData { Text = text, Html = html, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates };
+    }
+
+    // ── Disk I/O rate computation ────────────────────────────────────────
+
+    private List<DiskIoRateInfo> BuildDiskIoRates(List<DiskIoInfo> disks, DateTime now)
+    {
+        List<DiskIoInfo>? prev;
+        double elapsed;
+        lock (this.sync)
+        {
+            prev = this.prevDisks;
+            elapsed = prev != null ? (now - this.prevDiskTime).TotalSeconds : 0;
+            this.prevDisks = disks;
+            this.prevDiskTime = now;
+        }
+
+        return ComputeDiskIoRates(disks, prev, elapsed);
+    }
+
+    internal static List<DiskIoRateInfo> ComputeDiskIoRates(List<DiskIoInfo> disks, List<DiskIoInfo>? prev, double elapsed)
+    {
+        var rates = new List<DiskIoRateInfo>();
+        if (disks.Count == 0) return rates;
+
+        foreach (var dk in disks)
+        {
+            double readBps = 0, writeBps = 0, readOps = 0, writeOps = 0;
+            double readLatMs = 0, writeLatMs = 0, utilPct = 0;
+
+            if (prev != null && elapsed > 0)
+            {
+                var p = prev.Find(d => d.Device == dk.Device);
+                if (p != null)
+                {
+                    var dReads = SafeDelta(dk.ReadsCompleted, p.ReadsCompleted);
+                    var dWrites = SafeDelta(dk.WritesCompleted, p.WritesCompleted);
+
+                    readBps = SafeDelta(dk.SectorsRead, p.SectorsRead) * 512.0 / elapsed;
+                    writeBps = SafeDelta(dk.SectorsWritten, p.SectorsWritten) * 512.0 / elapsed;
+                    readOps = dReads / elapsed;
+                    writeOps = dWrites / elapsed;
+
+                    // Average latency = delta time / delta ops
+                    readLatMs = dReads > 0 ? SafeDelta(dk.ReadTimeMs, p.ReadTimeMs) / dReads : 0;
+                    writeLatMs = dWrites > 0 ? SafeDelta(dk.WriteTimeMs, p.WriteTimeMs) / dWrites : 0;
+
+                    // Utilization = delta io_time / wall_time (capped at 100%)
+                    utilPct = Math.Min(SafeDelta(dk.IoTimeMs, p.IoTimeMs) / (elapsed * 1000) * 100, 100);
+                }
+            }
+
+            rates.Add(new DiskIoRateInfo
+            {
+                Device = dk.Device,
+                ReadBytesPerSec = Math.Round(readBps, 1),
+                WriteBytesPerSec = Math.Round(writeBps, 1),
+                ReadOpsPerSec = Math.Round(readOps, 1),
+                WriteOpsPerSec = Math.Round(writeOps, 1),
+                ReadLatencyMs = Math.Round(readLatMs, 2),
+                WriteLatencyMs = Math.Round(writeLatMs, 2),
+                QueueDepth = dk.IoInProgress,
+                UtilizationPct = Math.Round(utilPct, 1),
+            });
+        }
+
+        return rates;
     }
 
     // ── Table HTML builders ──────────────────────────────────────────────
@@ -292,7 +365,131 @@ public class SystemService()
         }
     }
 
+    // ── Disk I/O Info ────────────────────────────────────────────────────
+
+    private static async Task<List<DiskIoInfo>> GetDiskIoInfoAsync()
+    {
+        try
+        {
+            var lines = await File.ReadAllLinesAsync("/proc/diskstats");
+            var disks = new List<DiskIoInfo>();
+
+            foreach (var line in lines)
+            {
+                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 14) continue;
+
+                var device = parts[2];
+
+                // Only show whole disks (sd*, nvme*n*, vd*) — skip partitions and virtual devices
+                if (!IsPhysicalDisk(device)) continue;
+
+                disks.Add(new DiskIoInfo
+                {
+                    Device = device,
+                    ReadsCompleted = ParseU(parts[3]),
+                    SectorsRead = ParseU(parts[5]),
+                    ReadTimeMs = ParseU(parts[6]),
+                    WritesCompleted = ParseU(parts[7]),
+                    SectorsWritten = ParseU(parts[9]),
+                    WriteTimeMs = ParseU(parts[10]),
+                    IoInProgress = ParseU(parts[11]),
+                    IoTimeMs = ParseU(parts[12]),
+                });
+            }
+            return disks.OrderBy(d => d.Device).ToList();
+        }
+        catch (Exception)
+        {
+            return [];
+        }
+    }
+
+    // ── Pool-to-Disk Mapping ────────────────────────────────────────────
+
+    private static List<PoolDiskIoGroup> BuildPoolDiskGroups(List<Pool> pools, List<DiskIoRateInfo> diskRates)
+    {
+        if (pools.Count == 0 || diskRates.Count == 0) return [];
+
+        var ratesByDevice = diskRates.ToDictionary(d => d.Device);
+        var result = new List<PoolDiskIoGroup>();
+
+        foreach (var pool in pools)
+        {
+            var allDevices = pool.DataDevices
+                .Concat(pool.CacheDevices)
+                .Concat(pool.LogDevices)
+                .Concat(pool.SpecialDevices);
+
+            var matched = new List<DiskIoRateInfo>();
+            foreach (var dev in allDevices)
+            {
+                var baseDisk = ResolveToPhysicalDisk(dev.Path);
+                if (baseDisk != null && ratesByDevice.TryGetValue(baseDisk, out var rate))
+                    matched.Add(rate);
+            }
+
+            result.Add(new PoolDiskIoGroup { PoolName = pool.Name, Disks = matched });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Resolves a pool device path (e.g. <c>/dev/disk/by-id/wwn-xxx-part2</c>) to
+    /// the physical disk name from <c>/proc/diskstats</c> (e.g. <c>sda</c>).
+    /// Returns <c>null</c> if the path cannot be resolved.
+    /// </summary>
+    internal static string? ResolveToPhysicalDisk(string devicePath)
+    {
+        try
+        {
+            // Resolve symlink to actual block device (e.g. /dev/sda2)
+            var target = File.ResolveLinkTarget(devicePath, returnFinalTarget: true);
+            var resolved = target?.FullName ?? devicePath;
+            var name = Path.GetFileName(resolved);
+            return StripPartition(name);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Strips the partition suffix from a block device name.
+    /// <c>sda2</c> → <c>sda</c>, <c>nvme0n1p1</c> → <c>nvme0n1</c>.
+    /// </summary>
+    internal static string StripPartition(string deviceName)
+    {
+        // NVMe: partition suffix is always pN (e.g. nvme0n1p1 → nvme0n1)
+        // Without 'p' suffix the name is already a whole disk (nvme0n1)
+        if (deviceName.StartsWith("nvme"))
+        {
+            var pIdx = deviceName.LastIndexOf('p');
+            if (pIdx > 0 && pIdx < deviceName.Length - 1 && char.IsDigit(deviceName[pIdx + 1]))
+                return deviceName[..pIdx];
+            return deviceName;
+        }
+
+        // SCSI/SATA/virtio: sda2 → sda, vdb1 → vdb, xvda1 → xvda
+        var end = deviceName.Length;
+        while (end > 0 && char.IsDigit(deviceName[end - 1]))
+            end--;
+        return end > 0 && end < deviceName.Length ? deviceName[..end] : deviceName;
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    internal static bool IsPhysicalDisk(string device)
+    {
+        // sd[a-z]+ (SCSI/SATA), nvme[0-9]n[0-9] (NVMe), vd[a-z]+ (virtio), xvd[a-z]+ (Xen)
+        if (device.StartsWith("sd") && device.Length >= 3 && device[2..].All(char.IsLetter)) return true;
+        if (device.StartsWith("nvme") && device.Contains('n') && !device.Contains('p')) return true;
+        if (device.StartsWith("vd") && device.Length >= 3 && device[2..].All(char.IsLetter)) return true;
+        if (device.StartsWith("xvd") && device.Length >= 4 && device[3..].All(char.IsLetter)) return true;
+        return false;
+    }
 
     private static double SafeDelta(ulong current, ulong previous) => current >= previous ? current - previous : 0;
 

@@ -1,5 +1,5 @@
 @using Zfs.Core.Services
-@inject SystemService SystemSvc
+@inject ISystemService SystemSvc
 @inject IZfsService ZfsSvc
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
