@@ -40,7 +40,25 @@
                     Network
                 </h5>
                 <canvas id="netCanvas"></canvas>
-                <div id="netCharts"></div>
+                <div class="table-responsive mt-2">
+                    <table class="table table-borderless table-sm mb-0 small" style="table-layout:fixed">
+                        <colgroup>
+                            <col style="width:30%">
+                            <col style="width:35%">
+                            <col style="width:35%">
+                        </colgroup>
+                        <thead>
+                            <tr class="border-bottom border-secondary">
+                                <th class="text-body-secondary fw-normal">Interface</th>
+                                <th class="text-body-secondary fw-normal text-end">Download</th>
+                                <th class="text-body-secondary fw-normal text-end">Upload</th>
+                            </tr>
+                        </thead>
+                        <tbody id="netDetail">
+                            <tr><td colspan="3" class="text-body-secondary">Loading&hellip;</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -224,19 +242,19 @@
                                 <table class="table table-borderless table-sm mb-0 small" style="table-layout:fixed">
                                     <colgroup>
                                         <col style="width:22%">
+                                        <col style="width:15%">
+                                        <col style="width:15%">
+                                        <col style="width:15%">
+                                        <col style="width:15%">
                                         <col style="width:18%">
-                                        <col style="width:18%">
-                                        <col style="width:14%">
-                                        <col style="width:14%">
-                                        <col style="width:14%">
                                     </colgroup>
                                     <thead>
                                         <tr class="border-bottom border-secondary">
                                             <th class="text-body-secondary fw-normal" style="font-size:.7rem">Disk</th>
-                                            <th class="text-body-secondary fw-normal text-end" style="font-size:.7rem">Read</th>
-                                            <th class="text-body-secondary fw-normal text-end" style="font-size:.7rem">Write</th>
+                                            <th class="text-body-secondary fw-normal" style="font-size:.7rem">Role</th>
                                             <th class="text-body-secondary fw-normal text-end" style="font-size:.7rem">R lat</th>
                                             <th class="text-body-secondary fw-normal text-end" style="font-size:.7rem">W lat</th>
+                                            <th class="text-body-secondary fw-normal text-end" style="font-size:.7rem">Queue</th>
                                             <th class="text-body-secondary fw-normal text-end" style="font-size:.7rem">Util%</th>
                                         </tr>
                                     </thead>
@@ -320,11 +338,12 @@
                     const rx = data.networkRates.reduce((s, r) => s + r.rxBytesPerSec, 0);
                     const tx = data.networkRates.reduce((s, r) => s + r.txBytesPerSec, 0);
                     pushNet(rx, tx);
-                    document.getElementById('netCharts').innerHTML = data.networkRates.map(r =>
-                        '<span class="small font-monospace">' + r.name +
-                        ' <i class="bi bi-arrow-down text-info"></i>' + fmtRate(r.rxBytesPerSec) +
-                        ' <i class="bi bi-arrow-up text-warning"></i>' + fmtRate(r.txBytesPerSec) + '</span>'
-                    ).join(' &nbsp; ');
+                    document.getElementById('netDetail').innerHTML = data.networkRates.map(r =>
+                        '<tr class="border-bottom border-secondary">' +
+                        '<td class="fw-semibold font-monospace">' + esc(r.name) + '</td>' +
+                        '<td class="text-end font-monospace text-info">' + fmtRate(r.rxBytesPerSec) + '</td>' +
+                        '<td class="text-end font-monospace text-warning">' + fmtRate(r.txBytesPerSec) + '</td></tr>'
+                    ).join('');
                 }
 
                 // Disk I/O chart + detail table
@@ -337,8 +356,8 @@
                         const uc = r.utilizationPct > 80 ? 'text-danger' : r.utilizationPct > 50 ? 'text-warning' : '';
                         return '<tr class="border-bottom border-secondary">' +
                             '<td class="fw-semibold font-monospace">' + esc(r.device) + '</td>' +
-                            '<td class="text-end font-monospace">' + fmtRate(r.readBytesPerSec) + '</td>' +
-                            '<td class="text-end font-monospace">' + fmtRate(r.writeBytesPerSec) + '</td>' +
+                            '<td class="text-end font-monospace text-info">' + fmtRate(r.readBytesPerSec) + '</td>' +
+                            '<td class="text-end font-monospace text-warning">' + fmtRate(r.writeBytesPerSec) + '</td>' +
                             '<td class="text-end font-monospace ' + uc + '">' + r.utilizationPct.toFixed(1) + '%</td></tr>';
                     }).join('');
                 }
@@ -352,10 +371,10 @@
                             const uc = d.utilizationPct > 80 ? 'text-danger' : d.utilizationPct > 50 ? 'text-warning' : '';
                             return '<tr class="border-bottom border-secondary">' +
                                 '<td class="fw-semibold font-monospace">' + esc(d.device) + '</td>' +
-                                '<td class="text-end font-monospace">' + fmtRate(d.readBytesPerSec) + '</td>' +
-                                '<td class="text-end font-monospace">' + fmtRate(d.writeBytesPerSec) + '</td>' +
+                                '<td class="text-body-secondary">' + esc(d.role || '\u2013') + '</td>' +
                                 '<td class="text-end font-monospace">' + fmtMs(d.readLatencyMs) + '</td>' +
                                 '<td class="text-end font-monospace">' + fmtMs(d.writeLatencyMs) + '</td>' +
+                                '<td class="text-end font-monospace">' + Math.round(d.queueDepth) + '</td>' +
                                 '<td class="text-end font-monospace ' + uc + '">' + d.utilizationPct.toFixed(1) + '%</td></tr>';
                         }).join('') : '<tr><td colspan="6" class="text-body-secondary">No disk data</td></tr>';
                     }

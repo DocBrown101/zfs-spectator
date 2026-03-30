@@ -426,7 +426,7 @@ public class SystemService() : ISystemService
             {
                 var baseDisk = ResolveToPhysicalDisk(dev.Path);
                 if (baseDisk != null && ratesByDevice.TryGetValue(baseDisk, out var rate))
-                    matched.Add(rate);
+                    matched.Add(rate with { Role = dev.Role });
             }
 
             result.Add(new PoolDiskIoGroup { PoolName = pool.Name, Disks = matched });

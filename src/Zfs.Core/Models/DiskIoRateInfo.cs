@@ -3,6 +3,7 @@ namespace Zfs.Core.Models;
 public record DiskIoRateInfo
 {
     public string Device { get; init; } = "";
+    public string Role { get; init; } = "";
     public double ReadBytesPerSec { get; init; }
     public double WriteBytesPerSec { get; init; }
     public double ReadOpsPerSec { get; init; }
