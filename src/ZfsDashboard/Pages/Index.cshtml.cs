@@ -68,32 +68,42 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService sys
         var data = await system.GetDashboardDataAsync(zfs, zpool);
         var ctx = this.PageContext;
 
-        var net = await renderer.RenderAsync(ctx, "_NetTable", data.NetworkRates);
-        var disk = await renderer.RenderAsync(ctx, "_DiskTable", data.DiskIoRates);
+        var netTask  = renderer.RenderAsync(ctx, "_NetTable",  data.NetworkRates);
+        var diskTask = renderer.RenderAsync(ctx, "_DiskTable", data.DiskIoRates);
 
-        var pools = new Dictionary<string, string>();
-        foreach (var p in data.PoolDiskIoRates)
-            pools[p.PoolName] = await renderer.RenderAsync(ctx, "_PoolDisks", p.Disks);
+        var arcHitRateTask = data.Arc.MaxSize > 0
+            ? renderer.RenderAsync(ctx, "_ArcHitRate", data.Arc) : null;
+        var l2HitRateTask = data.Arc.MaxSize > 0 && data.Arc.L2Size > 0
+            ? renderer.RenderAsync(ctx, "_L2HitRate", data.Arc) : null;
 
-        string? arcHitRate = null;
-        string? l2HitRate = null;
-        if (data.Arc.MaxSize > 0)
-        {
-            arcHitRate = await renderer.RenderAsync(ctx, "_ArcHitRate", data.Arc);
-            if (data.Arc.L2Size > 0)
-                l2HitRate = await renderer.RenderAsync(ctx, "_L2HitRate", data.Arc);
-        }
+        var poolTasks = data.PoolDiskIoRates
+            .Select(p => (p.PoolName, Task: renderer.RenderAsync(ctx, "_PoolDisks", p.Disks)))
+            .ToList();
+        var scrubTasks = data.PoolScrubs
+            .Select(kv => (kv.Key, Task: renderer.RenderAsync(ctx, "_ScrubStatus", kv.Value)))
+            .ToList();
+
+        var optionals = new Task?[] { arcHitRateTask, l2HitRateTask }.OfType<Task>();
+        await Task.WhenAll(
+            new Task[] { netTask, diskTask }
+                .Concat(optionals)
+                .Concat(poolTasks.Select(x  => (Task)x.Task))
+                .Concat(scrubTasks.Select(x => (Task)x.Task)));
+
+        var pools  = poolTasks.ToDictionary(x  => x.PoolName, x => x.Task.Result);
+        var scrubs = scrubTasks.ToDictionary(x => x.Key,      x => x.Task.Result);
 
         return new JsonResult(new
         {
             text = data.Text,
-            net,
-            disk,
+            net  = netTask.Result,
+            disk = diskTask.Result,
             pools,
-            arcHitRate,
-            l2HitRate,
+            scrubs,
+            arcHitRate = arcHitRateTask?.Result,
+            l2HitRate  = l2HitRateTask?.Result,
             networkRates = data.NetworkRates,
-            diskIoRates = data.DiskIoRates,
+            diskIoRates  = data.DiskIoRates,
         });
     }
 }

@@ -219,44 +219,7 @@
             <i class="bi bi-shield-check text-info"></i>
             Scrub Status
         </h5>
-        @switch (Model.Scrub.State)
-        {
-            case "running":
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <div class="spinner-border spinner-border-sm text-info" role="status"></div>
-                    <span>Scrub in progress &mdash; @Model.Scrub.ProgressPct.ToString("F2")% done</span>
-                </div>
-                <div class="progress mb-1" style="height: 6px;">
-                    <div class="progress-bar bg-info" style="width: @Model.Scrub.ProgressPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
-                </div>
-                <small class="text-body-secondary">
-                    @if (!string.IsNullOrEmpty(Model.Scrub.StartTime))
-                    {
-                        <span>Started: @Model.Scrub.StartTime</span>
-                    }
-                    @if (!string.IsNullOrEmpty(Model.Scrub.TimeLeft))
-                    {
-                        <span>&middot; ETA: @Model.Scrub.TimeLeft</span>
-                    }
-                    @if (Model.Scrub.Errors > 0)
-                    {
-                        <span>&middot; Errors: @Model.Scrub.Errors</span>
-                    }
-                </small>
-                break;
-            case "finished":
-                <div class="d-flex align-items-center gap-2">
-                    <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed</span>
-                    <span class="text-body-secondary small">Duration: @Model.Scrub.Duration &middot; Errors: @Model.Scrub.Errors &middot; @Model.Scrub.FinishTime</span>
-                </div>
-                break;
-            case "canceled":
-                <span class="text-warning"><i class="bi bi-dash-circle me-1"></i>Canceled</span>
-                break;
-            default:
-                <span class="text-body-secondary"><i class="bi bi-clock me-1"></i>Idle &mdash; no scrub requested</span>
-                break;
-        }
+        <partial name="_ScrubStatus" model="Model.Scrub" />
     </div>
 </div>
 

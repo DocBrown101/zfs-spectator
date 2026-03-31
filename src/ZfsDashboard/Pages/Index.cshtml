@@ -276,6 +276,12 @@
                                     <tbody id="poolDisks-@pool.Name"></tbody>
                                 </table>
                             </div>
+                            <div class="mt-2 pt-2 small">
+                                <span class="text-body-secondary text-uppercase me-2" style="font-size:.7rem">Scrub</span>
+                                <span id="poolScrub-@pool.Name" class="text-body-secondary">
+                                    <i class="bi bi-hourglass-split me-1"></i>Loading&hellip;
+                                </span>
+                            </div>
                         </div>
                     </div>
                 }
@@ -393,9 +399,14 @@
 
                 document.getElementById('diskDetail').innerHTML = data.disk;
 
-                for (const poolName in data.pools) {
+                for (const [poolName, html] of Object.entries(data.pools)) {
                     const el = document.getElementById('poolDisks-' + poolName);
-                    if (el) el.innerHTML = data.pools[poolName];
+                    if (el) el.innerHTML = html;
+                }
+
+                for (const [poolName, html] of Object.entries(data.scrubs)) {
+                    const el = document.getElementById('poolScrub-' + poolName);
+                    if (el) el.innerHTML = html;
                 }
             } catch (err) {
                 console.error('live update failed:', err.message);

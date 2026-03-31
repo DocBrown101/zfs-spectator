@@ -26,7 +26,15 @@ public class DemoDataSystemService : ISystemService
 
     public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
     {
-        var arc = await zfs.GetArcStatsAsync();
+        var arcTask       = zfs.GetArcStatsAsync();
+        var poolNamesTask = zpool.GetPoolNamesAsync();
+        await Task.WhenAll(arcTask, poolNamesTask);
+        var arc       = arcTask.Result;
+        var poolNames = poolNamesTask.Result;
+
+        var scrubResults = await Task.WhenAll(poolNames.Select(n => zpool.GetScrubStatusAsync(n)));
+        var poolScrubs = poolNames.Zip(scrubResults, (n, s) => (Name: n, Scrub: s))
+            .ToDictionary(x => x.Name, x => x.Scrub);
 
         var text = new Dictionary<string, string>
         {
@@ -79,6 +87,7 @@ public class DemoDataSystemService : ISystemService
             NetworkRates = networkRates,
             DiskIoRates = diskRates,
             PoolDiskIoRates = poolDiskRates,
+            PoolScrubs = poolScrubs,
         };
     }
 

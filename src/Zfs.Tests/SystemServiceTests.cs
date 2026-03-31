@@ -2,6 +2,7 @@ namespace Zfs.Tests;
 
 using Zfs.Core.Models;
 using Zfs.Core.Services;
+using Zfs.Core.Services.TestData;
 
 public class SystemServiceTests
 {
@@ -176,5 +177,70 @@ public class SystemServiceTests
         Assert.Single(rates);
         Assert.Equal("sdb", rates[0].Device);
         Assert.Equal(0, rates[0].ReadBytesPerSec);
+    }
+
+    // ── GetDashboardDataAsync ────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetDashboardDataAsync_PopulatesPoolScrubsFromService()
+    {
+        var pools = new List<Pool> { MakePool("tank"), MakePool("backup") };
+        var scrubs = new Dictionary<string, ScrubInfo>
+        {
+            ["tank"]   = new() { State = "finished", Duration = "01:23:45", Errors = 0, FinishTime = "2026-03-30" },
+            ["backup"] = ScrubInfo.Idle,
+        };
+
+        var data = await new SystemService().GetDashboardDataAsync(
+            new StubZfsService(),
+            new StubZpoolService(pools, scrubs));
+
+        Assert.Equal(2, data.PoolScrubs.Count);
+        Assert.Equal("finished", data.PoolScrubs["tank"].State);
+        Assert.Equal("idle",     data.PoolScrubs["backup"].State);
+    }
+
+    [Fact]
+    public async Task GetDashboardDataAsync_NoPools_ReturnsEmptyPoolScrubs()
+    {
+        var data = await new SystemService().GetDashboardDataAsync(
+            new StubZfsService(),
+            new StubZpoolService([], []));
+
+        Assert.Empty(data.PoolScrubs);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static Pool MakePool(string name) => new()
+    {
+        Name = name, Health = "ONLINE", VdevType = "mirror", Operation = "",
+        Compression = "lz4", CompRatio = "1.50x", Dedup = "off", Sync = "standard", Atime = "off",
+    };
+
+    private sealed class StubZfsService : IZfsService
+    {
+        public Task<ArcStats> GetArcStatsAsync()                          => Task.FromResult(new ArcStats());
+        public Task<List<Dataset>> GetAllDatasetsAsync()                   => Task.FromResult(new List<Dataset>());
+        public Task<List<Dataset>> GetDatasetsAsync(string poolName)       => Task.FromResult(new List<Dataset>());
+        public Task<List<Snapshot>> GetSnapshotsAsync(string poolName)     => Task.FromResult(new List<Snapshot>());
+        public Task<List<ZVol>> GetAllZVolsAsync()                         => Task.FromResult(new List<ZVol>());
+        public Task<string> GetZfsVersionAsync()                           => Task.FromResult("zfs-2.2.0");
+    }
+
+    private sealed class StubZpoolService(List<Pool> pools, Dictionary<string, ScrubInfo> scrubs) : IZpoolService
+    {
+        public Task<List<Pool>> GetAllPoolsAsync()   => Task.FromResult(pools);
+        public Task<List<string>> GetPoolNamesAsync() => Task.FromResult(pools.Select(p => p.Name).ToList());
+        public Task<Pool?> GetPoolByNameAsync(string name) =>
+            Task.FromResult<Pool?>(pools.FirstOrDefault(p => p.Name == name));
+        public Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
+        {
+            var pool = pools.FirstOrDefault(p => p.Name == name);
+            if (pool is null) return Task.FromResult<(Pool, ScrubInfo)?>(null);
+            return Task.FromResult<(Pool, ScrubInfo)?>((pool, scrubs.GetValueOrDefault(name, ScrubInfo.Idle)));
+        }
+        public Task<ScrubInfo> GetScrubStatusAsync(string poolName) =>
+            Task.FromResult(scrubs.GetValueOrDefault(poolName, ScrubInfo.Idle));
     }
 }

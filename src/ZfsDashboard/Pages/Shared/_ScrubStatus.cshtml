@@ -1,0 +1,39 @@
+@model ScrubInfo
+@switch (Model.State)
+{
+    case "running":
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+            <span>Scrub in progress &mdash; @Model.ProgressPct.ToString("F2")% done</span>
+        </div>
+        <div class="progress mb-1" style="height: 6px;">
+            <div class="progress-bar bg-info" style="width: @Model.ProgressPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+        </div>
+        <small class="text-body-secondary">
+            @if (!string.IsNullOrEmpty(Model.StartTime))
+            {
+                <span>Started: @Model.StartTime</span>
+            }
+            @if (!string.IsNullOrEmpty(Model.TimeLeft))
+            {
+                <span>&middot; ETA: @Model.TimeLeft</span>
+            }
+            @if (Model.Errors > 0)
+            {
+                <span>&middot; Errors: @Model.Errors</span>
+            }
+        </small>
+        break;
+    case "finished":
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed</span>
+            <span class="text-body-secondary small">Duration: @Model.Duration &middot; Errors: @Model.Errors &middot; @Model.FinishTime</span>
+        </div>
+        break;
+    case "canceled":
+        <span class="text-warning"><i class="bi bi-dash-circle me-1"></i>Canceled</span>
+        break;
+    default:
+        <span class="text-body-secondary"><i class="bi bi-clock me-1"></i>Idle &mdash; no scrub requested</span>
+        break;
+}

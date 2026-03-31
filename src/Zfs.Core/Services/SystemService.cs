@@ -26,14 +26,17 @@ public class SystemService() : ISystemService
 
         await Task.WhenAll(systemTask, memoryTask, networkTask, diskTask, arcTask, cpuTask, poolsTask);
 
-        var sys = systemTask.Result;
-        var mem = memoryTask.Result;
-        var arc = arcTask.Result;
-        var cpu = cpuTask.Result;
+        var sys     = systemTask.Result;
+        var mem     = memoryTask.Result;
+        var arc     = arcTask.Result;
+        var cpu     = cpuTask.Result;
         var network = networkTask.Result;
-        var disks = diskTask.Result;
-        var pools = poolsTask.Result;
-        var now = DateTime.UtcNow;
+        var disks   = diskTask.Result;
+        var pools   = poolsTask.Result;
+        var now     = DateTime.UtcNow;
+
+        // Fan out scrub checks while synchronous work below runs
+        var scrubTask = Task.WhenAll(pools.Select(p => zpool.GetScrubStatusAsync(p.Name)));
 
         // ── Text fields (set via textContent) ────────────────────────────
         var text = new Dictionary<string, string>
@@ -63,11 +66,15 @@ public class SystemService() : ISystemService
             text["arcMruMfu"] = $"{arc.MruSize.FormatBytes()} / {arc.MfuSize.FormatBytes()}";
         }
 
-        var netRates = this.BuildNetworkRates(network, now);
-        var diskRates = this.BuildDiskIoRates(disks, now);
+        var netRates      = this.BuildNetworkRates(network, now);
+        var diskRates     = this.BuildDiskIoRates(disks, now);
         var poolDiskRates = BuildPoolDiskGroups(pools, diskRates);
 
-        return new DashboardData { Text = text, Arc = arc, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates };
+        var scrubResults = await scrubTask;
+        var poolScrubs   = pools.Zip(scrubResults, (p, s) => (p.Name, Scrub: s))
+            .ToDictionary(x => x.Name, x => x.Scrub);
+
+        return new DashboardData { Text = text, Arc = arc, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates, PoolScrubs = poolScrubs };
     }
 
     // ── Disk I/O rate computation ────────────────────────────────────────

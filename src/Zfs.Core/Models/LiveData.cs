@@ -7,6 +7,7 @@ public record DashboardData
     public List<NetworkRateInfo> NetworkRates { get; init; } = new();
     public List<DiskIoRateInfo> DiskIoRates { get; init; } = new();
     public List<PoolDiskIoGroup> PoolDiskIoRates { get; init; } = new();
+    public Dictionary<string, ScrubInfo> PoolScrubs { get; init; } = new();
 }
 
 public record NetworkRateInfo
