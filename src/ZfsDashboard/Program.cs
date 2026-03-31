@@ -2,9 +2,11 @@ using Zfs.Core;
 using Zfs.Core.Services;
 using Zfs.Core.Services.TestData;
 using ZfsDashboard;
+using ZfsDashboard.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
+builder.Services.AddSingleton<IPartialRenderer, PartialRenderer>();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -30,5 +32,4 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseRouting();
 app.MapRazorPages();
-app.MapGet("/api/live", async (ISystemService sys, IZfsService zfs, IZpoolService zpool) => await sys.GetDashboardDataAsync(zfs, zpool));
 app.Run();

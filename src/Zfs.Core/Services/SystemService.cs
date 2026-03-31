@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Net;
-using System.Text;
 using Zfs.Core.Models;
 
 namespace Zfs.Core.Services;
@@ -56,32 +54,20 @@ public class SystemService() : ISystemService
             ["swapPct"] = $"{mem.SwapUsagePercent:F1} %",
         };
 
-        // ── HTML fields (set via innerHTML) ──────────────────────────────
-        var html = new Dictionary<string, string>();
-
         if (arc.MaxSize > 0)
         {
+            text["arcPct"] = $"{arc.UsagePercent:F1} %";
             text["arcSize"] = $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}";
             text["arcMeta"] = arc.MetadataSize.FormatBytes();
             text["arcData"] = arc.DataSize.FormatBytes();
             text["arcMruMfu"] = $"{arc.MruSize.FormatBytes()} / {arc.MfuSize.FormatBytes()}";
-
-            var hitClass = arc.HitRate >= 90 ? "text-success" : arc.HitRate >= 70 ? "text-warning" : "text-danger";
-            html["arcHitRate"] = $"<span class=\"{hitClass}\">{arc.HitRate:F1}%</span>";
-
-            if (arc.L2Size > 0)
-            {
-                var l2Class = arc.L2HitRate >= 70 ? "text-success" : "text-warning";
-                html["l2HitRate"] = $"<span class=\"{l2Class}\">{arc.L2HitRate:F1}% ({arc.L2Size.FormatBytes()})</span>";
-            }
         }
 
-        var (netHtml, netRates) = this.BuildNetworkData(network, now);
-        html["netBody"] = netHtml;
+        var netRates = this.BuildNetworkRates(network, now);
         var diskRates = this.BuildDiskIoRates(disks, now);
         var poolDiskRates = BuildPoolDiskGroups(pools, diskRates);
 
-        return new DashboardData { Text = text, Html = html, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates };
+        return new DashboardData { Text = text, Arc = arc, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates };
     }
 
     // ── Disk I/O rate computation ────────────────────────────────────────
@@ -150,14 +136,14 @@ public class SystemService() : ISystemService
         return rates;
     }
 
-    // ── Table HTML builders ──────────────────────────────────────────────
+    // ── Network rate computation ───────────────────────────────────────────
 
-    private (string Html, List<NetworkRateInfo> Rates) BuildNetworkData(List<NetworkInterfaceInfo> network, DateTime now)
+    private List<NetworkRateInfo> BuildNetworkRates(List<NetworkInterfaceInfo> network, DateTime now)
     {
         var rates = new List<NetworkRateInfo>();
 
         if (network.Count == 0)
-            return ("<tr><td colspan=\"3\" class=\"text-body-secondary\">No active interfaces</td></tr>", rates);
+            return rates;
 
         List<NetworkInterfaceInfo>? prevNet;
         double elapsed;
@@ -169,12 +155,8 @@ public class SystemService() : ISystemService
             this.prevNetworkTime = now;
         }
 
-        var sb = new StringBuilder();
-
         foreach (var n in network)
         {
-            var rxRate = "\u2013";
-            var txRate = "\u2013";
             double rxBps = 0, txBps = 0;
 
             if (prevNet != null && elapsed > 0)
@@ -182,28 +164,16 @@ public class SystemService() : ISystemService
                 var prev = prevNet.Find(p => p.Name == n.Name);
                 if (prev != null)
                 {
-                    var rxDelta = SafeDelta(n.RxBytes, prev.RxBytes);
-                    var txDelta = SafeDelta(n.TxBytes, prev.TxBytes);
-                    rxBps = rxDelta / elapsed;
-                    txBps = txDelta / elapsed;
-                    rxRate = rxBps.FormatRate();
-                    txRate = txBps.FormatRate();
+                    rxBps = SafeDelta(n.RxBytes, prev.RxBytes) / elapsed;
+                    txBps = SafeDelta(n.TxBytes, prev.TxBytes) / elapsed;
                 }
             }
 
             rates.Add(new NetworkRateInfo { Name = n.Name, RxBytesPerSec = rxBps, TxBytesPerSec = txBps });
-
-            sb.Append("<tr class=\"border-bottom border-secondary\">")
-              .Append($"<td class=\"fw-semibold\">{Enc(n.Name)}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{rxRate}</td>")
-              .Append($"<td class=\"text-end font-monospace\">{txRate}</td>")
-              .Append("</tr>");
         }
 
-        return (sb.ToString(), rates);
+        return rates;
     }
-
-    private static string Enc(string s) => WebUtility.HtmlEncode(s);
 
     // ── System Info ──────────────────────────────────────────────────────
 

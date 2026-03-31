@@ -46,32 +46,14 @@ public class DemoDataSystemService : ISystemService
             ["swapPct"] = "0.0 %",
         };
 
-        var html = new Dictionary<string, string>();
-
         if (arc.MaxSize > 0)
         {
+            text["arcPct"] = $"{arc.UsagePercent:F1} %";
             text["arcSize"] = $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}";
             text["arcMeta"] = arc.MetadataSize.FormatBytes();
             text["arcData"] = arc.DataSize.FormatBytes();
             text["arcMruMfu"] = $"{arc.MruSize.FormatBytes()} / {arc.MfuSize.FormatBytes()}";
-
-            var hitClass = arc.HitRate >= 90 ? "text-success" : arc.HitRate >= 70 ? "text-warning" : "text-danger";
-            html["arcHitRate"] = $"<span class=\"{hitClass}\">{arc.HitRate:F1}%</span>";
-
-            if (arc.L2Size > 0)
-            {
-                var l2Class = arc.L2HitRate >= 70 ? "text-success" : "text-warning";
-                html["l2HitRate"] = $"<span class=\"{l2Class}\">{arc.L2HitRate:F1}% ({arc.L2Size.FormatBytes()})</span>";
-            }
         }
-
-        html["netBody"] = """
-            <tr class="border-bottom border-secondary">
-                <td class="fw-semibold">eth0</td>
-                <td class="text-end font-monospace">1.2 MiB/s</td>
-                <td class="text-end font-monospace">245.8 KiB/s</td>
-            </tr>
-            """;
 
         var networkRates = new List<NetworkRateInfo>
         {
@@ -93,7 +75,7 @@ public class DemoDataSystemService : ISystemService
         return new DashboardData
         {
             Text = text,
-            Html = html,
+            Arc = arc,
             NetworkRates = networkRates,
             DiskIoRates = diskRates,
             PoolDiskIoRates = poolDiskRates,

@@ -203,7 +203,6 @@ public class ZfsParserTests
         var data = new DashboardData
         {
             Text = new() { ["cpuUsage"] = "5.0%" },
-            Html = new(),
             NetworkRates = [],
             DiskIoRates =
             [
@@ -231,7 +230,7 @@ public class ZfsParserTests
         Assert.True(root.TryGetProperty("diskIoRates", out var rates));
         Assert.True(root.TryGetProperty("networkRates", out _));
         Assert.True(root.TryGetProperty("text", out _));
-        Assert.True(root.TryGetProperty("html", out _));
+        Assert.True(root.TryGetProperty("arc", out _));
 
         // Device-level properties (must match JS property access in Index.cshtml)
         var dev = rates[0];

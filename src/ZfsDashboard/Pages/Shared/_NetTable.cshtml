@@ -1,0 +1,16 @@
+@model List<NetworkRateInfo>
+@if (Model.Count == 0)
+{
+    <tr><td colspan="3" class="text-body-secondary">No active interfaces</td></tr>
+}
+else
+{
+    @foreach (var r in Model)
+    {
+        <tr class="border-bottom border-secondary">
+            <td class="fw-semibold font-monospace">@r.Name</td>
+            <td class="text-end font-monospace text-info">@r.RxBytesPerSec.FormatRate()</td>
+            <td class="text-end font-monospace text-warning">@r.TxBytesPerSec.FormatRate()</td>
+        </tr>
+    }
+}

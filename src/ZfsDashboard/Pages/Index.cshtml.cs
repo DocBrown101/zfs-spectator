@@ -1,10 +1,12 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
+using ZfsDashboard.Services;
 
 namespace ZfsDashboard.Pages;
 
-public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService system) : PageModel
+public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService system, IPartialRenderer renderer) : PageModel
 {
     public List<Pool> Pools { get; private set; } = [];
     public int DatasetCount { get; private set; }
@@ -59,5 +61,39 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService sys
             else
                 this.DegradedPools++;
         }
+    }
+
+    public async Task<IActionResult> OnGetLiveFragmentsAsync()
+    {
+        var data = await system.GetDashboardDataAsync(zfs, zpool);
+        var ctx = this.PageContext;
+
+        var net = await renderer.RenderAsync(ctx, "_NetTable", data.NetworkRates);
+        var disk = await renderer.RenderAsync(ctx, "_DiskTable", data.DiskIoRates);
+
+        var pools = new Dictionary<string, string>();
+        foreach (var p in data.PoolDiskIoRates)
+            pools[p.PoolName] = await renderer.RenderAsync(ctx, "_PoolDisks", p.Disks);
+
+        string? arcHitRate = null;
+        string? l2HitRate = null;
+        if (data.Arc.MaxSize > 0)
+        {
+            arcHitRate = await renderer.RenderAsync(ctx, "_ArcHitRate", data.Arc);
+            if (data.Arc.L2Size > 0)
+                l2HitRate = await renderer.RenderAsync(ctx, "_L2HitRate", data.Arc);
+        }
+
+        return new JsonResult(new
+        {
+            text = data.Text,
+            net,
+            disk,
+            pools,
+            arcHitRate,
+            l2HitRate,
+            networkRates = data.NetworkRates,
+            diskIoRates = data.DiskIoRates,
+        });
     }
 }

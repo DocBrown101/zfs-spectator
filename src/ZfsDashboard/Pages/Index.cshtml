@@ -128,14 +128,10 @@
                         </div>
                         <div class="flex-grow-1">
                             @{ Row("ARC Size", $"{Model.Arc.Size.FormatBytes()} / {Model.Arc.MaxSize.FormatBytes()}", "arcSize"); }
-                            @{
-                                var hitClass = Model.Arc.HitRate >= 90 ? "text-success" : Model.Arc.HitRate >= 70 ? "text-warning" : "text-danger";
-                                Row("L1 Hit Rate", Html.Raw($"<span class=\"{hitClass} fw-semibold\">{Model.Arc.HitRate:F1}%</span>"), "arcHitRate");
-                            }
+                            @{ Row("L1 Hit Rate", Html.Raw($"<span id=\"arcHitRate\">{await Html.PartialAsync("_ArcHitRate", Model.Arc)}</span>"), null); }
                             @if (Model.Arc.L2Size > 0)
                             {
-                                var l2Class = Model.Arc.L2HitRate >= 70 ? "text-success" : "text-warning";
-                                Row("L2ARC Hit Rate", Html.Raw($"<span class=\"{l2Class} fw-semibold\">{Model.Arc.L2HitRate:F1}% ({Model.Arc.L2Size.FormatBytes()})</span>"), "l2HitRate");
+                                Row("L2ARC Hit Rate", Html.Raw($"<span id=\"l2HitRate\">{await Html.PartialAsync("_L2HitRate", Model.Arc)}</span>"), null);
                             }
                             @if (Model.Arc.MetadataSize > 0)
                             {
@@ -349,15 +345,13 @@
             options: { cutout: '75%', responsive: true, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 300 } },
         });
 
-        const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-        function fmtMs(ms) { return ms <= 0 ? '\u2013' : ms < 10 ? ms.toFixed(2) : ms.toFixed(1); }
-
         async function fetchData() {
             try {
-                const res = await fetch('/api/live');
+                const res = await fetch('/Index?handler=LiveFragments');
                 const data = await res.json();
                 for (const id in data.text) { if (id === 'cpuUsage') continue; const el = document.getElementById(id); if (el) el.textContent = data.text[id]; }
-                for (const id in data.html) { if (id === 'netBody') continue; const el = document.getElementById(id); if (el) el.innerHTML = data.html[id]; }
+                if (data.arcHitRate) { const el = document.getElementById('arcHitRate'); if (el) el.innerHTML = data.arcHitRate; }
+                if (data.l2HitRate) { const el = document.getElementById('l2HitRate'); if (el) el.innerHTML = data.l2HitRate; }
 
                 const cpuPct = parseFloat(data.text.cpuUsage);
                 if (!isNaN(cpuPct)) {
@@ -367,7 +361,7 @@
                     document.getElementById('cpuPct').textContent = cpuPct.toFixed(1) + '%';
                 }
 
-                const memPct = parseFloat(data.text.memUsage);
+                const memPct = parseFloat(data.text.memPct);
                 if (!isNaN(memPct)) {
                     memChart.data.datasets[0].data = [memPct, 100 - memPct];
                     memChart.data.datasets[0].backgroundColor[0] = cpuColor(memPct);
@@ -375,7 +369,7 @@
                     document.getElementById('memPct').textContent = memPct.toFixed(1) + '%';
                 }
 
-                const arcPct = parseFloat(data.text.arcUsage);
+                const arcPct = parseFloat(data.text.arcPct);
                 if (!isNaN(arcPct)) {
                     arcChart.data.datasets[0].data = [arcPct, 100 - arcPct];
                     arcChart.data.datasets[0].backgroundColor[0] = cpuColor(arcPct);
@@ -387,46 +381,21 @@
                     const rx = data.networkRates.reduce((s, r) => s + r.rxBytesPerSec, 0);
                     const tx = data.networkRates.reduce((s, r) => s + r.txBytesPerSec, 0);
                     pushNet(rx, tx);
-                    document.getElementById('netDetail').innerHTML = data.networkRates.map(r =>
-                        '<tr class="border-bottom border-secondary">' +
-                        '<td class="fw-semibold font-monospace">' + esc(r.name) + '</td>' +
-                        '<td class="text-end font-monospace text-info">' + fmtRate(r.rxBytesPerSec) + '</td>' +
-                        '<td class="text-end font-monospace text-warning">' + fmtRate(r.txBytesPerSec) + '</td></tr>'
-                    ).join('');
                 }
 
-                // Disk I/O chart + detail table
+                document.getElementById('netDetail').innerHTML = data.net;
+
                 if (data.diskIoRates && data.diskIoRates.length) {
                     const rd = data.diskIoRates.reduce((s, d) => s + d.readBytesPerSec, 0);
                     const wr = data.diskIoRates.reduce((s, d) => s + d.writeBytesPerSec, 0);
                     pushDisk(rd, wr);
-
-                    document.getElementById('diskDetail').innerHTML = data.diskIoRates.map(r => {
-                        const uc = r.utilizationPct > 80 ? 'text-danger' : r.utilizationPct > 50 ? 'text-warning' : '';
-                        return '<tr class="border-bottom border-secondary">' +
-                            '<td class="fw-semibold font-monospace">' + esc(r.device) + '</td>' +
-                            '<td class="text-end font-monospace text-info">' + fmtRate(r.readBytesPerSec) + '</td>' +
-                            '<td class="text-end font-monospace text-warning">' + fmtRate(r.writeBytesPerSec) + '</td>' +
-                            '<td class="text-end font-monospace ' + uc + '">' + r.utilizationPct.toFixed(1) + '%</td></tr>';
-                    }).join('');
                 }
 
-                // Per-pool disk tables
-                if (data.poolDiskIoRates) {
-                    for (const pg of data.poolDiskIoRates) {
-                        const tbody = document.getElementById('poolDisks-' + pg.poolName);
-                        if (!tbody) continue;
-                        tbody.innerHTML = pg.disks.length ? pg.disks.map(d => {
-                            const uc = d.utilizationPct > 80 ? 'text-danger' : d.utilizationPct > 50 ? 'text-warning' : '';
-                            return '<tr class="border-bottom border-secondary">' +
-                                '<td class="fw-semibold font-monospace">' + esc(d.device) + '</td>' +
-                                '<td><span class="badge bg-secondary">' + esc(d.role || '\u2013') + '</span></td>' +
-                                '<td class="text-end font-monospace">' + fmtMs(d.readLatencyMs) + '</td>' +
-                                '<td class="text-end font-monospace">' + fmtMs(d.writeLatencyMs) + '</td>' +
-                                '<td class="text-end font-monospace">' + Math.round(d.queueDepth) + '</td>' +
-                                '<td class="text-end font-monospace ' + uc + '">' + d.utilizationPct.toFixed(1) + '%</td></tr>';
-                        }).join('') : '<tr><td colspan="6" class="text-body-secondary">No disk data</td></tr>';
-                    }
+                document.getElementById('diskDetail').innerHTML = data.disk;
+
+                for (const poolName in data.pools) {
+                    const el = document.getElementById('poolDisks-' + poolName);
+                    if (el) el.innerHTML = data.pools[poolName];
                 }
             } catch (err) {
                 console.error('live update failed:', err.message);
