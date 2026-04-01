@@ -255,7 +255,7 @@ public static class ZpoolParser
         return new PoolDevice
         {
             Path = path,
-            Role = role,
+            VdevType = role,
             Status = JsonHelper.GetString(element, "state"),
             Present = false,
             ErrorsRead = JsonHelper.GetLong(element, "read_errors"),

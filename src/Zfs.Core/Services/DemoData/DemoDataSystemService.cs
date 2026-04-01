@@ -18,7 +18,7 @@ public class DemoDataSystemService : ISystemService
         ("nvme1n1", true),
     ];
 
-    private static readonly (string Pool, (string Disk, string Role)[] Disks)[] DemoPoolDiskMap =
+    private static readonly (string Pool, (string Disk, string VdevType)[] Disks)[] DemoPoolDiskMap =
     [
         ("miniTank", [("sda", "mirror"), ("sdb", "mirror")]),
         ("zfsPool",  [("sdc", "raidz1"), ("sdd", "raidz1"), ("sde", "raidz1"), ("nvme0n1", "special"), ("nvme1n1", "special")]),
@@ -72,7 +72,7 @@ public class DemoDataSystemService : ISystemService
             PoolName = m.Pool,
             Disks = m.Disks
                 .Where(d => ratesByDevice.ContainsKey(d.Disk))
-                .Select(d => ratesByDevice[d.Disk] with { Role = d.Role })
+                .Select(d => ratesByDevice[d.Disk] with { VdevType = d.VdevType })
                 .ToList(),
         }).ToList();
 

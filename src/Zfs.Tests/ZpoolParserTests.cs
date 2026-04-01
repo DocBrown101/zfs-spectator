@@ -113,7 +113,7 @@ public class ZpoolParserTests
 
         var firstData = layout.DataDevices[0];
         Assert.Equal("/dev/disk/by-id/wwn-0x50014ee2c06fdd9f-part2", firstData.Path);
-        Assert.Equal("raidz1", firstData.Role);
+        Assert.Equal("raidz1", firstData.VdevType);
         Assert.Equal("ONLINE", firstData.Status);
         Assert.Equal(0, firstData.ErrorsRead);
         Assert.Equal(0, firstData.ErrorsWrite);
@@ -121,7 +121,7 @@ public class ZpoolParserTests
 
         var firstSpecial = layout.SpecialDevices[0];
         Assert.Equal("/dev/disk/by-id/nvme-WDC_PC_SN530_SDBPNPZ-256G-1006_205161805086-part1", firstSpecial.Path);
-        Assert.Equal("special", firstSpecial.Role);
+        Assert.Equal("special", firstSpecial.VdevType);
         Assert.Equal("ONLINE", firstSpecial.Status);
     }
 

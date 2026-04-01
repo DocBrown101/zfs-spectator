@@ -12,10 +12,10 @@ else
         var latW = d.WriteLatencyMs <= 0 ? "\u2013" : d.WriteLatencyMs < 10 ? d.WriteLatencyMs.ToString("F2") : d.WriteLatencyMs.ToString("F1");
         <tr class="border-bottom border-secondary">
             <td class="fw-semibold font-monospace">@d.Device</td>
-            <td><span class="badge bg-secondary">@(string.IsNullOrEmpty(d.Role) ? "\u2013" : d.Role)</span></td>
+            <td><span class="badge bg-secondary">@(string.IsNullOrEmpty(d.VdevType) ? "\u2013" : d.VdevType)</span></td>
+            <td class="text-end font-monospace">@Math.Round(d.QueueDepth)</td>
             <td class="text-end font-monospace">@latR</td>
             <td class="text-end font-monospace">@latW</td>
-            <td class="text-end font-monospace">@Math.Round(d.QueueDepth)</td>
             <td class="text-end font-monospace @uc">@d.UtilizationPct.ToString("F1")%</td>
         </tr>
     }

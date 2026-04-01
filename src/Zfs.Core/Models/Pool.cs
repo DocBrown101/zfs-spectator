@@ -41,7 +41,7 @@ public record Pool
 public record PoolDevice
 {
     public required string Path { get; init; }
-    public required string Role { get; init; }
+    public required string VdevType { get; init; }
     public required string Status { get; init; }
     public bool Present { get; init; }
     public long ErrorsRead { get; init; }
