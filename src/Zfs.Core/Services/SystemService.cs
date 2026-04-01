@@ -423,7 +423,7 @@ public class SystemService() : ISystemService
                     matched.Add(rate with { VdevType = dev.VdevType });
             }
 
-            result.Add(new PoolDiskIoGroup { PoolName = pool.Name, Disks = matched });
+            result.Add(new PoolDiskIoGroup { PoolName = pool.Name, Disks = matched.OrderBy(d => d.Device).ToList() });
         }
 
         return result;
