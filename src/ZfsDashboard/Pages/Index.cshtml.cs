@@ -6,7 +6,7 @@ using ZfsDashboard.Services;
 
 namespace ZfsDashboard.Pages;
 
-public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService system, IPartialRenderer renderer) : PageModel
+public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService system, IDiskTemperatureProvider temps, IPartialRenderer renderer) : PageModel
 {
     public List<Pool> Pools { get; private set; } = [];
     public SystemInfo SystemInfo { get; private set; } = new();
@@ -28,6 +28,9 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService sys
     public async Task<IActionResult> OnGetLiveFragmentsAsync()
     {
         var data = await system.GetDashboardDataAsync(zfs, zpool);
+        var temperatures = temps.Temperatures;
+        ApplyTemperatures(data.DiskIoRates, temperatures);
+
         var ctx = this.PageContext;
 
         var netTask = renderer.RenderAsync(ctx, "_NetTable", data.NetworkRates);
@@ -67,5 +70,14 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService sys
             networkRates = data.NetworkRates,
             diskIoRates = data.DiskIoRates,
         });
+    }
+
+    private static void ApplyTemperatures(List<DiskIoRateInfo> disks, IReadOnlyDictionary<string, int> temperatures)
+    {
+        for (var i = 0; i < disks.Count; i++)
+        {
+            if (temperatures.TryGetValue(disks[i].Device, out var temp))
+                disks[i] = disks[i] with { Temperature = temp };
+        }
     }
 }

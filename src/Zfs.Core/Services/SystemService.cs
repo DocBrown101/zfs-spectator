@@ -434,7 +434,7 @@ public class SystemService() : ISystemService
     /// the physical disk name from <c>/proc/diskstats</c> (e.g. <c>sda</c>).
     /// Returns <c>null</c> if the path cannot be resolved.
     /// </summary>
-    internal static string? ResolveToPhysicalDisk(string devicePath)
+    public static string? ResolveToPhysicalDisk(string devicePath)
     {
         try
         {
@@ -454,7 +454,7 @@ public class SystemService() : ISystemService
     /// Strips the partition suffix from a block device name.
     /// <c>sda2</c> → <c>sda</c>, <c>nvme0n1p1</c> → <c>nvme0n1</c>.
     /// </summary>
-    internal static string StripPartition(string deviceName)
+    public static string StripPartition(string deviceName)
     {
         // NVMe: partition suffix is always pN (e.g. nvme0n1p1 → nvme0n1)
         // Without 'p' suffix the name is already a whole disk (nvme0n1)
@@ -475,7 +475,7 @@ public class SystemService() : ISystemService
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    internal static bool IsPhysicalDisk(string device)
+    public static bool IsPhysicalDisk(string device)
     {
         // sd[a-z]+ (SCSI/SATA), nvme[0-9]n[0-9] (NVMe), vd[a-z]+ (virtio), xvd[a-z]+ (Xen)
         if (device.StartsWith("sd") && device.Length >= 3 && device[2..].All(char.IsLetter)) return true;

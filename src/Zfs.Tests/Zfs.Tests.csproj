@@ -16,6 +16,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Zfs.Core\Zfs.Core.csproj" />
+        <ProjectReference Include="..\ZfsDashboard\ZfsDashboard.csproj" />
     </ItemGroup>
 
     <ItemGroup>

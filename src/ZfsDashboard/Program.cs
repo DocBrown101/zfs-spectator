@@ -13,6 +13,7 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddSingleton<IZpoolService, DemoDataZpoolService>();
     builder.Services.AddSingleton<IZfsService, DemoDataZfsService>();
     builder.Services.AddSingleton<ISystemService, DemoDataSystemService>();
+    builder.Services.AddSingleton<IDiskTemperatureProvider, DemoDataDiskTemperatureProvider>();
 }
 else
 {
@@ -20,6 +21,9 @@ else
     builder.Services.AddSingleton<IZpoolService, ZpoolService>();
     builder.Services.AddSingleton<IZfsService, ZfsService>();
     builder.Services.AddSingleton<ISystemService, SystemService>();
+    builder.Services.AddSingleton<DiskTemperatureBackgroundService>();
+    builder.Services.AddSingleton<IDiskTemperatureProvider>(sp => sp.GetRequiredService<DiskTemperatureBackgroundService>());
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<DiskTemperatureBackgroundService>());
 }
 
 var app = builder.Build();

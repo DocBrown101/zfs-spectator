@@ -12,4 +12,5 @@ public record DiskIoRateInfo
     public double WriteLatencyMs { get; init; }
     public double QueueDepth { get; init; }
     public double UtilizationPct { get; init; }
+    public int? Temperature { get; init; }
 }

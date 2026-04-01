@@ -1,17 +1,20 @@
 @model List<DiskIoRateInfo>
 @if (Model.Count == 0)
 {
-    <tr><td colspan="4" class="text-body-secondary">No disk data</td></tr>
+    <tr><td colspan="5" class="text-body-secondary">No disk data</td></tr>
 }
 else
 {
     @foreach (var r in Model)
     {
         var uc = r.UtilizationPct > 80 ? "text-danger" : r.UtilizationPct > 50 ? "text-warning" : "";
+        var tc = r.Temperature >= 50 ? "text-danger" : r.Temperature >= 40 ? "text-warning" : "";
+
         <tr class="border-bottom border-secondary">
             <td class="fw-semibold font-monospace">@r.Device</td>
             <td class="text-end font-monospace text-info">@r.ReadBytesPerSec.FormatRate()</td>
             <td class="text-end font-monospace text-warning">@r.WriteBytesPerSec.FormatRate()</td>
+            <td class="text-end font-monospace @tc">@(r.Temperature.HasValue ? $"{r.Temperature}\u00b0C" : "\u2013")</td>
             <td class="text-end font-monospace @uc">@r.UtilizationPct.ToString("F1")%</td>
         </tr>
     }
