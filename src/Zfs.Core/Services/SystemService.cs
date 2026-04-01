@@ -16,24 +16,21 @@ public class SystemService() : ISystemService
 
     public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
     {
-        var systemTask = this.GetSystemInfoAsync();
-        var memoryTask = this.GetMemoryInfoAsync();
+        var systemTask = this.GetSystemInfoAsync(zfs);
         var networkTask = this.GetNetworkInfoAsync();
         var diskTask = GetDiskIoInfoAsync();
-        var arcTask = zfs.GetArcStatsAsync();
-        var cpuTask = this.GetCpuUsagePercentAsync();
         var poolsTask = zpool.GetAllPoolsAsync();
 
-        await Task.WhenAll(systemTask, memoryTask, networkTask, diskTask, arcTask, cpuTask, poolsTask);
+        await Task.WhenAll(systemTask, networkTask, diskTask, poolsTask);
 
-        var sys     = systemTask.Result;
-        var mem     = memoryTask.Result;
-        var arc     = arcTask.Result;
-        var cpu     = cpuTask.Result;
+        var sys = systemTask.Result;
+        var mem = sys.Memory;
+        var arc = sys.Arc;
+        var cpu = sys.CpuUsagePercent;
         var network = networkTask.Result;
-        var disks   = diskTask.Result;
-        var pools   = poolsTask.Result;
-        var now     = DateTime.UtcNow;
+        var disks = diskTask.Result;
+        var pools = poolsTask.Result;
+        var now = DateTime.UtcNow;
 
         // Fan out scrub checks while synchronous work below runs
         var scrubTask = Task.WhenAll(pools.Select(p => zpool.GetScrubStatusAsync(p.Name)));
@@ -41,11 +38,7 @@ public class SystemService() : ISystemService
         // ── Text fields (set via textContent) ────────────────────────────
         var text = new Dictionary<string, string>
         {
-            ["sysHostname"] = sys.Hostname,
-            ["sysKernel"] = $"Linux-{sys.Kernel}",
-            ["sysProcessor"] = sys.Processor,
             ["cpuUsage"] = $"{cpu:F1}%",
-            ["cpuCount"] = sys.CpuCount.ToString(),
             ["sysUptime"] = sys.Uptime,
             ["memTotal"] = mem.Total.FormatBytes(),
             ["memAvail"] = mem.Available.FormatBytes(),
@@ -66,12 +59,12 @@ public class SystemService() : ISystemService
             text["arcMruMfu"] = $"{arc.MruSize.FormatBytes()} / {arc.MfuSize.FormatBytes()}";
         }
 
-        var netRates      = this.BuildNetworkRates(network, now);
-        var diskRates     = this.BuildDiskIoRates(disks, now);
+        var netRates = this.BuildNetworkRates(network, now);
+        var diskRates = this.BuildDiskIoRates(disks, now);
         var poolDiskRates = BuildPoolDiskGroups(pools, diskRates);
 
         var scrubResults = await scrubTask;
-        var poolScrubs   = pools.Zip(scrubResults, (p, s) => (p.Name, Scrub: s))
+        var poolScrubs = pools.Zip(scrubResults, (p, s) => (p.Name, Scrub: s))
             .ToDictionary(x => x.Name, x => x.Scrub);
 
         return new DashboardData { Text = text, Arc = arc, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates, PoolScrubs = poolScrubs };
@@ -184,20 +177,17 @@ public class SystemService() : ISystemService
 
     // ── System Info ──────────────────────────────────────────────────────
 
-    public async Task<SystemInfo> GetSystemInfoAsync()
+    public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(IZfsService zfs)
     {
         try
         {
-            var uptimeTask = File.ReadAllTextAsync("/proc/uptime");
             var hostnameTask = File.ReadAllTextAsync("/proc/sys/kernel/hostname");
             var kernelTask = File.ReadAllTextAsync("/proc/sys/kernel/osrelease");
             var cpuInfoTask = File.ReadAllLinesAsync("/proc/cpuinfo");
+            var zfsVersionTask = zfs.GetZfsVersionAsync();
 
-            await Task.WhenAll(uptimeTask, hostnameTask, kernelTask, cpuInfoTask);
+            await Task.WhenAll(hostnameTask, kernelTask, cpuInfoTask, zfsVersionTask);
 
-            var uptimeParts = uptimeTask.Result.Split(' ');
-
-            var uptimeSec = ParseD(uptimeParts.ElementAtOrDefault(0));
             var cpuLines = cpuInfoTask.Result;
             var processor = cpuLines
                 .Where(l => l.StartsWith("model name"))
@@ -205,18 +195,45 @@ public class SystemService() : ISystemService
                 .FirstOrDefault() ?? "Unknown";
             var cpuCount = cpuLines.Count(l => l.StartsWith("processor\t"));
 
-            return new SystemInfo
+            return new StaticSystemInfo
             {
                 Hostname = hostnameTask.Result.Trim(),
                 Kernel = kernelTask.Result.Trim(),
+                ZfsVersion = zfsVersionTask.Result,
                 Processor = processor,
                 CpuCount = cpuCount > 0 ? cpuCount : 1,
-                Uptime = uptimeSec.FormatUptime(),
             };
         }
         catch (Exception)
         {
-            return new SystemInfo { Hostname = "unknown", Kernel = "unknown", Processor = "unknown", CpuCount = 1, Uptime = "N/A" };
+            return new StaticSystemInfo { Hostname = "unknown", Kernel = "unknown", ZfsVersion = "unknown", Processor = "unknown", CpuCount = 1 };
+        }
+    }
+
+    public async Task<SystemInfo> GetSystemInfoAsync(IZfsService zfs)
+    {
+        try
+        {
+            var arcTask = zfs.GetArcStatsAsync();
+            var memTask = this.GetMemoryInfoAsync();
+            var cpuTask = this.GetCpuUsagePercentAsync();
+            var uptimeTask = File.ReadAllTextAsync("/proc/uptime");
+
+            await Task.WhenAll(uptimeTask, arcTask, memTask, cpuTask);
+
+            var uptimeSec = ParseD(uptimeTask.Result.Split(' ').ElementAtOrDefault(0));
+
+            return new SystemInfo
+            {
+                Uptime = uptimeSec.FormatUptime(),
+                Arc = arcTask.Result,
+                Memory = memTask.Result,
+                CpuUsagePercent = cpuTask.Result,
+            };
+        }
+        catch (Exception)
+        {
+            return new SystemInfo { Uptime = "N/A", Arc = new(), Memory = new(), CpuUsagePercent = 0 };
         }
     }
 
@@ -224,7 +241,7 @@ public class SystemService() : ISystemService
 
     // ── CPU Usage ────────────────────────────────────────────────────────
 
-    public async Task<double> GetCpuUsagePercentAsync()
+    private async Task<double> GetCpuUsagePercentAsync()
     {
         try
         {
@@ -263,7 +280,7 @@ public class SystemService() : ISystemService
 
     // ── Memory Info ──────────────────────────────────────────────────────
 
-    public async Task<MemoryInfo> GetMemoryInfoAsync()
+    private async Task<MemoryInfo> GetMemoryInfoAsync()
     {
         try
         {

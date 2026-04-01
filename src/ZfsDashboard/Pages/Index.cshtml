@@ -73,12 +73,12 @@
                     <div class="position-relative flex-shrink-0" style="width:110px;height:110px">
                         <canvas id="cpuCanvas"></canvas>
                         <div class="position-absolute top-50 start-50 translate-middle text-center">
-                            <span class="fw-bold fs-5" id="cpuPct">@Model.CpuUsagePercent.ToString("F1")%</span>
+                            <span class="fw-bold fs-5" id="cpuPct">@Model.SystemInfo.CpuUsagePercent.ToString("F1")%</span>
                         </div>
                     </div>
                     <div class="flex-grow-1">
-                        @{ Row("Processor", Model.SystemInfo.Processor, "sysProcessor"); }
-                        @{ Row("CPU Count", Model.SystemInfo.CpuCount.ToString(), "cpuCount", last: true); }
+                        @{ Row("Processor", Model.StaticSystemInfo.Processor, "sysProcessor"); }
+                        @{ Row("CPU Count", Model.StaticSystemInfo.CpuCount, "cpuCount", last: true); }
                     </div>
                 </div>
             </div>
@@ -95,23 +95,23 @@
                     <div class="position-relative flex-shrink-0" style="width:110px;height:110px">
                         <canvas id="memCanvas"></canvas>
                         <div class="position-absolute top-50 start-50 translate-middle text-center">
-                            <span class="fw-bold fs-5" id="memPct">@Model.Memory.UsagePercent.ToString("F1")%</span>
+                            <span class="fw-bold fs-5" id="memPct">@Model.SystemInfo.Memory.UsagePercent.ToString("F1")%</span>
                         </div>
                     </div>
                     <div class="flex-grow-1">
-                        @{ Row("Total Memory", Model.Memory.Total.FormatBytes(), "memTotal"); }
-                        @{ Row("Available Memory", Model.Memory.Available.FormatBytes(), "memAvail"); }
-                        @{ Row("Used Memory", Model.Memory.Used.FormatBytes(), "memUsed"); }
-                        @{ Row("Buffers / Cached", $"{Model.Memory.Buffers.FormatBytes()} / {Model.Memory.Cached.FormatBytes()}", "memBuffersCached"); }
-                        @{ Row("Swap Used", $"{Model.Memory.SwapUsed.FormatBytes()} / {Model.Memory.SwapTotal.FormatBytes()}", "swapUsed"); }
-                        @{ Row("Swap Usage", $"{Model.Memory.SwapUsagePercent:F1} %", "swapPct", last: true); }
+                        @{ Row("Total Memory", Model.SystemInfo.Memory.Total.FormatBytes(), "memTotal"); }
+                        @{ Row("Available Memory", Model.SystemInfo.Memory.Available.FormatBytes(), "memAvail"); }
+                        @{ Row("Used Memory", Model.SystemInfo.Memory.Used.FormatBytes(), "memUsed"); }
+                        @{ Row("Buffers / Cached", $"{Model.SystemInfo.Memory.Buffers.FormatBytes()} / {Model.SystemInfo.Memory.Cached.FormatBytes()}", "memBuffersCached"); }
+                        @{ Row("Swap Used", $"{Model.SystemInfo.Memory.SwapUsed.FormatBytes()} / {Model.SystemInfo.Memory.SwapTotal.FormatBytes()}", "swapUsed"); }
+                        @{ Row("Swap Usage", $"{Model.SystemInfo.Memory.SwapUsagePercent:F1} %", "swapPct", last: true); }
                     </div>
                 </div>
             </div>
         </div>
 
         @* ARC Statistics *@
-        @if (Model.Arc.MaxSize > 0)
+        @if (Model.SystemInfo.Arc.MaxSize > 0)
         {
             <div class="card mb-4">
                 <div class="card-body bg-surface">
@@ -123,27 +123,27 @@
                         <div class="position-relative flex-shrink-0" style="width:110px;height:110px">
                             <canvas id="arcCanvas"></canvas>
                             <div class="position-absolute top-50 start-50 translate-middle text-center">
-                                <span class="fw-bold fs-5" id="arcPct">@Model.Arc.UsagePercent.ToString("F1")%</span>
+                                <span class="fw-bold fs-5" id="arcPct">@Model.SystemInfo.Arc.UsagePercent.ToString("F1")%</span>
                             </div>
                         </div>
                         <div class="flex-grow-1">
-                            @{ Row("ARC Size", $"{Model.Arc.Size.FormatBytes()} / {Model.Arc.MaxSize.FormatBytes()}", "arcSize"); }
-                            @{ Row("L1 Hit Rate", Html.Raw($"<span id=\"arcHitRate\">{await Html.PartialAsync("_ArcHitRate", Model.Arc)}</span>"), null); }
-                            @if (Model.Arc.L2Size > 0)
+                            @{ Row("ARC Size", $"{Model.SystemInfo.Arc.Size.FormatBytes()} / {Model.SystemInfo.Arc.MaxSize.FormatBytes()}", "arcSize"); }
+                            @{ Row("L1 Hit Rate", Html.Raw($"<span id=\"arcHitRate\">{await Html.PartialAsync("_ArcHitRate", Model.SystemInfo.Arc)}</span>"), null); }
+                            @if (Model.SystemInfo.Arc.L2Size > 0)
                             {
-                                Row("L2ARC Hit Rate", Html.Raw($"<span id=\"l2HitRate\">{await Html.PartialAsync("_L2HitRate", Model.Arc)}</span>"), null);
+                                Row("L2ARC Hit Rate", Html.Raw($"<span id=\"l2HitRate\">{await Html.PartialAsync("_L2HitRate", Model.SystemInfo.Arc)}</span>"), null);
                             }
-                            @if (Model.Arc.MetadataSize > 0)
+                            @if (Model.SystemInfo.Arc.MetadataSize > 0)
                             {
-                                Row("Metadata", Model.Arc.MetadataSize.FormatBytes(), "arcMeta");
+                                Row("Metadata", Model.SystemInfo.Arc.MetadataSize.FormatBytes(), "arcMeta");
                             }
-                            @if (Model.Arc.DataSize > 0)
+                            @if (Model.SystemInfo.Arc.DataSize > 0)
                             {
-                                Row("Data", Model.Arc.DataSize.FormatBytes(), "arcData");
+                                Row("Data", Model.SystemInfo.Arc.DataSize.FormatBytes(), "arcData");
                             }
-                            @if (Model.Arc.MruSize > 0 || Model.Arc.MfuSize > 0)
+                            @if (Model.SystemInfo.Arc.MruSize > 0 || Model.SystemInfo.Arc.MfuSize > 0)
                             {
-                                Row("MRU / MFU", $"{Model.Arc.MruSize.FormatBytes()} / {Model.Arc.MfuSize.FormatBytes()}", "arcMruMfu", last: true);
+                                Row("MRU / MFU", $"{Model.SystemInfo.Arc.MruSize.FormatBytes()} / {Model.SystemInfo.Arc.MfuSize.FormatBytes()}", "arcMruMfu", last: true);
                             }
                         </div>
                     </div>
@@ -330,21 +330,21 @@
         const pushDisk = rollingChart('diskCanvas', 'Read',     '#0dcaf0', 'Write',  '#ffc107');
 
         function cpuColor(p) { return p > 85 ? '#dc3545' : p > 70 ? '#ffc107' : '#0dcaf0'; }
-        const initCpu = @(Model.CpuUsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        const initCpu = @(Model.SystemInfo.CpuUsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
         const cpuChart = new Chart(document.getElementById('cpuCanvas'), {
             type: 'doughnut',
             data: { datasets: [{ data: [initCpu, 100 - initCpu], backgroundColor: [cpuColor(initCpu), 'rgba(255,255,255,0.08)'], borderWidth: 0 }] },
             options: { cutout: '75%', responsive: true, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 300 } },
         });
 
-        const initMem = @(Model.Memory.UsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        const initMem = @(Model.SystemInfo.Memory.UsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
         const memChart = new Chart(document.getElementById('memCanvas'), {
             type: 'doughnut',
             data: { datasets: [{ data: [initMem, 100 - initMem], backgroundColor: [cpuColor(initMem), 'rgba(255,255,255,0.08)'], borderWidth: 0 }] },
             options: { cutout: '75%', responsive: true, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 300 } },
         });
 
-        const initArc = @(Model.Arc.UsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        const initArc = @(Model.SystemInfo.Arc.UsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
         const arcChart = new Chart(document.getElementById('arcCanvas'), {
             type: 'doughnut',
             data: { datasets: [{ data: [initArc, 100 - initArc], backgroundColor: [cpuColor(initArc), 'rgba(255,255,255,0.08)'], borderWidth: 0 }] },

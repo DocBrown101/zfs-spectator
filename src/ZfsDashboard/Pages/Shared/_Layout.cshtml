@@ -4,8 +4,7 @@
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     string NavActive(string page) => currentPage.StartsWith(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
-    var sysInfo = await SystemSvc.GetSystemInfoAsync();
-    var zfsVersion = await ZfsSvc.GetZfsVersionAsync();
+    var sysInfo = await SystemSvc.GetStaticSystemInfoAsync(ZfsSvc);
 
     var navItems = new (string Page, string Label, string Icon)[]
     {
@@ -53,7 +52,7 @@
                     <span class="fw-semibold">@sysInfo.Hostname</span>
                     <div class="d-flex flex-column align-items-end text-body-secondary" style="line-height:1.3">
                         <span>Linux-@sysInfo.Kernel</span>
-                        <span>ZFS @zfsVersion</span>
+                        <span>ZFS @sysInfo.ZfsVersion</span>
                     </div>
                 </div>
             </div>

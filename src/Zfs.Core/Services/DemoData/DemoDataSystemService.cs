@@ -26,10 +26,10 @@ public class DemoDataSystemService : ISystemService
 
     public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
     {
-        var arcTask       = zfs.GetArcStatsAsync();
+        var systemTask    = this.GetSystemInfoAsync(zfs);
         var poolNamesTask = zpool.GetPoolNamesAsync();
-        await Task.WhenAll(arcTask, poolNamesTask);
-        var arc       = arcTask.Result;
+        await Task.WhenAll(systemTask, poolNamesTask);
+        var arc       = systemTask.Result.Arc;
         var poolNames = poolNamesTask.Result;
 
         var scrubResults = await Task.WhenAll(poolNames.Select(n => zpool.GetScrubStatusAsync(n)));
@@ -38,11 +38,7 @@ public class DemoDataSystemService : ISystemService
 
         var text = new Dictionary<string, string>
         {
-            ["sysHostname"] = "demo-server",
-            ["sysKernel"] = "Linux-6.12.8-zfs",
-            ["sysProcessor"] = "AMD Ryzen 7 5800X 8-Core Processor",
             ["cpuUsage"] = "12.3%",
-            ["cpuCount"] = "16",
             ["sysUptime"] = "14d 7h 32m",
             ["memTotal"] = 34359738368UL.FormatBytes(),
             ["memAvail"] = 18253611008UL.FormatBytes(),
@@ -91,36 +87,39 @@ public class DemoDataSystemService : ISystemService
         };
     }
 
-    public Task<SystemInfo> GetSystemInfoAsync()
+    public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(IZfsService zfs)
     {
-        return Task.FromResult(new SystemInfo
+        var zfsVersion = await zfs.GetZfsVersionAsync();
+        return new StaticSystemInfo
         {
-            Hostname = "demo-server",
-            Kernel = "6.12.8-zfs",
-            Processor = "AMD Ryzen 7 5800X 8-Core Processor",
-            CpuCount = 16,
+            Hostname   = "demo-server",
+            Kernel     = "6.12.8-zfs",
+            ZfsVersion = zfsVersion,
+            Processor  = "AMD Ryzen 7 5800X 8-Core Processor",
+            CpuCount   = 16,
+        };
+    }
+
+    public async Task<SystemInfo> GetSystemInfoAsync(IZfsService zfs)
+    {
+        var arc = await zfs.GetArcStatsAsync();
+        return new SystemInfo
+        {
             Uptime = "14d 7h 32m",
-        });
-    }
-
-    public Task<MemoryInfo> GetMemoryInfoAsync()
-    {
-        return Task.FromResult(new MemoryInfo
-        {
-            Total = 34359738368,
-            Available = 18253611008,
-            Used = 16106127360,
-            Buffers = 524288000,
-            Cached = 8589934592,
-            SwapTotal = 8589934592,
-            SwapUsed = 0,
-            SwapFree = 8589934592,
-        });
-    }
-
-    public Task<double> GetCpuUsagePercentAsync()
-    {
-        return Task.FromResult(8.0 + Random.Shared.NextDouble() * 10.0);
+            Arc = arc,
+            Memory = new MemoryInfo
+            {
+                Total = 34359738368,
+                Available = 18253611008,
+                Used = 16106127360,
+                Buffers = 524288000,
+                Cached = 8589934592,
+                SwapTotal = 8589934592,
+                SwapUsed = 0,
+                SwapFree = 8589934592,
+            },
+            CpuUsagePercent = 8.0 + Random.Shared.NextDouble() * 10.0,
+        };
     }
 
     private static List<DiskIoRateInfo> GenerateDiskIoRates()

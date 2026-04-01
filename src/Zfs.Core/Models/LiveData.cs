@@ -17,14 +17,21 @@ public record NetworkRateInfo
     public double TxBytesPerSec { get; init; }
 }
 
-public record SystemInfo
+public record StaticSystemInfo
 {
     public string Hostname { get; init; } = "";
     public string Kernel { get; init; } = "";
+    public string ZfsVersion { get; init; } = "";
     public string Processor { get; init; } = "";
     public int CpuCount { get; init; }
+}
+
+public record SystemInfo
+{
     public string Uptime { get; init; } = "";
-    public double UptimeSeconds { get; init; }
+    public ArcStats Arc { get; init; } = new();
+    public MemoryInfo Memory { get; init; } = new();
+    public double CpuUsagePercent { get; init; }
 }
 
 public record MemoryInfo
