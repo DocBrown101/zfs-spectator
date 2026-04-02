@@ -1,11 +1,13 @@
 using System.Collections.Frozen;
 using Zfs.Core;
+using Zfs.Core.Models;
 using Zfs.Core.Services;
 
 namespace ZfsDashboard.Services;
 
 public sealed class DiskTemperatureBackgroundService(
     ICommandExecutor commandExecutor,
+    IZpoolService zpoolService,
     ILogger<DiskTemperatureBackgroundService> logger) : BackgroundService, IDiskTemperatureProvider
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(60);
@@ -21,8 +23,12 @@ public sealed class DiskTemperatureBackgroundService(
         {
             try
             {
-                var output = await commandExecutor.ExecuteAsync("zpool", "iostat -c temp -H");
-                this.temperatures = ParseTemperatures(output);
+                var outputTask = commandExecutor.ExecuteAsync("zpool", "iostat -c temp -H");
+                var poolsTask = zpoolService.GetAllPoolsAsync();
+                await Task.WhenAll(outputTask, poolsTask);
+
+                var deviceMap = BuildDeviceMap(poolsTask.Result);
+                this.temperatures = ParseTemperatures(outputTask.Result, deviceMap);
             }
             catch (Exception ex)
             {
@@ -34,11 +40,63 @@ public sealed class DiskTemperatureBackgroundService(
     }
 
     /// <summary>
-    /// Parses the output of <c>zpool iostat -c temp -H</c>.
-    /// Each line is tab-separated; the device name is in the second column
-    /// and the temperature value is the last column.
+    /// Builds a mapping from ZFS device leaf names (e.g. "wwn-0x50014ee2b702ad1b")
+    /// to physical disk names (e.g. "sda") using pool device paths and symlink resolution.
     /// </summary>
-    internal static IReadOnlyDictionary<string, int> ParseTemperatures(string output)
+    internal static Dictionary<string, string> BuildDeviceMap(List<Pool> pools)
+    {
+        var map = new Dictionary<string, string>();
+
+        foreach (var pool in pools)
+        {
+            var allDevices = pool.DataDevices
+                .Concat(pool.CacheDevices)
+                .Concat(pool.LogDevices)
+                .Concat(pool.SpareDevices)
+                .Concat(pool.SpecialDevices);
+
+            foreach (var dev in allDevices)
+            {
+                // Pool device path: e.g. "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1"
+                // or short name like "sda1"
+                var physicalDisk = SystemService.ResolveToPhysicalDisk(dev.Path);
+                if (physicalDisk == null) continue;
+
+                // Extract the leaf name and strip partition suffixes to match iostat output.
+                // "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1" → "wwn-0x50014ee2b702ad1b"
+                var leafName = StripByIdPartition(Path.GetFileName(dev.Path));
+                map.TryAdd(leafName, physicalDisk);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// Strips the "-partN" suffix from a by-id device name.
+    /// <c>wwn-0x50014ee2b702ad1b-part1</c> → <c>wwn-0x50014ee2b702ad1b</c>.
+    /// </summary>
+    internal static string StripByIdPartition(string name)
+    {
+        var idx = name.LastIndexOf("-part", StringComparison.Ordinal);
+        if (idx > 0 && idx < name.Length - 5)
+        {
+            var suffix = name[(idx + 5)..];
+            if (suffix.Length > 0 && suffix.All(char.IsDigit))
+                return name[..idx];
+        }
+
+        return name;
+    }
+
+    /// <summary>
+    /// Parses the output of <c>zpool iostat -c temp -H</c>.
+    /// Each line is tab-separated; the device name is in the first column
+    /// and the temperature value is the last column.
+    /// Pool/vdev summary lines lack a temperature column and are skipped.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, int> ParseTemperatures(
+        string output, IReadOnlyDictionary<string, string> deviceMap)
     {
         if (string.IsNullOrWhiteSpace(output))
             return FrozenDictionary<string, int>.Empty;
@@ -50,13 +108,14 @@ public sealed class DiskTemperatureBackgroundService(
             var fields = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
             if (fields.Length < 3) continue;
 
-            var devicePath = fields[1].Trim();
+            var deviceName = fields[0].Trim();
             var tempStr = fields[^1].Trim();
 
             if (!int.TryParse(tempStr, out var tempCelsius)) continue;
 
-            // Resolve ZFS device name to physical disk name (e.g. "sda2" → "sda")
-            var physicalDisk = ResolveDeviceName(devicePath);
+            // Resolve ZFS device name to physical disk name via the pool-derived mapping.
+            // Falls back to short-name resolution for simple device names (e.g. "sda1").
+            var physicalDisk = ResolveDeviceName(deviceName, deviceMap);
             if (physicalDisk == null) continue;
 
             // First occurrence wins (in case of duplicate entries)
@@ -68,15 +127,16 @@ public sealed class DiskTemperatureBackgroundService(
 
     /// <summary>
     /// Resolves a ZFS device identifier to a physical disk name.
-    /// Handles both short names (e.g. "sda1") and full paths (e.g. "/dev/disk/by-id/...").
+    /// Uses the pool-derived device map for by-id names, and direct
+    /// partition stripping for short names like "sda1".
     /// </summary>
-    private static string? ResolveDeviceName(string device)
+    private static string? ResolveDeviceName(string device, IReadOnlyDictionary<string, string> deviceMap)
     {
-        // If it looks like an absolute path, try symlink resolution
-        if (device.StartsWith('/'))
-            return SystemService.ResolveToPhysicalDisk(device);
+        // Look up in pool-derived mapping (handles wwn-*, ata-*, scsi-*, etc.)
+        if (deviceMap.TryGetValue(device, out var mapped))
+            return mapped;
 
-        // Short name: strip partition suffix directly
+        // Short name fallback: strip partition suffix directly
         var baseName = SystemService.StripPartition(device);
         return SystemService.IsPhysicalDisk(baseName) ? baseName : null;
     }
