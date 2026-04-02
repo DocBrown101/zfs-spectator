@@ -10,9 +10,9 @@
 @functions {
     void Row(string label, object value, string? id = null, bool last = false)
     {
-        <div class="row py-2 @(last ? "" : "border-bottom border-secondary") small">
-            <div class="col-5 text-body-secondary">@label</div>
-            <div class="col-7" @(id != null ? $"id=\"{id}\"" : "")>@value</div>
+        <div class="row py-2 @(last ? "" : "border-bottom border-secondary")">
+            <div class="col-5 small text-body-secondary text-uppercase">@label</div>
+            <div class="col-7 fw-semibold" @(id != null ? $"id=\"{id}\"" : "")>@value</div>
         </div>
     }
 }
@@ -44,58 +44,62 @@
 </div>
 <p class="text-body-secondary mb-4">Pool details and configuration</p>
 
-@* ── Capacity ────────────────────────────────────────────────── *@
-<div class="card mb-4">
-    <div class="card-body bg-surface">
-        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-            <i class="bi bi-pie-chart text-info"></i>
-            Capacity
-        </h5>
-        @{ ViewData["Pct"] = pct; ViewData["Height"] = "10px"; }
-        <partial name="_PoolProgress" view-data="ViewData" />
-        <div class="row g-3 mt-2 small">
-            <div class="col-6 col-md-3">
-                <div class="text-body-secondary">Raw</div>
-                <div class="fw-semibold">@p.Size.FormatBytes()</div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="text-body-secondary">Usable</div>
-                <div class="fw-semibold">@p.UsableSize.FormatBytes()</div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="text-body-secondary">Used</div>
-                <div class="fw-semibold">@p.UsableUsed.FormatBytes() (@pct.ToString("F1")%)</div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="text-body-secondary">Free</div>
-                <div class="fw-semibold">@p.UsableAvail.FormatBytes()</div>
+@* ── Capacity + Properties ────────────────────────────────────── *@
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-pie-chart text-info"></i>
+                    Capacity
+                </h5>
+                @{ ViewData["Pct"] = pct; ViewData["Height"] = "10px"; }
+                <partial name="_PoolProgress" view-data="ViewData" />
+                <div class="row g-3 mt-2 small">
+                    <div class="col-6">
+                        <div class="text-body-secondary">Raw</div>
+                        <div class="fw-semibold">@p.Size.FormatBytes()</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-body-secondary">Usable</div>
+                        <div class="fw-semibold">@p.UsableSize.FormatBytes()</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-body-secondary">Used</div>
+                        <div class="fw-semibold">@p.UsableUsed.FormatBytes() (@pct.ToString("F1")%)</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-body-secondary">Free</div>
+                        <div class="fw-semibold">@p.UsableAvail.FormatBytes()</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
-
-@* ── Properties ──────────────────────────────────────────────── *@
-<div class="card mb-4">
-    <div class="card-body bg-surface">
-        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-            <i class="bi bi-gear text-info"></i>
-            Properties
-        </h5>
-        <div class="row">
-            <div class="col-md-6">
-                @{ Row("VDEV Type", p.VdevType); }
-                @{ Row("Ashift", p.Ashift.ToString()); }
-                @{ Row("Compression", $"{p.Compression} ({p.CompRatio})"); }
-                @{ Row("Dedup", p.Dedup, last: true); }
-            </div>
-            <div class="col-md-6">
-                @{ Row("Sync", p.Sync); }
-                @{ Row("Atime", p.Atime); }
-                @{ Row("Fragmentation", $"{p.Fragmentation}%"); }
-                @if (p.Encrypted)
-                {
-                    Row("Encryption", $"{p.EncryptionAlgorithm} ({(p.KeyLocked ? "locked" : "loaded")})", last: true);
-                }
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body bg-surface">
+                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-gear text-info"></i>
+                    Properties
+                </h5>
+                <div class="row">
+                    <div class="col-6">
+                        @{ Row("VDEV Type", p.VdevType); }
+                        @{ Row("Ashift", p.Ashift.ToString()); }
+                        @{ Row("Compression", $"{p.Compression} ({p.CompRatio})"); }
+                        @{ Row("Dedup", p.Dedup, last: true); }
+                    </div>
+                    <div class="col-6">
+                        @{ Row("Sync", p.Sync); }
+                        @{ Row("Atime", p.Atime); }
+                        @{ Row("Fragmentation", $"{p.Fragmentation}%"); }
+                        @if (p.Encrypted)
+                        {
+                            Row("Encryption", $"{p.EncryptionAlgorithm} ({(p.KeyLocked ? "locked" : "loaded")})", last: true);
+                        }
+                    </div>
+                </div>
             </div>
         </div>
     </div>
