@@ -2,7 +2,7 @@
 
 A lightweight, read-only web dashboard for monitoring ZFS storage systems. ZFS Spectator gives you full visibility into your pools, datasets, snapshots, and system resources — without requiring elevated permissions or making any changes to your system.
 
-![Preview](https://github.com/DocBrown101/zfs-spectator/refs/heads/main/docs/dashboard.png)
+![Preview](https://github.com/DocBrown101/zfs-spectator/blob/main/docs/dashboard.png)
 
 **Look, don't touch.** ZFS Spectator has zero write operations. It only reads publicly available ZFS status information, making it safe to run alongside production workloads.
 
