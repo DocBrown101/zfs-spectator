@@ -1,16 +1,13 @@
 using System.Collections.Frozen;
-using Zfs.Core;
-using Zfs.Core.Models;
 using Zfs.Core.Services;
 
 namespace ZfsDashboard.Services;
 
 public sealed class DiskTemperatureBackgroundService(
-    ICommandExecutor commandExecutor,
-    IZpoolService zpoolService,
     ILogger<DiskTemperatureBackgroundService> logger) : BackgroundService, IDiskTemperatureProvider
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(60);
+    private const string HwmonBasePath = "/sys/class/hwmon";
 
     private volatile IReadOnlyDictionary<string, int> temperatures = FrozenDictionary<string, int>.Empty;
 
@@ -23,12 +20,7 @@ public sealed class DiskTemperatureBackgroundService(
         {
             try
             {
-                var outputTask = commandExecutor.ExecuteAsync("zpool", "iostat -c temp -H");
-                var poolsTask = zpoolService.GetAllPoolsAsync();
-                await Task.WhenAll(outputTask, poolsTask);
-
-                var deviceMap = BuildDeviceMap(poolsTask.Result, logger);
-                this.temperatures = ParseTemperatures(outputTask.Result, deviceMap, logger);
+                this.temperatures = ReadTemperatures(HwmonBasePath, logger);
             }
             catch (Exception ex)
             {
@@ -40,141 +32,89 @@ public sealed class DiskTemperatureBackgroundService(
     }
 
     /// <summary>
-    /// Builds a mapping from ZFS device leaf names (e.g. "wwn-0x50014ee2b702ad1b")
-    /// to physical disk names (e.g. "sda") using pool device paths and symlink resolution.
+    /// Reads disk temperatures from sysfs hwmon entries.
+    /// Supports "drivetemp" (SATA) and "nvme" hwmon drivers.
     /// </summary>
-    internal static Dictionary<string, string> BuildDeviceMap(List<Pool> pools, ILogger<DiskTemperatureBackgroundService> logger)
+    internal static IReadOnlyDictionary<string, int> ReadTemperatures(string hwmonBasePath, ILogger logger)
     {
-        var map = new Dictionary<string, string>();
-
-        foreach (var pool in pools)
-        {
-            var allDevices = pool.DataDevices
-                .Concat(pool.CacheDevices)
-                .Concat(pool.LogDevices)
-                .Concat(pool.SpareDevices)
-                .Concat(pool.SpecialDevices);
-
-            foreach (var dev in allDevices)
-            {
-                // Pool device path: e.g. "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1"
-                // or short name like "sda1"
-                var physicalDisk = SystemService.ResolveToPhysicalDisk(dev.Path);
-
-                // Extract the leaf name and strip partition suffixes to match iostat output.
-                // "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1" → "wwn-0x50014ee2b702ad1b"
-                var leafName = StripByIdPartition(Path.GetFileName(dev.Path));
-
-                if (physicalDisk != null)
-                {
-                    map.TryAdd(leafName, physicalDisk);
-                }
-                else if (dev.Path.Contains("/disk/by-"))
-                {
-                    // Fallback for by-id paths: use the identifier itself for matching iostat output.
-                    // This allows temperatures to display even when symlink resolution fails.
-                    map.TryAdd(leafName, leafName);
-                    logger.LogWarning("Could not resolve device path to physical disk: {DevicePath}. Using by-id name as fallback.", dev.Path);
-                }
-            }
-        }
-
-        return map;
-    }
-
-    /// <summary>
-    /// Strips the "-partN" suffix from a by-id device name.
-    /// <c>wwn-0x50014ee2b702ad1b-part1</c> → <c>wwn-0x50014ee2b702ad1b</c>.
-    /// </summary>
-    internal static string StripByIdPartition(string name)
-    {
-        var idx = name.LastIndexOf("-part", StringComparison.Ordinal);
-        if (idx > 0 && idx < name.Length - 5)
-        {
-            var suffix = name[(idx + 5)..];
-            if (suffix.Length > 0 && suffix.All(char.IsDigit))
-                return name[..idx];
-        }
-
-        return name;
-    }
-
-    /// <summary>
-    /// Parses the output of <c>zpool iostat -c temp -H</c>.
-    /// Each line is tab-separated; the device name is in the first column
-    /// and the temperature value is the last column.
-    /// Pool/vdev summary lines lack a temperature column and are skipped.
-    /// </summary>
-    internal static IReadOnlyDictionary<string, int> ParseTemperatures(
-        string output, IReadOnlyDictionary<string, string> deviceMap, ILogger<DiskTemperatureBackgroundService> logger)
-    {
-        if (string.IsNullOrWhiteSpace(output))
-        {
-            logger.LogWarning("Empty output!");
+        if (!Directory.Exists(hwmonBasePath))
             return FrozenDictionary<string, int>.Empty;
-        }
 
         var result = new Dictionary<string, int>();
 
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var hwmonDir in Directory.GetDirectories(hwmonBasePath))
         {
-            var fields = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
-            if (fields.Length < 3) continue;
+            var nameFile = Path.Combine(hwmonDir, "name");
+            var tempFile = Path.Combine(hwmonDir, "temp1_input");
 
-            var deviceName = fields[0].Trim();
+            if (!File.Exists(nameFile) || !File.Exists(tempFile))
+                continue;
 
-            // The -c temp column may be appended with spaces (not tabs) to the last
-            // standard column, e.g. "903    27". Split the last field on whitespace
-            // and take the final token as the temperature value.
-            var lastFieldParts = fields[^1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var tempStr = lastFieldParts[^1].Trim();
+            var driverName = File.ReadAllText(nameFile).Trim();
+            if (driverName is not ("drivetemp" or "nvme"))
+                continue;
 
-            if (!int.TryParse(tempStr, out var tempCelsius))
+            var blockDevice = ResolveBlockDevice(hwmonDir, driverName);
+            if (blockDevice is null)
             {
-                // Pool/vdev summary lines (e.g. "zfsPool", "raidz1-0") have size values
-                // in columns 1-2 instead of "-", so they are expected to lack a temperature.
-                // Only warn for actual device lines (which have "-" in columns 1-2).
-                if (fields.Length >= 3 && fields[1].Trim() == "-")
-                    logger.LogWarning("Could not parse temperature from iostat line: {Line}", line.Trim());
-
+                logger.LogWarning("Could not resolve hwmon to block device: {HwmonDir} ({Driver})", hwmonDir, driverName);
                 continue;
             }
 
-            // Resolve ZFS device name to physical disk name via the pool-derived mapping.
-            // Falls back to short-name resolution for simple device names (e.g. "sda1").
-            var physicalDisk = ResolveDeviceName(deviceName, deviceMap);
+            var tempText = File.ReadAllText(tempFile).Trim();
+            if (!int.TryParse(tempText, out var millidegrees))
+            {
+                logger.LogWarning("Could not parse temperature from {TempFile}: {Value}", tempFile, tempText);
+                continue;
+            }
 
-            if (physicalDisk != null)
-            {
-                result.TryAdd(physicalDisk, tempCelsius);
-            }
-            else
-            {
-                logger.LogWarning("Could not resolve iostat device name: {DeviceName}", deviceName);
-            }
+            result.TryAdd(blockDevice, millidegrees / 1000);
         }
 
         return result.ToFrozenDictionary();
     }
 
     /// <summary>
-    /// Resolves a ZFS device identifier to a physical disk name.
-    /// Uses the pool-derived device map for by-id names, and direct
-    /// partition stripping for short names like "sda1".
+    /// Resolves a hwmon directory to a block device name (e.g. "sda", "nvme0n1").
+    /// For drivetemp: follows device symlink → looks for block/ subdirectory.
+    /// For nvme: follows device symlink → looks for nvme*n* subdirectory.
     /// </summary>
-    private static string? ResolveDeviceName(string device, IReadOnlyDictionary<string, string> deviceMap)
+    internal static string? ResolveBlockDevice(string hwmonDir, string driverName)
     {
-        // Look up in pool-derived mapping (handles wwn-*, ata-*, scsi-*, etc.)
-        if (deviceMap.TryGetValue(device, out var mapped))
-            return mapped;
+        var deviceLink = Path.Combine(hwmonDir, "device");
+        if (!Directory.Exists(deviceLink))
+            return null;
 
-        // Try again after stripping the -partN suffix (iostat may include it)
-        var stripped = StripByIdPartition(device);
-        if (stripped != device && deviceMap.TryGetValue(stripped, out mapped))
-            return mapped;
+        var devicePath = Path.GetFullPath(deviceLink);
 
-        // Short name fallback: strip partition suffix directly
-        var baseName = SystemService.StripPartition(device);
-        return SystemService.IsPhysicalDisk(baseName) ? baseName : null;
+        if (driverName == "drivetemp")
+        {
+            // drivetemp device → /sys/devices/.../2:0:0:0/block/sda
+            var blockDir = Path.Combine(devicePath, "block");
+            if (!Directory.Exists(blockDir))
+                return null;
+
+            var entries = Directory.GetDirectories(blockDir);
+            return entries.Length > 0 ? Path.GetFileName(entries[0]) : null;
+        }
+
+        if (driverName == "nvme")
+        {
+            // nvme device → /sys/devices/.../nvme/nvme0/nvme0n1
+            foreach (var subdir in Directory.GetDirectories(devicePath))
+            {
+                var name = Path.GetFileName(subdir);
+                if (name is not null && name.StartsWith("nvme", StringComparison.Ordinal) && name.Contains('n', StringComparison.Ordinal))
+                {
+                    // Ensure it's a namespace (nvme0n1), not another nvme sub-path
+                    // by checking that the character after the last 'n' is a digit.
+                    var lastN = name.LastIndexOf('n');
+                    if (lastN > 0 && lastN < name.Length - 1 && char.IsDigit(name[lastN + 1]))
+                        return name;
+                }
+            }
+        }
+
+        return null;
     }
 }

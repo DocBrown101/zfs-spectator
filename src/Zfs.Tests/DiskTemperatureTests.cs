@@ -1,110 +1,117 @@
 namespace Zfs.Tests;
 
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using ZfsDashboard.Services;
 
-public class DiskTemperatureTests
+public class DiskTemperatureTests : IDisposable
 {
-    private static readonly Dictionary<string, string> EmptyMap = [];
-    private static readonly ILogger<DiskTemperatureBackgroundService> NullLogger = NullLogger<DiskTemperatureBackgroundService>.Instance;
+    private static readonly ILogger NullLogger = NullLogger<DiskTemperatureBackgroundService>.Instance;
+    private readonly string tempDir;
 
-
-    [Fact]
-    public void ParseTemperatures_EmptyOutput_ReturnsEmpty()
+    public DiskTemperatureTests()
     {
-        Assert.Empty(DiskTemperatureBackgroundService.ParseTemperatures("", EmptyMap, NullLogger));
-        Assert.Empty(DiskTemperatureBackgroundService.ParseTemperatures("  ", EmptyMap, NullLogger));
+        this.tempDir = Path.Combine(Path.GetTempPath(), "hwmon-test-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(this.tempDir);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(this.tempDir))
+            Directory.Delete(this.tempDir, recursive: true);
     }
 
     [Fact]
-    public void ParseTemperatures_UnrecognizedDevice_SkipsLine()
+    public void ReadTemperatures_NoHwmonDir_ReturnsEmpty()
     {
-        var output = "dm-0\t0\t0\t0\t0\t0\t0\t40\n";
+        var result = DiskTemperatureBackgroundService.ReadTemperatures("/nonexistent", NullLogger);
+        Assert.Empty(result);
+    }
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, EmptyMap, NullLogger);
+    [Fact]
+    public void ReadTemperatures_SkipsNonDiskHwmon()
+    {
+        CreateHwmonEntry("hwmon0", "coretemp", "45000");
+
+        var result = DiskTemperatureBackgroundService.ReadTemperatures(this.tempDir, NullLogger);
 
         Assert.Empty(result);
     }
 
     [Fact]
-    public void ParseTemperatures_PoolAndVdevLinesSkipped()
+    public void ReadTemperatures_SkipsEntryWithoutTempFile()
     {
-        var output = string.Join("\n",
-            "miniTank\t756G\t1.07T\t0\t2\t12.5K\t26.7K",
-            "sda1\t407G\t521G\t0\t1\t6.39K\t13.1K\t23",
-            "sdb1\t350G\t578G\t0\t1\t6.14K\t13.6K\t23",
-            "");
+        var hwmon = Path.Combine(this.tempDir, "hwmon0");
+        Directory.CreateDirectory(hwmon);
+        File.WriteAllText(Path.Combine(hwmon, "name"), "drivetemp");
+        // No temp1_input file
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, EmptyMap, NullLogger);
+        var result = DiskTemperatureBackgroundService.ReadTemperatures(this.tempDir, NullLogger);
 
-        Assert.Equal(2, result.Count);
-        Assert.Equal(23, result["sda"]);
-        Assert.Equal(23, result["sdb"]);
+        Assert.Empty(result);
     }
 
     [Fact]
-    public void ParseTemperatures_ByIdNames_ResolvedViaDeviceMap()
+    public void ResolveBlockDevice_Drivetemp_FindsBlockDevice()
     {
-        var deviceMap = new Dictionary<string, string>
-        {
-            ["wwn-0x50014ee2b702ad1b"] = "sda",
-            ["wwn-0x50014ee2b2d93b72"] = "sdb",
-            ["ata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1"] = "sdc",
-        };
+        var hwmon = CreateHwmonWithDevice("hwmon0", "drivetemp");
+        var blockDir = Path.Combine(hwmon, "device", "block", "sda");
+        Directory.CreateDirectory(blockDir);
 
-        var output = string.Join("\n",
-            "miniTank\t756G\t1.07T\t0\t2\t12.5K\t26.7K",
-            "wwn-0x50014ee2b702ad1b\t407G\t521G\t0\t1\t6.39K\t13.1K\t23",
-            "wwn-0x50014ee2b2d93b72\t350G\t578G\t0\t1\t6.14K\t13.6K\t23",
-            "zfsPool\t8.64T\t466G\t1\t3\t33.1K\t47.9K",
-            "raidz1-0\t8.64T\t466G\t1\t3\t33.1K\t47.9K",
-            "ata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1\t-\t-\t0\t0\t6.39K\t9.67K\t22",
-            "");
+        var result = DiskTemperatureBackgroundService.ResolveBlockDevice(hwmon, "drivetemp");
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, deviceMap, NullLogger);
-
-        Assert.Equal(3, result.Count);
-        Assert.Equal(23, result["sda"]);
-        Assert.Equal(23, result["sdb"]);
-        Assert.Equal(22, result["sdc"]);
+        Assert.Equal("sda", result);
     }
 
     [Fact]
-    public void ParseTemperatures_SpaceSeparatedTempColumn_Parsed()
+    public void ResolveBlockDevice_Nvme_FindsNamespaceDevice()
     {
-        var deviceMap = new Dictionary<string, string>
-        {
-            ["wwn-0x50014ee2c06fdd9f"] = "sda",
-            ["wwn-0x50014ee2c06f6164"] = "sdb",
-        };
+        var hwmon = CreateHwmonWithDevice("hwmon0", "nvme");
+        var nsDir = Path.Combine(hwmon, "device", "nvme0n1");
+        Directory.CreateDirectory(nsDir);
 
-        // Real-world output where the -c temp value is space-separated from the last standard column.
-        var output = string.Join("\n",
-            "zfsPool\t12.7T\t9.33T\t0\t0\t5.94K\t9.54K",
-            "raidz1-0\t12.7T\t9.10T\t0\t0\t1.75K\t2.65K",
-            "wwn-0x50014ee2c06fdd9f-part2\t-\t-\t0\t0\t638\t903    27",
-            "wwn-0x50014ee2c06f6164-part2\t-\t-\t0\t0\t554\t903    27",
-            "");
+        var result = DiskTemperatureBackgroundService.ResolveBlockDevice(hwmon, "nvme");
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, deviceMap, NullLogger);
-
-        Assert.Equal(2, result.Count);
-        Assert.Equal(27, result["sda"]);
-        Assert.Equal(27, result["sdb"]);
+        Assert.Equal("nvme0n1", result);
     }
 
     [Fact]
-    public void StripByIdPartition_WithPartSuffix_StripsIt()
+    public void ResolveBlockDevice_Nvme_IgnoresNonNamespaceSubdirs()
     {
-        Assert.Equal("wwn-0x50014ee2b702ad1b", DiskTemperatureBackgroundService.StripByIdPartition("wwn-0x50014ee2b702ad1b-part1"));
-        Assert.Equal("ata-WDC_WD20EZRZ", DiskTemperatureBackgroundService.StripByIdPartition("ata-WDC_WD20EZRZ-part2"));
+        var hwmon = CreateHwmonWithDevice("hwmon0", "nvme");
+        // Create a subdir that starts with "nvme" but isn't a namespace
+        Directory.CreateDirectory(Path.Combine(hwmon, "device", "nvme-subsys0"));
+
+        var result = DiskTemperatureBackgroundService.ResolveBlockDevice(hwmon, "nvme");
+
+        Assert.Null(result);
     }
 
     [Fact]
-    public void StripByIdPartition_WithoutPartSuffix_ReturnsUnchanged()
+    public void ResolveBlockDevice_NoDeviceLink_ReturnsNull()
     {
-        Assert.Equal("wwn-0x50014ee2b702ad1b", DiskTemperatureBackgroundService.StripByIdPartition("wwn-0x50014ee2b702ad1b"));
-        Assert.Equal("sda1", DiskTemperatureBackgroundService.StripByIdPartition("sda1"));
+        var hwmon = Path.Combine(this.tempDir, "hwmon0");
+        Directory.CreateDirectory(hwmon);
+
+        var result = DiskTemperatureBackgroundService.ResolveBlockDevice(hwmon, "drivetemp");
+
+        Assert.Null(result);
+    }
+
+    private string CreateHwmonWithDevice(string name, string driverName)
+    {
+        var hwmon = Path.Combine(this.tempDir, name);
+        var deviceDir = Path.Combine(hwmon, "device");
+        Directory.CreateDirectory(deviceDir);
+        File.WriteAllText(Path.Combine(hwmon, "name"), driverName);
+        return hwmon;
+    }
+
+    private void CreateHwmonEntry(string name, string driverName, string tempValue)
+    {
+        var hwmon = Path.Combine(this.tempDir, name);
+        Directory.CreateDirectory(hwmon);
+        File.WriteAllText(Path.Combine(hwmon, "name"), driverName);
+        File.WriteAllText(Path.Combine(hwmon, "temp1_input"), tempValue);
     }
 }
