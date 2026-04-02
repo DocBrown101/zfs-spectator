@@ -109,7 +109,10 @@ public sealed class DiskTemperatureBackgroundService(
         string output, IReadOnlyDictionary<string, string> deviceMap, ILogger<DiskTemperatureBackgroundService> logger)
     {
         if (string.IsNullOrWhiteSpace(output))
+        {
+            logger.LogWarning("Empty output!");
             return FrozenDictionary<string, int>.Empty;
+        }
 
         var result = new Dictionary<string, int>();
 
