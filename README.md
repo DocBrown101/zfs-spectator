@@ -4,6 +4,8 @@ A lightweight, read-only web dashboard for monitoring ZFS storage systems. ZFS S
 
 **Look, don't touch.** ZFS Spectator has zero write operations. It only reads publicly available ZFS status information, making it safe to run alongside production workloads.
 
+**Zero external dependencies.** The backend has no NuGet package dependencies — only the .NET runtime is required. The frontend uses Bootstrap and Chart.js bundled directly in the repository; there is no npm pipeline, no Node.js, and no build step for the UI.
+
 <p align="center">
   <a href="https://sonarcloud.io/summary/new_code?id=DocBrown101_zfs-spectator">
     <img src="https://sonarcloud.io/api/project_badges/quality_gate?project=DocBrown101_zfs-spectator" />
@@ -19,7 +21,7 @@ A lightweight, read-only web dashboard for monitoring ZFS storage systems. ZFS S
 - **Snapshots** — Grouped by dataset with creation time and space usage
 - **ZVols** — Volume size, allocation, and block size
 - **ARC Cache** — Hit rates (L1/L2), MRU/MFU breakdown, and size limits
-- **Live I/O Monitoring** — Real-time disk and pool I/O charts with per-device bandwidth breakdown
+- **Live I/O Monitoring** — Real-time disk and pool I/O charts with per-device bandwidth and temperature
 - **Network Monitoring** — Per-interface upload/download rate charts
 - **Dark Theme** — Clean, responsive Bootstrap 5 interface with automatic 1-second refresh
 
@@ -41,6 +43,8 @@ All ZFS data is gathered by invoking `zfs` and `zpool` CLI commands in read-only
 - [.NET 10 SDK](https://dotnet.microsoft.com/) or later
 - Linux with ZFS installed (`zfs` and `zpool` commands available on `$PATH`)
 - No root or `sudo` required — standard user permissions are sufficient
+- No NuGet packages — the backend depends only on the .NET base class libraries
+- No Node.js or npm — the frontend requires no build pipeline or package manager
 
 ## Getting Started
 
@@ -145,8 +149,8 @@ ZFS Spectator is designed to be safe by default:
 
 | Component | Technology |
 |-----------|------------|
-| Backend | ASP.NET Core 10 / C# with Razor Pages |
-| Frontend | Bootstrap 5, Bootstrap Icons, Chart.js |
+| Backend | ASP.NET Core 10 / C# with Razor Pages — no NuGet dependencies |
+| Frontend | Bootstrap 5, Bootstrap Icons, Chart.js — no npm pipeline, no Node.js |
 | ZFS Integration | CLI (`zfs`, `zpool`) with JSON output parsing |
 | Live Updates | 1-second polling via `/api/live` endpoint |
 | Tests | xUnit with sample command output fixtures |
