@@ -71,6 +71,30 @@ public class DiskTemperatureTests
     }
 
     [Fact]
+    public void ParseTemperatures_SpaceSeparatedTempColumn_Parsed()
+    {
+        var deviceMap = new Dictionary<string, string>
+        {
+            ["wwn-0x50014ee2c06fdd9f"] = "sda",
+            ["wwn-0x50014ee2c06f6164"] = "sdb",
+        };
+
+        // Real-world output where the -c temp value is space-separated from the last standard column.
+        var output = string.Join("\n",
+            "zfsPool\t12.7T\t9.33T\t0\t0\t5.94K\t9.54K",
+            "raidz1-0\t12.7T\t9.10T\t0\t0\t1.75K\t2.65K",
+            "wwn-0x50014ee2c06fdd9f-part2\t-\t-\t0\t0\t638\t903    27",
+            "wwn-0x50014ee2c06f6164-part2\t-\t-\t0\t0\t554\t903    27",
+            "");
+
+        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, deviceMap, NullLogger);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(27, result["sda"]);
+        Assert.Equal(27, result["sdb"]);
+    }
+
+    [Fact]
     public void StripByIdPartition_WithPartSuffix_StripsIt()
     {
         Assert.Equal("wwn-0x50014ee2b702ad1b", DiskTemperatureBackgroundService.StripByIdPartition("wwn-0x50014ee2b702ad1b-part1"));

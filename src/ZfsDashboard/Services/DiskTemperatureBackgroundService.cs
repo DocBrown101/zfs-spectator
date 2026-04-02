@@ -122,9 +122,23 @@ public sealed class DiskTemperatureBackgroundService(
             if (fields.Length < 3) continue;
 
             var deviceName = fields[0].Trim();
-            var tempStr = fields[^1].Trim();
 
-            if (!int.TryParse(tempStr, out var tempCelsius)) continue;
+            // The -c temp column may be appended with spaces (not tabs) to the last
+            // standard column, e.g. "903    27". Split the last field on whitespace
+            // and take the final token as the temperature value.
+            var lastFieldParts = fields[^1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var tempStr = lastFieldParts[^1].Trim();
+
+            if (!int.TryParse(tempStr, out var tempCelsius))
+            {
+                // Pool/vdev summary lines (e.g. "zfsPool", "raidz1-0") have size values
+                // in columns 1-2 instead of "-", so they are expected to lack a temperature.
+                // Only warn for actual device lines (which have "-" in columns 1-2).
+                if (fields.Length >= 3 && fields[1].Trim() == "-")
+                    logger.LogWarning("Could not parse temperature from iostat line: {Line}", line.Trim());
+
+                continue;
+            }
 
             // Resolve ZFS device name to physical disk name via the pool-derived mapping.
             // Falls back to short-name resolution for simple device names (e.g. "sda1").
@@ -152,6 +166,11 @@ public sealed class DiskTemperatureBackgroundService(
     {
         // Look up in pool-derived mapping (handles wwn-*, ata-*, scsi-*, etc.)
         if (deviceMap.TryGetValue(device, out var mapped))
+            return mapped;
+
+        // Try again after stripping the -partN suffix (iostat may include it)
+        var stripped = StripByIdPartition(device);
+        if (stripped != device && deviceMap.TryGetValue(stripped, out mapped))
             return mapped;
 
         // Short name fallback: strip partition suffix directly
