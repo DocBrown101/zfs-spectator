@@ -1,18 +1,20 @@
 namespace Zfs.Tests;
 
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using ZfsDashboard.Services;
 
 public class DiskTemperatureTests
 {
     private static readonly Dictionary<string, string> EmptyMap = [];
-
+    private static readonly ILogger<DiskTemperatureBackgroundService> NullLogger = NullLogger<DiskTemperatureBackgroundService>.Instance;
 
 
     [Fact]
     public void ParseTemperatures_EmptyOutput_ReturnsEmpty()
     {
-        Assert.Empty(DiskTemperatureBackgroundService.ParseTemperatures("", EmptyMap));
-        Assert.Empty(DiskTemperatureBackgroundService.ParseTemperatures("  ", EmptyMap));
+        Assert.Empty(DiskTemperatureBackgroundService.ParseTemperatures("", EmptyMap, NullLogger));
+        Assert.Empty(DiskTemperatureBackgroundService.ParseTemperatures("  ", EmptyMap, NullLogger));
     }
 
     [Fact]
@@ -20,7 +22,7 @@ public class DiskTemperatureTests
     {
         var output = "dm-0\t0\t0\t0\t0\t0\t0\t40\n";
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, EmptyMap);
+        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, EmptyMap, NullLogger);
 
         Assert.Empty(result);
     }
@@ -34,7 +36,7 @@ public class DiskTemperatureTests
             "sdb1\t350G\t578G\t0\t1\t6.14K\t13.6K\t23",
             "");
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, EmptyMap);
+        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, EmptyMap, NullLogger);
 
         Assert.Equal(2, result.Count);
         Assert.Equal(23, result["sda"]);
@@ -60,7 +62,7 @@ public class DiskTemperatureTests
             "ata-WDC_WD20EZRZ-00Z5HB0_WD-WCC4M5UDEPK1\t-\t-\t0\t0\t6.39K\t9.67K\t22",
             "");
 
-        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, deviceMap);
+        var result = DiskTemperatureBackgroundService.ParseTemperatures(output, deviceMap, NullLogger);
 
         Assert.Equal(3, result.Count);
         Assert.Equal(23, result["sda"]);

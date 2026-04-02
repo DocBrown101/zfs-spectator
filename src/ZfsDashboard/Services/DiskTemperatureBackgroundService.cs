@@ -27,8 +27,8 @@ public sealed class DiskTemperatureBackgroundService(
                 var poolsTask = zpoolService.GetAllPoolsAsync();
                 await Task.WhenAll(outputTask, poolsTask);
 
-                var deviceMap = BuildDeviceMap(poolsTask.Result);
-                this.temperatures = ParseTemperatures(outputTask.Result, deviceMap);
+                var deviceMap = BuildDeviceMap(poolsTask.Result, logger);
+                this.temperatures = ParseTemperatures(outputTask.Result, deviceMap, logger);
             }
             catch (Exception ex)
             {
@@ -43,7 +43,7 @@ public sealed class DiskTemperatureBackgroundService(
     /// Builds a mapping from ZFS device leaf names (e.g. "wwn-0x50014ee2b702ad1b")
     /// to physical disk names (e.g. "sda") using pool device paths and symlink resolution.
     /// </summary>
-    internal static Dictionary<string, string> BuildDeviceMap(List<Pool> pools)
+    internal static Dictionary<string, string> BuildDeviceMap(List<Pool> pools, ILogger<DiskTemperatureBackgroundService> logger)
     {
         var map = new Dictionary<string, string>();
 
@@ -60,12 +60,22 @@ public sealed class DiskTemperatureBackgroundService(
                 // Pool device path: e.g. "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1"
                 // or short name like "sda1"
                 var physicalDisk = SystemService.ResolveToPhysicalDisk(dev.Path);
-                if (physicalDisk == null) continue;
 
                 // Extract the leaf name and strip partition suffixes to match iostat output.
                 // "/dev/disk/by-id/wwn-0x50014ee2b702ad1b-part1" → "wwn-0x50014ee2b702ad1b"
                 var leafName = StripByIdPartition(Path.GetFileName(dev.Path));
-                map.TryAdd(leafName, physicalDisk);
+
+                if (physicalDisk != null)
+                {
+                    map.TryAdd(leafName, physicalDisk);
+                }
+                else if (dev.Path.Contains("/disk/by-"))
+                {
+                    // Fallback for by-id paths: use the identifier itself for matching iostat output.
+                    // This allows temperatures to display even when symlink resolution fails.
+                    map.TryAdd(leafName, leafName);
+                    logger.LogWarning("Could not resolve device path to physical disk: {DevicePath}. Using by-id name as fallback.", dev.Path);
+                }
             }
         }
 
@@ -96,7 +106,7 @@ public sealed class DiskTemperatureBackgroundService(
     /// Pool/vdev summary lines lack a temperature column and are skipped.
     /// </summary>
     internal static IReadOnlyDictionary<string, int> ParseTemperatures(
-        string output, IReadOnlyDictionary<string, string> deviceMap)
+        string output, IReadOnlyDictionary<string, string> deviceMap, ILogger<DiskTemperatureBackgroundService> logger)
     {
         if (string.IsNullOrWhiteSpace(output))
             return FrozenDictionary<string, int>.Empty;
@@ -116,10 +126,15 @@ public sealed class DiskTemperatureBackgroundService(
             // Resolve ZFS device name to physical disk name via the pool-derived mapping.
             // Falls back to short-name resolution for simple device names (e.g. "sda1").
             var physicalDisk = ResolveDeviceName(deviceName, deviceMap);
-            if (physicalDisk == null) continue;
 
-            // First occurrence wins (in case of duplicate entries)
-            result.TryAdd(physicalDisk, tempCelsius);
+            if (physicalDisk != null)
+            {
+                result.TryAdd(physicalDisk, tempCelsius);
+            }
+            else
+            {
+                logger.LogWarning("Could not resolve iostat device name: {DeviceName}", deviceName);
+            }
         }
 
         return result.ToFrozenDictionary();
