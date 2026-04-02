@@ -6,7 +6,7 @@ namespace ZfsDashboard.Services;
 public sealed class DiskTemperatureBackgroundService(
     ILogger<DiskTemperatureBackgroundService> logger) : BackgroundService, IDiskTemperatureProvider
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
     private const string HwmonBasePath = "/sys/class/hwmon";
 
     private volatile IReadOnlyDictionary<string, int> temperatures = FrozenDictionary<string, int>.Empty;
@@ -15,7 +15,7 @@ public sealed class DiskTemperatureBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Run once immediately, then every 60 seconds.
+        // Run once immediately, then every 30 seconds.
         while (!stoppingToken.IsCancellationRequested)
         {
             try

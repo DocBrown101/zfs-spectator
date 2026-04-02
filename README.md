@@ -2,6 +2,8 @@
 
 A lightweight, read-only web dashboard for monitoring ZFS storage systems. ZFS Spectator gives you full visibility into your pools, datasets, snapshots, and system resources — without requiring elevated permissions or making any changes to your system.
 
+![Preview](https://github.com/DocBrown101/zfs-spectator/refs/heads/main/docs/dashboard.png)
+
 **Look, don't touch.** ZFS Spectator has zero write operations. It only reads publicly available ZFS status information, making it safe to run alongside production workloads.
 
 **Zero external dependencies.** The backend has no NuGet package dependencies — only the .NET runtime is required. The frontend uses Bootstrap and Chart.js bundled directly in the repository; there is no npm pipeline, no Node.js, and no build step for the UI.
