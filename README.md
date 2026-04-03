@@ -27,17 +27,6 @@ A lightweight, read-only web dashboard for monitoring ZFS storage systems. ZFS S
 - **Network Monitoring** — Per-interface upload/download rate charts
 - **Dark Theme** — Clean, responsive Bootstrap 5 interface with automatic 1-second refresh
 
-## Architecture
-
-```
-ZfsDashboard/          ASP.NET Core Razor Pages web UI
-Zfs.Core/
-  ├── Models/          Strongly-typed C# records (Pool, Dataset, Snapshot, etc.)
-  ├── Services/        ZfsService, ZpoolService, SystemService
-  └── Services/Parser/ JSON parsers for zfs/zpool command output
-Zfs.Tests/             xUnit test suite with sample command output fixtures
-```
-
 All ZFS data is gathered by invoking `zfs` and `zpool` CLI commands in read-only mode and parsing their JSON output. System metrics are read from `/proc`. No database is required.
 
 ## Requirements
@@ -56,7 +45,7 @@ git clone https://github.com/DocBrown101/zfs-spectator.git
 cd zfs-spectator
 
 # Build and run
-dotnet run --project ZfsDashboard
+dotnet run --project src/ZfsDashboard
 ```
 
 The dashboard will be available at `http://localhost:5959` by default.
@@ -65,7 +54,7 @@ The dashboard will be available at `http://localhost:5959` by default.
 
 ZFS Spectator is a natural fit for NixOS. Because the service is entirely read-only and needs no elevated permissions, it integrates cleanly into a NixOS system — no `security.wrappers`, no setuid, no capability grants. Just a minimal systemd service with strict sandboxing out of the box.
 
-A Nix Flake is included with a ready-to-use NixOS module. (work in progress)
+A Nix Flake is included with a ready-to-use NixOS module.
 
 ### Quick setup
 
@@ -74,7 +63,7 @@ Add the flake to your NixOS configuration inputs and import the module:
 ```nix
 # flake.nix
 {
-  inputs.zfs-spectator.url = "github.com/DocBrown101/zfs-spectator";
+  inputs.zfs-spectator.url = "github:DocBrown101/zfs-spectator";
 
   outputs = { self, nixpkgs, zfs-spectator, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
@@ -107,18 +96,6 @@ This creates a dedicated `zfs-spectator` system user and a hardened systemd unit
 | `user` | string | `"zfs-spectator"` | Service user |
 | `group` | string | `"zfs-spectator"` | Service group |
 
-### Building manually with Nix
-
-```bash
-# Build the package
-nix build
-
-# Run directly
-nix run
-
-# Enter a dev shell with .NET SDK
-nix develop
-```
 
 ## Configuration
 
@@ -126,10 +103,7 @@ Standard ASP.NET Core configuration applies. You can set the listening URL via c
 
 ```bash
 # Custom port
-dotnet run --project ZfsDashboard --urls "http://0.0.0.0:8080"
-
-# Or via environment variable
-ASPNETCORE_URLS="http://0.0.0.0:8080" dotnet run --project ZfsDashboard
+dotnet run --project src/ZfsDashboard --urls "http://0.0.0.0:8080"
 ```
 
 ## Running Tests
