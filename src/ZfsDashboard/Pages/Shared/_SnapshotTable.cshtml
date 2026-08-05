@@ -1,0 +1,49 @@
+@model SnapshotTableViewModel
+@if (Model.Rows.Count == 0)
+{
+    <span class="text-body-secondary small">@Model.EmptyMessage</span>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-borderless table-sm mb-0">
+            <thead>
+                <tr class="border-bottom border-secondary">
+                    <th class="text-body-secondary fw-normal">Snapshot</th>
+                    <th class="text-body-secondary fw-normal text-end">Used</th>
+                    <th class="text-body-secondary fw-normal text-end">Refer</th>
+                    <th class="text-body-secondary fw-normal">Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var snapshot in Model.Rows)
+                {
+                    <tr class="border-bottom border-secondary">
+                        <td class="font-monospace small">@@@snapshot.Name</td>
+                        <td class="small text-end">@snapshot.Used</td>
+                        <td class="small text-end">@snapshot.Referenced</td>
+                        <td class="small">@snapshot.Created</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#@snapshot.CollapseId"
+                                    aria-expanded="false"
+                                    aria-controls="@snapshot.CollapseId"
+                                    aria-label="Show commands for @snapshot.Name">
+                                <i class="bi bi-terminal"></i>
+                            </button>
+                            <div class="collapse mt-1" id="@snapshot.CollapseId">
+                                <div class="mb-1">
+                                    <partial name="_CopyableCommand" model="snapshot.RollbackCommand" />
+                                </div>
+                                <partial name="_CopyableCommand" model="snapshot.DestroyCommand" />
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

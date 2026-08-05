@@ -2,8 +2,7 @@ namespace Zfs.Core.Models;
 
 public record DashboardData
 {
-    public Dictionary<string, string> Text { get; init; } = new();
-    public ArcStats Arc { get; init; } = new();
+    public SystemInfo System { get; init; } = new();
     public List<NetworkRateInfo> NetworkRates { get; init; } = new();
     public List<DiskIoRateInfo> DiskIoRates { get; init; } = new();
     public List<PoolDiskIoGroup> PoolDiskIoRates { get; init; } = new();

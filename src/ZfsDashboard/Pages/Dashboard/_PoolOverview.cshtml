@@ -1,0 +1,98 @@
+@model IReadOnlyList<PoolCardViewModel>
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title d-flex align-items-center gap-2 mb-0">
+                <i class="bi bi-hdd-stack text-info"></i>
+                ZFS Pools
+            </h5>
+            <span class="badge bg-body-tertiary text-body-secondary border">@Model.Count pools</span>
+        </div>
+
+        @if (Model.Count == 0)
+        {
+            <div class="alert alert-secondary mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                No ZFS pools found. Ensure ZFS is installed and pools are imported.
+            </div>
+        }
+
+        @foreach (var pool in Model)
+        {
+            <div class="card mb-3">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <a asp-page="/Pools/Details" asp-route-name="@pool.Name" class="fw-semibold text-info text-decoration-none">
+                                <i class="bi bi-hdd-stack me-1 dashboard-pool-icon"></i>@pool.Name
+                            </a>
+                            @if (pool.Encrypted)
+                            {
+                                <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="Encrypted (@pool.EncryptionAlgorithm)"></i>
+                            }
+                            @if (pool.HasErrors)
+                            {
+                                <span class="badge bg-danger ms-1" data-bs-toggle="tooltip" data-bs-title="@pool.ErrorTooltip">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                </span>
+                            }
+                        </div>
+                        <span class="badge @pool.HealthCss">@pool.Health</span>
+                    </div>
+                    <div class="row text-center small">
+                        <div class="col">
+                            <div class="text-body-secondary text-uppercase dashboard-label">Size</div>
+                            <div class="fw-semibold">@pool.Size</div>
+                        </div>
+                        <div class="col">
+                            <div class="text-body-secondary text-uppercase dashboard-label">Allocated</div>
+                            <div class="fw-semibold">@pool.Allocated</div>
+                        </div>
+                        <div class="col">
+                            <div class="text-body-secondary text-uppercase dashboard-label">Free</div>
+                            <div class="fw-semibold">@pool.Free</div>
+                        </div>
+                        <div class="col">
+                            <div class="text-body-secondary text-uppercase dashboard-label">Capacity</div>
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <span class="fw-semibold">@pool.UsagePercent.ToString("F0")%</span>
+                                <div class="dashboard-pool-progress">
+                                    <partial name="_CapacityBar" model="new CapacityBarViewModel(pool.UsagePercent, ShowPercentage: false)" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-borderless table-sm mb-0 small dashboard-table">
+                            <colgroup>
+                                <col class="dashboard-pool-disk-name">
+                                <col class="dashboard-pool-disk-metric">
+                                <col class="dashboard-pool-disk-metric">
+                                <col class="dashboard-pool-disk-metric">
+                                <col class="dashboard-pool-disk-metric">
+                                <col class="dashboard-pool-disk-metric">
+                            </colgroup>
+                            <thead>
+                                <tr class="border-bottom border-secondary">
+                                    <th class="text-body-secondary fw-normal">Disk</th>
+                                    <th class="text-body-secondary fw-normal">VDEV TYPE</th>
+                                    <th class="text-body-secondary fw-normal text-end">Queue</th>
+                                    <th class="text-body-secondary fw-normal text-end">R lat</th>
+                                    <th class="text-body-secondary fw-normal text-end">W lat</th>
+                                    <th class="text-body-secondary fw-normal text-end">Util%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="poolDisks-@pool.Name"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2 pt-2 small">
+                        <span class="text-body-secondary text-uppercase me-2 dashboard-label">Scrub</span>
+                        <span id="poolScrub-@pool.Name">
+                            <partial name="_ScrubStatus" model="ScrubStatusViewModel.Loading" />
+                        </span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

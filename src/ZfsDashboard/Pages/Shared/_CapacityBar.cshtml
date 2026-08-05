@@ -1,0 +1,38 @@
+@model CapacityBarViewModel
+@{
+    var healthyCss = Model.HealthyColor == CapacityBarHealthyColor.Info ? "bg-info" : "bg-success";
+    var barCss = Model.Percentage > 85 ? "bg-danger" : Model.Percentage > 70 ? "bg-warning" : healthyCss;
+    var sizeCss = Model.Size switch
+    {
+        CapacityBarSize.Regular => "capacity-bar-regular",
+        CapacityBarSize.Large => "capacity-bar-large",
+        _ => "capacity-bar-compact",
+    };
+    var width = Model.Percentage.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+@if (Model.ShowThreshold)
+{
+    <div class="progress-wrap mt-3 mb-1"
+         data-bs-toggle="tooltip"
+         data-bs-placement="top"
+         data-bs-title="ZFS performance degrades significantly above 80% pool usage - keep below this threshold for optimal performance">
+        <span class="threshold-label">80%</span>
+        <div class="threshold-marker"></div>
+        <div class="progress @sizeCss">
+            <div class="progress-bar @barCss" style="width:@width%"></div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center gap-2">
+        <div class="progress flex-grow-1 @sizeCss">
+            <div class="progress-bar @barCss" style="width:@width%"></div>
+        </div>
+        @if (Model.ShowPercentage)
+        {
+            <span class="text-body-secondary capacity-percentage">@Model.Percentage.ToString("F0")%</span>
+        }
+    </div>
+}

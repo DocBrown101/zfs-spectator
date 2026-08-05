@@ -29,35 +29,12 @@ public class DemoDataSystemService : ISystemService
         var systemTask    = this.GetSystemInfoAsync(zfs);
         var poolNamesTask = zpool.GetPoolNamesAsync();
         await Task.WhenAll(systemTask, poolNamesTask);
-        var arc       = systemTask.Result.Arc;
+        var system    = systemTask.Result;
         var poolNames = poolNamesTask.Result;
 
         var scrubResults = await Task.WhenAll(poolNames.Select(n => zpool.GetScrubStatusAsync(n)));
         var poolScrubs = poolNames.Zip(scrubResults, (n, s) => (Name: n, Scrub: s))
             .ToDictionary(x => x.Name, x => x.Scrub);
-
-        var text = new Dictionary<string, string>
-        {
-            ["cpuUsage"] = "12.3%",
-            ["sysUptime"] = "14d 7h 32m",
-            ["memTotal"] = 34359738368UL.FormatBytes(),
-            ["memAvail"] = 18253611008UL.FormatBytes(),
-            ["memUsed"] = 16106127360UL.FormatBytes(),
-            ["memPct"] = "46.9 %",
-            ["memBuffersCached"] = $"{524288000UL.FormatBytes()} / {8589934592UL.FormatBytes()}",
-            ["memArc"] = arc.Size.FormatBytes(),
-            ["swapUsed"] = $"{0UL.FormatBytes()} / {8589934592UL.FormatBytes()}",
-            ["swapPct"] = "0.0 %",
-        };
-
-        if (arc.MaxSize > 0)
-        {
-            text["arcPct"] = $"{arc.UsagePercent:F1} %";
-            text["arcSize"] = $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}";
-            text["arcMeta"] = arc.MetadataSize.FormatBytes();
-            text["arcData"] = arc.DataSize.FormatBytes();
-            text["arcMruMfu"] = $"{arc.MruSize.FormatBytes()} / {arc.MfuSize.FormatBytes()}";
-        }
 
         var networkRates = new List<NetworkRateInfo>
         {
@@ -78,8 +55,7 @@ public class DemoDataSystemService : ISystemService
 
         return new DashboardData
         {
-            Text = text,
-            Arc = arc,
+            System = system,
             NetworkRates = networkRates,
             DiskIoRates = diskRates,
             PoolDiskIoRates = poolDiskRates,

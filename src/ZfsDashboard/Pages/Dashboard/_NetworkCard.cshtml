@@ -1,0 +1,28 @@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-ethernet text-info"></i>
+            Network
+        </h5>
+        <canvas id="netCanvas"></canvas>
+        <div class="table-responsive mt-2">
+            <table class="table table-borderless table-sm mb-0 small dashboard-table">
+                <colgroup>
+                    <col class="dashboard-net-name">
+                    <col>
+                    <col>
+                </colgroup>
+                <thead>
+                    <tr class="border-bottom border-secondary">
+                        <th class="text-body-secondary fw-normal">Interface</th>
+                        <th class="text-body-secondary fw-normal text-end">Download</th>
+                        <th class="text-body-secondary fw-normal text-end">Upload</th>
+                    </tr>
+                </thead>
+                <tbody id="netDetail">
+                    <tr><td colspan="3" class="text-body-secondary">Loading&hellip;</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

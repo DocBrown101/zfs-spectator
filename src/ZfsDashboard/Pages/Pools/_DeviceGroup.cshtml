@@ -1,0 +1,55 @@
+@model PoolDeviceGroupViewModel
+<h6 class="mt-3 mb-2 d-flex align-items-center gap-1">
+    <i class="bi bi-@Model.Icon me-1 text-info"></i>@Model.Title
+    <span class="badge bg-secondary ms-1">@Model.Devices.Count</span>
+</h6>
+@if (Model.Size > 0)
+{
+    <div class="d-flex align-items-center gap-4 mb-2 small">
+        <div class="flex-grow-1 pool-device-capacity">
+            <partial name="_CapacityBar" model="new CapacityBarViewModel(Model.UsagePercent, HealthyColor: CapacityBarHealthyColor.Info)" />
+        </div>
+        <div><span class="text-body-secondary">Size</span> <span class="fw-semibold">@Model.Size.FormatBytes()</span></div>
+        <div><span class="text-body-secondary">Used</span> <span class="fw-semibold">@Model.Allocated.FormatBytes()</span></div>
+        <div><span class="text-body-secondary">Free</span> <span class="fw-semibold">@Model.Free.FormatBytes()</span></div>
+    </div>
+}
+<div class="table-responsive">
+    <table class="table table-borderless table-sm mb-0">
+        <thead>
+            <tr class="border-bottom border-secondary">
+                <th class="text-body-secondary fw-normal">Device Path</th>
+                <th class="text-body-secondary fw-normal">VDEV TYPE</th>
+                <th class="text-body-secondary fw-normal">Status</th>
+                <th class="text-body-secondary fw-normal">Present</th>
+                <th class="text-body-secondary fw-normal" data-bs-toggle="tooltip" data-bs-title="Read errors">READ</th>
+                <th class="text-body-secondary fw-normal" data-bs-toggle="tooltip" data-bs-title="Write errors">WRITE</th>
+                <th class="text-body-secondary fw-normal" data-bs-toggle="tooltip" data-bs-title="Checksum errors">CKSUM</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var device in Model.Devices)
+            {
+                <tr class="border-bottom border-secondary @(device.HasErrors ? "text-danger" : "")">
+                    <td class="font-monospace small">@device.Path</td>
+                    <td><span class="badge bg-secondary">@device.VdevType</span></td>
+                    <td><span class="badge @device.Status.ToStatusBadgeCss()">@device.Status</span></td>
+                    <td>
+                        @if (device.Present)
+                        {
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                        }
+                        else
+                        {
+                            <i class="bi bi-exclamation-triangle-fill text-warning"
+                               data-bs-toggle="tooltip" data-bs-title="Device not found on system"></i>
+                        }
+                    </td>
+                    <td class="@(device.ErrorsRead > 0 ? "text-danger fw-semibold" : "text-body-secondary")">@device.ErrorsRead</td>
+                    <td class="@(device.ErrorsWrite > 0 ? "text-danger fw-semibold" : "text-body-secondary")">@device.ErrorsWrite</td>
+                    <td class="@(device.ErrorsChecksum > 0 ? "text-danger fw-semibold" : "text-body-secondary")">@device.ErrorsChecksum</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

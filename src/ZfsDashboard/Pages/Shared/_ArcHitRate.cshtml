@@ -1,5 +1,0 @@
-@model ArcStats
-@{
-    var css = Model.HitRate >= 90 ? "text-success" : Model.HitRate >= 70 ? "text-warning" : "text-danger";
-}
-<span class="@css fw-semibold">@Model.HitRate.ToString("F1")%</span>

@@ -83,16 +83,7 @@
                                         <td class="small text-end">@ds.RecordSize.FormatBytes()</td>
                                         <td class="small">@ds.Compression (@ds.CompRatio)</td>
                                         <td>
-                                            @{
-                                                var dsPct = ds.UsagePercent;
-                                                var dsBarCss = dsPct > 85 ? "bg-danger" : dsPct > 70 ? "bg-warning" : "bg-success";
-                                            }
-                                            <div class="d-flex align-items-center gap-2 small">
-                                                <div class="progress flex-grow-1" style="height:6px;">
-                                                    <div class="progress-bar @dsBarCss" style="width:@dsPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
-                                                </div>
-                                                <span class="text-body-secondary" style="min-width:38px">@dsPct.ToString("F0")%</span>
-                                            </div>
+                                            <partial name="_CapacityBar" model="new CapacityBarViewModel(ds.UsagePercent)" />
                                         </td>
                                     </tr>
                                 }

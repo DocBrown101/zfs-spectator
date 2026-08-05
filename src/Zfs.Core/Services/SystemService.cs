@@ -24,9 +24,6 @@ public class SystemService() : ISystemService
         await Task.WhenAll(systemTask, networkTask, diskTask, poolsTask);
 
         var sys = systemTask.Result;
-        var mem = sys.Memory;
-        var arc = sys.Arc;
-        var cpu = sys.CpuUsagePercent;
         var network = networkTask.Result;
         var disks = diskTask.Result;
         var pools = poolsTask.Result;
@@ -34,30 +31,6 @@ public class SystemService() : ISystemService
 
         // Fan out scrub checks while synchronous work below runs
         var scrubTask = Task.WhenAll(pools.Select(p => zpool.GetScrubStatusAsync(p.Name)));
-
-        // ── Text fields (set via textContent) ────────────────────────────
-        var text = new Dictionary<string, string>
-        {
-            ["cpuUsage"] = $"{cpu:F1}%",
-            ["sysUptime"] = sys.Uptime,
-            ["memTotal"] = mem.Total.FormatBytes(),
-            ["memAvail"] = mem.Available.FormatBytes(),
-            ["memUsed"] = mem.Used.FormatBytes(),
-            ["memPct"] = $"{mem.UsagePercent:F1} %",
-            ["memBuffersCached"] = $"{mem.Buffers.FormatBytes()} / {mem.Cached.FormatBytes()}",
-            ["memArc"] = arc.Size.FormatBytes(),
-            ["swapUsed"] = $"{mem.SwapUsed.FormatBytes()} / {mem.SwapTotal.FormatBytes()}",
-            ["swapPct"] = $"{mem.SwapUsagePercent:F1} %",
-        };
-
-        if (arc.MaxSize > 0)
-        {
-            text["arcPct"] = $"{arc.UsagePercent:F1} %";
-            text["arcSize"] = $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}";
-            text["arcMeta"] = arc.MetadataSize.FormatBytes();
-            text["arcData"] = arc.DataSize.FormatBytes();
-            text["arcMruMfu"] = $"{arc.MruSize.FormatBytes()} / {arc.MfuSize.FormatBytes()}";
-        }
 
         var netRates = this.BuildNetworkRates(network, now);
         var diskRates = this.BuildDiskIoRates(disks, now);
@@ -67,7 +40,7 @@ public class SystemService() : ISystemService
         var poolScrubs = pools.Zip(scrubResults, (p, s) => (p.Name, Scrub: s))
             .ToDictionary(x => x.Name, x => x.Scrub);
 
-        return new DashboardData { Text = text, Arc = arc, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates, PoolScrubs = poolScrubs };
+        return new DashboardData { System = sys, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates, PoolScrubs = poolScrubs };
     }
 
     // ── Disk I/O rate computation ────────────────────────────────────────
@@ -225,7 +198,7 @@ public class SystemService() : ISystemService
 
             return new SystemInfo
             {
-                Uptime = uptimeSec.FormatUptime(),
+                Uptime = FormatUptime(uptimeSec),
                 Arc = arcTask.Result,
                 Memory = memTask.Result,
                 CpuUsagePercent = cpuTask.Result,
@@ -238,6 +211,16 @@ public class SystemService() : ISystemService
     }
 
     private static double ParseD(string? s) => double.TryParse(s, CultureInfo.InvariantCulture, out var v) ? v : 0;
+
+    private static string FormatUptime(double seconds)
+    {
+        var time = TimeSpan.FromSeconds(seconds);
+        if (time.TotalDays >= 1)
+            return $"{(int)time.TotalDays}d {time.Hours}h {time.Minutes}m";
+        if (time.TotalHours >= 1)
+            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
+        return $"{time.Minutes}m {time.Seconds}s";
+    }
 
     // ── CPU Usage ────────────────────────────────────────────────────────
 

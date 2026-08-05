@@ -116,7 +116,7 @@ dotnet test Zfs.Tests
 
 ZFS Spectator is designed to be safe by default:
 
-- **No write endpoints** — the application exposes only `GET` handlers and a single read-only `/api/live` JSON endpoint
+- **No write endpoints** — the application exposes only `GET` handlers, including a single read-only live-data handler
 - **No destructive commands** — it never executes `zpool destroy`, `zfs set`, `zfs rollback`, or any modifying command
 - **No elevated permissions** — runs as a standard user; does not require `root` or `sudo`
 - **Command suggestions only** — maintenance commands (e.g., scrub) are displayed as copyable text, never executed
@@ -128,7 +128,7 @@ ZFS Spectator is designed to be safe by default:
 | Backend | ASP.NET Core 10 / C# with Razor Pages — no NuGet dependencies |
 | Frontend | Bootstrap 5, Bootstrap Icons, Chart.js — no npm pipeline, no Node.js |
 | ZFS Integration | CLI (`zfs`, `zpool`) with JSON output parsing |
-| Live Updates | 1-second polling via `/api/live` endpoint |
+| Live Updates | 1-second polling via a typed Razor Pages JSON handler |
 | Tests | xUnit with sample command output fixtures |
 
 ## License

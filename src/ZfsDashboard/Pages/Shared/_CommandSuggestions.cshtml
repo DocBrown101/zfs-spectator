@@ -1,4 +1,4 @@
-@model List<CommandSuggestion>
+@model IReadOnlyList<CommandSuggestion>
 @if (Model.Count > 0)
 {
     <div class="card mb-4">
@@ -11,21 +11,13 @@
             {
                 <div class="mb-3">
                     <div class="small text-body-secondary mb-1">@cmd.Description</div>
-                    <div class="cmd-block">
-                        <pre class="bg-dark text-light p-2 rounded"><code>@cmd.ZfsCommand</code></pre>
-                        <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
-                            <i class="bi bi-clipboard"></i>
-                        </button>
-                    </div>
+                    <partial name="_CopyableCommand" model="new CopyableCommandViewModel(cmd.ZfsCommand)" />
                     @if (cmd.NixOsConfig is not null)
                     {
                         <details class="small mt-1">
                             <summary class="text-info">NixOS alternative</summary>
-                            <div class="cmd-block mt-1">
-                                <pre class="bg-dark text-light p-2 rounded"><code>@cmd.NixOsConfig</code></pre>
-                                <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="Copy to clipboard">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
+                            <div class="mt-1">
+                                <partial name="_CopyableCommand" model="new CopyableCommandViewModel(cmd.NixOsConfig)" />
                             </div>
                         </details>
                     }

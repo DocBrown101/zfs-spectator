@@ -1,0 +1,36 @@
+@model ArcCardViewModel
+@{
+    var visibility = Model.IsVisible ? "" : "d-none";
+    var l2Visibility = Model.L2HitRate.HasValue ? "" : "d-none";
+}
+<div id="arcCard" class="card mb-4 @visibility">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-speedometer2 text-info"></i>
+            ARC Cache
+        </h5>
+        <div class="d-flex align-items-center gap-4">
+            <div class="position-relative flex-shrink-0 dashboard-gauge">
+                <canvas id="arcCanvas" data-initial-value="@Model.UsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"></canvas>
+                <div class="position-absolute top-50 start-50 translate-middle text-center">
+                    <span class="fw-bold fs-5" id="arcPct">@Model.UsagePercent.ToString("F1")%</span>
+                </div>
+            </div>
+            <div class="flex-grow-1">
+                <div class="row py-2 border-bottom border-secondary small" data-metric-row>
+                    <div class="col-5 text-body-secondary">@Model.Details[0].Label</div>
+                    <div class="col-7" id="@Model.Details[0].ElementId">@Model.Details[0].Value</div>
+                </div>
+                <div class="row py-2 border-bottom border-secondary small">
+                    <div class="col-5 text-body-secondary">L1 Hit Rate</div>
+                    <div class="col-7"><span id="arcHitRate" class="@Model.HitRateCss fw-semibold">@Model.HitRate.ToString("F1")%</span></div>
+                </div>
+                <div data-l2-arc-row class="row py-2 border-bottom border-secondary small @l2Visibility">
+                    <div class="col-5 text-body-secondary">L2ARC Hit Rate</div>
+                    <div class="col-7"><span id="l2HitRate" class="@Model.L2HitRateCss fw-semibold">@(Model.L2HitRate?.ToString("F1"))% (@Model.L2Size)</span></div>
+                </div>
+                <partial name="/Pages/Dashboard/_MetricRows.cshtml" model="Model.Details.Skip(1).ToList()" />
+            </div>
+        </div>
+    </div>
+</div>

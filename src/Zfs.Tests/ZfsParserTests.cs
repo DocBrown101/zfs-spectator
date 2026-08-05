@@ -3,6 +3,7 @@ namespace Zfs.Tests;
 using System.Text.Json;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
+using ZfsDashboard.Presentation;
 
 public class ZfsParserTests
 {
@@ -198,11 +199,16 @@ public class ZfsParserTests
     // ── JSON Serialization (verifies property names match frontend JS) ───
 
     [Fact]
-    public void DashboardData_ShouldSerializeWithCamelCasePropertyNames()
+    public void DashboardLiveResponse_ShouldSerializeWithFrontendPropertyNames()
     {
-        var data = new DashboardData
+        var data = DashboardPresentationMapper.MapLive(new DashboardData
         {
-            Text = new() { ["cpuUsage"] = "5.0%" },
+            System = new SystemInfo
+            {
+                Uptime = "1h 2m 3s",
+                CpuUsagePercent = 5,
+                Memory = new MemoryInfo { Total = 1024, Used = 512, Available = 512 },
+            },
             NetworkRates = [],
             DiskIoRates =
             [
@@ -219,7 +225,7 @@ public class ZfsParserTests
                     UtilizationPct = 25.0,
                 },
             ],
-        };
+        });
 
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var json = JsonSerializer.Serialize(data, options);
@@ -229,20 +235,20 @@ public class ZfsParserTests
         // Top-level properties
         Assert.True(root.TryGetProperty("diskIoRates", out var rates));
         Assert.True(root.TryGetProperty("networkRates", out _));
-        Assert.True(root.TryGetProperty("text", out _));
+        Assert.True(root.TryGetProperty("cpuUsagePercent", out _));
+        Assert.True(root.TryGetProperty("memory", out _));
         Assert.True(root.TryGetProperty("arc", out _));
+        Assert.True(root.TryGetProperty("pools", out _));
 
-        // Device-level properties (must match JS property access in Index.cshtml)
+        // Device-level properties must match dashboard.js.
         var dev = rates[0];
         Assert.True(dev.TryGetProperty("device", out var device));
         Assert.Equal("sda", device.GetString());
-        Assert.True(dev.TryGetProperty("readBytesPerSec", out _));
-        Assert.True(dev.TryGetProperty("writeBytesPerSec", out _));
-        Assert.True(dev.TryGetProperty("readOpsPerSec", out _));
-        Assert.True(dev.TryGetProperty("writeOpsPerSec", out _));
-        Assert.True(dev.TryGetProperty("readLatencyMs", out _));
-        Assert.True(dev.TryGetProperty("writeLatencyMs", out _));
+        Assert.True(dev.TryGetProperty("readBytesPerSecond", out _));
+        Assert.True(dev.TryGetProperty("writeBytesPerSecond", out _));
+        Assert.True(dev.TryGetProperty("readRate", out _));
+        Assert.True(dev.TryGetProperty("writeRate", out _));
         Assert.True(dev.TryGetProperty("queueDepth", out _));
-        Assert.True(dev.TryGetProperty("utilizationPct", out _));
+        Assert.True(dev.TryGetProperty("utilizationPercent", out _));
     }
 }

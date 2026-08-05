@@ -1,0 +1,32 @@
+<div class="card mb-4">
+    <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-hdd text-info"></i>
+            Disk I/O
+        </h5>
+        <canvas id="diskCanvas"></canvas>
+        <div class="table-responsive mt-2">
+            <table class="table table-borderless table-sm mb-0 small dashboard-table">
+                <colgroup>
+                    <col class="dashboard-disk-name">
+                    <col>
+                    <col>
+                    <col class="dashboard-disk-metric">
+                    <col class="dashboard-disk-metric">
+                </colgroup>
+                <thead>
+                    <tr class="border-bottom border-secondary">
+                        <th class="text-body-secondary fw-normal">Device</th>
+                        <th class="text-body-secondary fw-normal text-end">Read</th>
+                        <th class="text-body-secondary fw-normal text-end">Write</th>
+                        <th class="text-body-secondary fw-normal text-end">Temp</th>
+                        <th class="text-body-secondary fw-normal text-end">Util%</th>
+                    </tr>
+                </thead>
+                <tbody id="diskDetail">
+                    <tr><td colspan="5" class="text-body-secondary">Loading&hellip;</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

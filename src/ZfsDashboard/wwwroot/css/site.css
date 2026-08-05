@@ -66,6 +66,22 @@
     pointer-events: none;
 }
 
+.capacity-bar-compact {
+    height: 6px;
+}
+.capacity-bar-regular {
+    height: 8px;
+}
+.capacity-bar-large {
+    height: 10px;
+}
+.capacity-percentage {
+    min-width: 38px;
+}
+.pool-device-capacity {
+    max-width: 200px;
+}
+
 /* Table headers: uppercase small-caps treatment */
 .table thead th {
     font-size: .7rem;
@@ -79,3 +95,36 @@
     background-color: var(--bs-tertiary-bg);
 }
 
+/* Dashboard component dimensions */
+.dashboard-gauge {
+    width: 110px;
+    height: 110px;
+}
+.dashboard-table {
+    table-layout: fixed;
+}
+.dashboard-net-name {
+    width: 30%;
+}
+.dashboard-disk-name {
+    width: 20%;
+}
+.dashboard-disk-metric {
+    width: 15%;
+}
+.dashboard-pool-disk-name {
+    width: 25%;
+}
+.dashboard-pool-disk-metric {
+    width: 15%;
+}
+.dashboard-pool-icon,
+.dashboard-label {
+    font-size: .7rem;
+}
+.dashboard-pool-progress {
+    width: 60px;
+}
+.dashboard-scrub-progress {
+    height: 6px;
+}

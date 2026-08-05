@@ -6,7 +6,6 @@ using ZfsDashboard.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
-builder.Services.AddSingleton<IPartialRenderer, PartialRenderer>();
 
 if (builder.Environment.IsDevelopment())
 {

@@ -1,0 +1,7 @@
+@model CopyableCommandViewModel
+<div class="cmd-block">
+    <pre class="bg-dark text-light p-2 rounded @(Model.Compact ? "small" : "")"><code>@Model.Command</code></pre>
+    <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="@Model.Tooltip" aria-label="@Model.Tooltip">
+        <i class="bi bi-clipboard"></i>
+    </button>
+</div>
