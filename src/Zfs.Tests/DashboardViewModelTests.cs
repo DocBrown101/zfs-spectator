@@ -1,12 +1,12 @@
 using Zfs.Core.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Dashboard;
 
 namespace Zfs.Tests;
 
-public class DashboardPresentationMapperTests
+public class DashboardViewModelTests
 {
     [Fact]
-    public void MapPageAndLive_UseTheSameMemoryAndArcModels()
+    public void PageAndLive_UseTheSameMemoryAndArcModels()
     {
         var system = new SystemInfo
         {
@@ -35,8 +35,8 @@ public class DashboardPresentationMapperTests
             },
         };
 
-        var page = DashboardPresentationMapper.MapPage([], system, new StaticSystemInfo());
-        var live = DashboardPresentationMapper.MapLive(new DashboardData { System = system });
+        var page = new DashboardPageViewModel([], system, new StaticSystemInfo());
+        var live = new DashboardLiveViewModel(new DashboardData { System = system });
 
         Assert.Equal(page.Memory.UsagePercent, live.Memory.UsagePercent);
         Assert.Equal(page.Memory.Details, live.Memory.Details);
@@ -46,9 +46,9 @@ public class DashboardPresentationMapperTests
     }
 
     [Fact]
-    public void MapLive_KeepsOptionalArcRowsInTheStableContract()
+    public void LiveResponse_KeepsOptionalArcRowsInTheStableContract()
     {
-        var response = DashboardPresentationMapper.MapLive(new DashboardData
+        var response = new DashboardLiveViewModel(new DashboardData
         {
             System = new SystemInfo
             {
@@ -63,9 +63,9 @@ public class DashboardPresentationMapperTests
     }
 
     [Fact]
-    public void MapLive_KeepsUnavailableArcInTheStableContract()
+    public void LiveResponse_KeepsUnavailableArcInTheStableContract()
     {
-        var response = DashboardPresentationMapper.MapLive(new DashboardData());
+        var response = new DashboardLiveViewModel(new DashboardData());
 
         Assert.False(response.Arc.IsVisible);
         Assert.Null(response.Arc.L2HitRate);

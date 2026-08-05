@@ -2,15 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
-using ZfsDashboard.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Snapshots;
 
 namespace ZfsDashboard.Pages.Datasets;
 
 public class DetailsModel(IZfsService zfs) : PageModel
 {
     public Dataset? Dataset { get; private set; }
-    public SnapshotTableViewModel SnapshotTable { get; private set; } = new() { Rows = [] };
+    public SnapshotTableViewModel SnapshotTable { get; private set; } = new([]);
     public List<CommandSuggestion> Suggestions { get; } = [];
 
     public async Task<IActionResult> OnGetAsync([FromQuery] string name)
@@ -24,7 +23,7 @@ public class DetailsModel(IZfsService zfs) : PageModel
         var poolName = name.Split('/').First();
         var allSnaps = await zfs.GetSnapshotsAsync(poolName);
         var snapshots = allSnaps.Where(s => s.DatasetName == name).ToList();
-        this.SnapshotTable = SnapshotPresentationMapper.MapDatasetTable(snapshots);
+        this.SnapshotTable = new SnapshotTableViewModel(snapshots);
 
         this.Suggestions.Add(CommandSuggestionsService.SuggestCreateChildDataset(name));
         this.Suggestions.Add(CommandSuggestionsService.SuggestCreateSnapshot(name));

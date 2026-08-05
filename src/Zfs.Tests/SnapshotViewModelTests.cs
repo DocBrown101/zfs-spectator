@@ -1,12 +1,12 @@
 using Zfs.Core.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Snapshots;
 
 namespace Zfs.Tests;
 
-public class SnapshotPresentationMapperTests
+public class SnapshotViewModelTests
 {
     [Fact]
-    public void MapGroups_SortsGroupsAndRowsByNewestSnapshot()
+    public void PageViewModel_SortsGroupsAndRowsByNewestSnapshot()
     {
         var snapshots = new[]
         {
@@ -15,14 +15,14 @@ public class SnapshotPresentationMapperTests
             Snapshot("tank/data@new", "tank/data", "new", "2026-02-01T10:00:00Z"),
         };
 
-        var groups = SnapshotPresentationMapper.MapGroups(snapshots);
+        var groups = new SnapshotPageViewModel(snapshots).Groups;
 
         Assert.Equal(["backup/data", "tank/data"], groups.Select(group => group.DatasetName));
         Assert.Equal(["new", "old"], groups[1].Table.Rows.Select(row => row.Name));
     }
 
     [Fact]
-    public void MapGroups_CreatesUniqueIdsAndCommands()
+    public void PageViewModel_CreatesUniqueIdsAndCommands()
     {
         var snapshots = new[]
         {
@@ -30,7 +30,7 @@ public class SnapshotPresentationMapperTests
             Snapshot("tank/b@daily", "tank/b", "daily", "2026-01-01T11:00:00Z"),
         };
 
-        var rows = SnapshotPresentationMapper.MapGroups(snapshots)
+        var rows = new SnapshotPageViewModel(snapshots).Groups
             .SelectMany(group => group.Table.Rows)
             .ToList();
 
@@ -40,7 +40,7 @@ public class SnapshotPresentationMapperTests
     }
 
     [Fact]
-    public void MapDatasetTable_UsesMinutePrecisionAndFormatsSizes()
+    public void TableViewModel_UsesMinutePrecisionAndFormatsSizes()
     {
         var snapshot = Snapshot("tank/data@daily", "tank/data", "daily", "2026-01-01T10:11:12Z") with
         {
@@ -48,7 +48,7 @@ public class SnapshotPresentationMapperTests
             Refer = 1024 * 1024,
         };
 
-        var row = Assert.Single(SnapshotPresentationMapper.MapDatasetTable([snapshot]).Rows);
+        var row = Assert.Single(new SnapshotTableViewModel([snapshot]).Rows);
 
         Assert.Equal(snapshot.Creation.LocalDateTime.ToString("yyyy-MM-dd HH:mm"), row.Created);
         Assert.Equal("1 KiB", row.Used);

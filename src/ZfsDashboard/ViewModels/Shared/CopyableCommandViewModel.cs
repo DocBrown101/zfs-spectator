@@ -1,4 +1,4 @@
-namespace ZfsDashboard.Models;
+namespace ZfsDashboard.ViewModels.Shared;
 
 public sealed record CopyableCommandViewModel(
     string Command,

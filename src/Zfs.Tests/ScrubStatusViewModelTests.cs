@@ -1,14 +1,14 @@
 using Zfs.Core.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Shared;
 
 namespace Zfs.Tests;
 
-public class ScrubPresentationMapperTests
+public class ScrubStatusViewModelTests
 {
     [Fact]
-    public void MapRunning_CreatesProgressAndAvailableDetails()
+    public void Constructor_RunningScrubCreatesProgressAndAvailableDetails()
     {
-        var model = ScrubPresentationMapper.Map(new ScrubInfo
+        var model = new ScrubStatusViewModel(new ScrubInfo
         {
             State = "running",
             ProgressPct = 42.125,
@@ -27,13 +27,13 @@ public class ScrubPresentationMapperTests
     [InlineData("finished", "Completed", "text-success", "bi-check-circle")]
     [InlineData("canceled", "Canceled", "text-warning", "bi-dash-circle")]
     [InlineData("idle", "Idle", "text-body-secondary", "bi-clock")]
-    public void MapNonRunning_CreatesSharedStatusPresentation(
+    public void Constructor_NonRunningScrubCreatesSharedStatusPresentation(
         string state,
         string headline,
         string statusCss,
         string iconCss)
     {
-        var model = ScrubPresentationMapper.Map(new ScrubInfo { State = state });
+        var model = new ScrubStatusViewModel(new ScrubInfo { State = state });
 
         Assert.False(model.IsRunning);
         Assert.Equal(headline, model.Headline);

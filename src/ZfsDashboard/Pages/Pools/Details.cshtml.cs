@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
-using ZfsDashboard.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Pools;
+using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.Pages.Pools;
 
@@ -20,7 +20,7 @@ public class DetailsModel(IZpoolService zpool) : PageModel
         if (result is null) return this.NotFound();
 
         this.Pool = result.Value.Pool;
-        this.Scrub = ScrubPresentationMapper.Map(result.Value.Scrub);
+        this.Scrub = new ScrubStatusViewModel(result.Value.Scrub);
         this.DeviceGroups = BuildDeviceGroups(this.Pool);
 
         this.Suggestions.Add(CommandSuggestionsService.SuggestCreateChildDataset(name));

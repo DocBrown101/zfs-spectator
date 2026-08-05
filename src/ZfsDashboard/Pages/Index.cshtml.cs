@@ -2,8 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
-using ZfsDashboard.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Dashboard;
 
 namespace ZfsDashboard.Pages;
 
@@ -19,7 +18,7 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService sys
 
         await Task.WhenAll(poolsTask, systemTask, staticSystemTask);
 
-        this.Dashboard = DashboardPresentationMapper.MapPage(
+        this.Dashboard = new DashboardPageViewModel(
             poolsTask.Result,
             systemTask.Result,
             staticSystemTask.Result);
@@ -29,7 +28,7 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService sys
     {
         var data = await system.GetDashboardDataAsync(zfs, zpool);
         ApplyTemperatures(data.DiskIoRates, temps.Temperatures);
-        return new JsonResult(DashboardPresentationMapper.MapLive(data));
+        return new JsonResult(new DashboardLiveViewModel(data));
     }
 
     private static void ApplyTemperatures(List<DiskIoRateInfo> disks, IReadOnlyDictionary<string, int> temperatures)

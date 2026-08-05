@@ -1,6 +1,6 @@
 using Zfs.Core.Models;
 
-namespace ZfsDashboard.Pages.Pools;
+namespace ZfsDashboard.ViewModels.Pools;
 
 public sealed record PoolDeviceGroupViewModel
 {

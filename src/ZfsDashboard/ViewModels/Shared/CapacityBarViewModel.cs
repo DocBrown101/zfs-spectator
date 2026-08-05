@@ -1,4 +1,4 @@
-namespace ZfsDashboard.Models;
+namespace ZfsDashboard.ViewModels.Shared;
 
 public enum CapacityBarSize
 {

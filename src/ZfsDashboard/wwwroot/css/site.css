@@ -2,129 +2,126 @@
 
 /* Slightly darker base for the dark theme */
 [data-bs-theme="dark"] {
-    --bs-body-bg: #0d1117;
-    --bs-tertiary-bg: #161b22;
-    --zfs-surface: #10151c;
+  --bs-body-bg: #0d1117;
+  --bs-tertiary-bg: #161b22;
+  --zfs-surface: #10151c;
 }
 
 /* Dark surface for cards and navbar — between body-bg and tertiary-bg */
 .bg-surface {
-    background-color: var(--zfs-surface);
+  background-color: var(--zfs-surface);
 }
 
 /* Nav pills: subtle rounded look */
 .navbar .nav-pills .nav-link {
-    border-radius: var(--bs-border-radius-pill);
-    padding: .35rem .9rem;
-    font-size: .875rem;
+  border-radius: var(--bs-border-radius-pill);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.875rem;
 }
 .navbar .nav-pills .nav-link:not(.active) {
-    color: var(--bs-body-color);
+  color: var(--bs-body-color);
 }
 .navbar .nav-pills .nav-link:not(.active):hover {
-    background-color: var(--bs-tertiary-bg);
+  background-color: var(--bs-tertiary-bg);
 }
 
 /* Command block: copy button appears on hover */
 .cmd-block {
-    position: relative;
+  position: relative;
 }
 .cmd-block .btn-copy {
-    position: absolute;
-    top: .35rem;
-    right: .35rem;
-    opacity: 0;
-    transition: opacity 0.15s;
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 .cmd-block:hover .btn-copy {
-    opacity: 1;
+  opacity: 1;
 }
 
 /* 80% threshold marker on pool progress bars */
 .progress-wrap {
-    position: relative;
+  position: relative;
 }
 .progress-wrap .threshold-marker {
-    position: absolute;
-    left: 80%;
-    top: -2px;
-    bottom: -2px;
-    width: 2px;
-    background-color: var(--bs-danger);
-    opacity: .7;
-    z-index: 2;
-    pointer-events: none;
+  position: absolute;
+  left: 80%;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background-color: var(--bs-danger);
+  opacity: 0.7;
+  z-index: 2;
+  pointer-events: none;
 }
 .progress-wrap .threshold-label {
-    position: absolute;
-    left: 80%;
-    top: -14px;
-    transform: translateX(-50%);
-    font-size: .6rem;
-    color: var(--bs-danger);
-    opacity: .8;
-    pointer-events: none;
+  position: absolute;
+  left: 80%;
+  top: -14px;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: var(--bs-danger);
+  opacity: 0.8;
+  pointer-events: none;
 }
 
 .capacity-bar-compact {
-    height: 6px;
+  height: 6px;
 }
 .capacity-bar-regular {
-    height: 8px;
+  height: 8px;
 }
 .capacity-bar-large {
-    height: 10px;
+  height: 10px;
 }
 .capacity-percentage {
-    min-width: 38px;
+  min-width: 38px;
 }
 .pool-device-capacity {
-    max-width: 200px;
+  max-width: 200px;
 }
 
 /* Table headers: uppercase small-caps treatment */
 .table thead th {
-    font-size: .7rem;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    white-space: nowrap;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 /* Table row hover in dark theme */
 .table-hover-dark tbody tr:hover {
-    background-color: var(--bs-tertiary-bg);
+  background-color: var(--bs-tertiary-bg);
 }
 
 /* Dashboard component dimensions */
-.dashboard-gauge {
-    width: 110px;
-    height: 110px;
-}
 .dashboard-table {
-    table-layout: fixed;
+  table-layout: fixed;
 }
 .dashboard-net-name {
-    width: 30%;
+  width: 30%;
 }
 .dashboard-disk-name {
-    width: 20%;
+  width: 20%;
 }
 .dashboard-disk-metric {
-    width: 15%;
+  width: 15%;
 }
 .dashboard-pool-disk-name {
-    width: 25%;
+  width: 25%;
 }
 .dashboard-pool-disk-metric {
-    width: 15%;
+  width: 15%;
 }
 .dashboard-pool-icon,
 .dashboard-label {
-    font-size: .7rem;
+  font-size: 0.7rem;
 }
 .dashboard-pool-progress {
-    width: 60px;
+  width: 60px;
 }
 .dashboard-scrub-progress {
-    height: 6px;
+  height: 6px;
 }
+

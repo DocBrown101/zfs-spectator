@@ -1,15 +1,13 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
-using ZfsDashboard.Models;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Snapshots;
 
 namespace ZfsDashboard.Pages.Snapshots;
 
 public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 {
-    public IReadOnlyList<SnapshotGroupViewModel> Groups { get; private set; } = [];
-    public int TotalCount { get; private set; }
+    public SnapshotPageViewModel Snapshots { get; private set; } = new([]);
     public List<CommandSuggestion> Suggestions { get; } = [];
 
     public async Task OnGetAsync()
@@ -20,8 +18,7 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
         foreach (var snaps in await Task.WhenAll(tasks))
             snapshots.AddRange(snaps);
 
-        this.TotalCount = snapshots.Count;
-        this.Groups = SnapshotPresentationMapper.MapGroups(snapshots);
+        this.Snapshots = new SnapshotPageViewModel(snapshots);
 
         foreach (var pool in names.Order())
             this.Suggestions.Add(CommandSuggestionsService.SuggestCreateSnapshot(pool));

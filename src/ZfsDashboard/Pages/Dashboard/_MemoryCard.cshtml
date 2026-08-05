@@ -6,7 +6,7 @@
             Memory
         </h5>
         <div class="d-flex align-items-center gap-4">
-            <div class="position-relative flex-shrink-0 dashboard-gauge">
+            <div class="position-relative flex-shrink-0">
                 <canvas id="memCanvas" data-initial-value="@Model.UsagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"></canvas>
                 <div class="position-absolute top-50 start-50 translate-middle text-center">
                     <span class="fw-bold fs-5" id="memPct">@Model.UsagePercent.ToString("F1")%</span>

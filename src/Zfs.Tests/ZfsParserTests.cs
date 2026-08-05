@@ -3,7 +3,7 @@ namespace Zfs.Tests;
 using System.Text.Json;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
-using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Dashboard;
 
 public class ZfsParserTests
 {
@@ -199,9 +199,9 @@ public class ZfsParserTests
     // ── JSON Serialization (verifies property names match frontend JS) ───
 
     [Fact]
-    public void DashboardLiveResponse_ShouldSerializeWithFrontendPropertyNames()
+    public void DashboardLiveViewModel_ShouldSerializeWithFrontendPropertyNames()
     {
-        var data = DashboardPresentationMapper.MapLive(new DashboardData
+        var data = new DashboardLiveViewModel(new DashboardData
         {
             System = new SystemInfo
             {

@@ -77,6 +77,10 @@
         const canvas = document.getElementById(canvasId);
         if (!canvas) return null;
 
+        const size = 140;
+        canvas.width = size;
+        canvas.height = size;
+
         const initialValue = Number.parseFloat(canvas.dataset.initialValue);
         const percentage = Number.isFinite(initialValue) ? initialValue : 0;
         return new Chart(canvas, {
@@ -90,7 +94,7 @@
             },
             options: {
                 cutout: '75%',
-                responsive: true,
+                responsive: false,
                 plugins: { legend: { display: false }, tooltip: { enabled: false } },
                 animation: { duration: 300 },
             },
