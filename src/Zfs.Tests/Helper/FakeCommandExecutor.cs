@@ -9,6 +9,7 @@ using Zfs.Core;
 internal class FakeCommandExecutor : ICommandExecutor
 {
     private readonly List<(string Command, string Args, bool Exact, string Response)> responses = [];
+    public List<(string Command, string Arguments)> Invocations { get; } = [];
 
     public FakeCommandExecutor On(string command, string args, string response)
     {
@@ -25,6 +26,7 @@ internal class FakeCommandExecutor : ICommandExecutor
 
     public Task<string> ExecuteAsync(string command, string arguments)
     {
+        this.Invocations.Add((command, arguments));
         foreach (var (cmd, args, exact, response) in this.responses)
         {
             if (command != cmd) continue;

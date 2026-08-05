@@ -14,13 +14,27 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     public async Task<List<Pool>> GetAllPoolsAsync()
     {
+        return (await this.GetAllPoolsCoreAsync(includeScrubTimeLeft: false))
+            .Select(snapshot => snapshot.Pool)
+            .ToList();
+    }
+
+    public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync()
+        => this.GetAllPoolsCoreAsync(includeScrubTimeLeft: true);
+
+    private async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsCoreAsync(bool includeScrubTimeLeft)
+    {
         var pools = await this.ListPoolsAsync();
-        var result = new List<Pool>(pools.Count);
-        foreach (var pool in pools)
+        var result = (await Task.WhenAll(pools.Select(this.EnrichPoolAsync))).ToList();
+
+        if (includeScrubTimeLeft)
         {
-            var (enriched, _) = await this.EnrichPoolAsync(pool);
-            result.Add(enriched);
+            var scrubs = await Task.WhenAll(result.Select(snapshot =>
+                this.AddScrubTimeLeftAsync(snapshot.Pool.Name, snapshot.Scrub)));
+            for (var i = 0; i < result.Count; i++)
+                result[i] = (result[i].Pool, scrubs[i]);
         }
+
         return result;
     }
 
@@ -52,13 +66,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         if (pool == null) return null;
         var (enriched, scrub) = await this.EnrichPoolAsync(pool);
 
-        if (scrub.State == "running")
-        {
-            var text = await cmd.ExecuteAsync("zpool", $"status {name}");
-            var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
-            if (!string.IsNullOrEmpty(timeLeft))
-                scrub = scrub with { TimeLeft = timeLeft };
-        }
+        scrub = await this.AddScrubTimeLeftAsync(name, scrub);
 
         return (enriched, scrub);
     }
@@ -191,15 +199,18 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var json = await cmd.ExecuteAsync("zpool", $"status -Pj {poolName}");
         var scrub = ParseScrubInfo(json, poolName);
 
-        if (scrub.State == "running")
-        {
-            var text = await cmd.ExecuteAsync("zpool", $"status {poolName}");
-            var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
-            if (!string.IsNullOrEmpty(timeLeft))
-                scrub = scrub with { TimeLeft = timeLeft };
-        }
+        scrub = await this.AddScrubTimeLeftAsync(poolName, scrub);
 
         return scrub;
+    }
+
+    private async Task<ScrubInfo> AddScrubTimeLeftAsync(string poolName, ScrubInfo scrub)
+    {
+        if (scrub.State != "running") return scrub;
+
+        var text = await cmd.ExecuteAsync("zpool", $"status {poolName}");
+        var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
+        return string.IsNullOrEmpty(timeLeft) ? scrub : scrub with { TimeLeft = timeLeft };
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────

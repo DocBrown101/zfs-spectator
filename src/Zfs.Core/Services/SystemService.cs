@@ -19,28 +19,30 @@ public class SystemService() : ISystemService
         var systemTask = this.GetSystemInfoAsync(zfs);
         var networkTask = this.GetNetworkInfoAsync();
         var diskTask = GetDiskIoInfoAsync();
-        var poolsTask = zpool.GetAllPoolsAsync();
+        var poolsTask = zpool.GetAllPoolsWithScrubAsync();
 
         await Task.WhenAll(systemTask, networkTask, diskTask, poolsTask);
 
         var sys = systemTask.Result;
         var network = networkTask.Result;
         var disks = diskTask.Result;
-        var pools = poolsTask.Result;
+        var poolSnapshots = poolsTask.Result;
+        var pools = poolSnapshots.Select(snapshot => snapshot.Pool).ToList();
         var now = DateTime.UtcNow;
-
-        // Fan out scrub checks while synchronous work below runs
-        var scrubTask = Task.WhenAll(pools.Select(p => zpool.GetScrubStatusAsync(p.Name)));
 
         var netRates = this.BuildNetworkRates(network, now);
         var diskRates = this.BuildDiskIoRates(disks, now);
         var poolDiskRates = BuildPoolDiskGroups(pools, diskRates);
+        var poolScrubs = poolSnapshots.ToDictionary(snapshot => snapshot.Pool.Name, snapshot => snapshot.Scrub);
 
-        var scrubResults = await scrubTask;
-        var poolScrubs = pools.Zip(scrubResults, (p, s) => (p.Name, Scrub: s))
-            .ToDictionary(x => x.Name, x => x.Scrub);
-
-        return new DashboardData { System = sys, NetworkRates = netRates, DiskIoRates = diskRates, PoolDiskIoRates = poolDiskRates, PoolScrubs = poolScrubs };
+        return new DashboardData
+        {
+            System = sys,
+            NetworkRates = netRates,
+            DiskIoRates = diskRates,
+            PoolDiskIoRates = poolDiskRates,
+            PoolScrubs = poolScrubs,
+        };
     }
 
     // ── Disk I/O rate computation ────────────────────────────────────────

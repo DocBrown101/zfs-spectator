@@ -26,15 +26,12 @@ public class DemoDataSystemService : ISystemService
 
     public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
     {
-        var systemTask    = this.GetSystemInfoAsync(zfs);
-        var poolNamesTask = zpool.GetPoolNamesAsync();
-        await Task.WhenAll(systemTask, poolNamesTask);
-        var system    = systemTask.Result;
-        var poolNames = poolNamesTask.Result;
-
-        var scrubResults = await Task.WhenAll(poolNames.Select(n => zpool.GetScrubStatusAsync(n)));
-        var poolScrubs = poolNames.Zip(scrubResults, (n, s) => (Name: n, Scrub: s))
-            .ToDictionary(x => x.Name, x => x.Scrub);
+        var systemTask = this.GetSystemInfoAsync(zfs);
+        var poolsTask = zpool.GetAllPoolsWithScrubAsync();
+        await Task.WhenAll(systemTask, poolsTask);
+        var system = systemTask.Result;
+        var poolSnapshots = poolsTask.Result;
+        var poolScrubs = poolSnapshots.ToDictionary(snapshot => snapshot.Pool.Name, snapshot => snapshot.Scrub);
 
         var networkRates = new List<NetworkRateInfo>
         {

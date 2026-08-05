@@ -1,5 +1,6 @@
 namespace Zfs.Tests;
 
+using Zfs.Core;
 using Zfs.Core.Services;
 using Zfs.Tests.Helper;
 
@@ -83,6 +84,54 @@ public class ZpoolServiceTests
         Assert.Equal(9498245939200UL, pool.Alloc);
         Assert.Equal(500437925888UL, pool.Free);
         Assert.Equal("ONLINE", pool.Health);
+    }
+
+    [Fact]
+    public async Task GetAllPoolsWithScrubAsync_ShouldReuseTheEnrichmentStatus()
+    {
+        var executor = CreateExecutorForPool();
+        var service = new ZpoolService(executor);
+
+        var snapshots = await service.GetAllPoolsWithScrubAsync();
+
+        var snapshot = snapshots.Single(item => item.Pool.Name == "zfsPool");
+        Assert.Equal("finished", snapshot.Scrub.State);
+        Assert.Single(executor.Invocations, call =>
+            call.Command == "zpool" && call.Arguments == "status -Pj zfsPool");
+    }
+
+    [Fact]
+    public async Task GetAllPoolsWithScrubAsync_RunningScrub_ShouldIncludeTimeLeft()
+    {
+        var zpoolStatusScanningJson = File.ReadAllText("TestData/zpool_status_scanning.json");
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status -Pj zfsPool", zpoolStatusScanningJson)
+            .On("zpool", "status zfsPool", "  scan: scrub in progress, 0 days 01:23:45 to go\n");
+        var service = new ZpoolService(executor);
+
+        var snapshots = await service.GetAllPoolsWithScrubAsync();
+
+        var scrub = snapshots.Single(item => item.Pool.Name == "zfsPool").Scrub;
+        Assert.Equal("running", scrub.State);
+        Assert.Equal("01:23:45", scrub.TimeLeft);
+        Assert.Single(executor.Invocations, call =>
+            call.Command == "zpool" && call.Arguments == "status zfsPool");
+    }
+
+    [Fact]
+    public async Task GetAllPoolsWithScrubAsync_ShouldEnrichPoolsConcurrently()
+    {
+        var executor = new ConcurrentPoolStatusExecutor(
+            File.ReadAllText("TestData/zpool_list.json"),
+            File.ReadAllText("TestData/zpool_status.json"),
+            File.ReadAllText("TestData/zpool_get_ashift.json"),
+            File.ReadAllText("TestData/zfs_get_pool_props.json"));
+        var service = new ZpoolService(executor);
+
+        var snapshots = await service.GetAllPoolsWithScrubAsync();
+
+        Assert.Equal(2, snapshots.Count);
+        Assert.Equal(2, executor.StatusInvocationCount);
     }
 
     [Fact]
@@ -344,6 +393,42 @@ public class ZpoolServiceTests
 
         // Special devices come from zpool_status.json layout
         Assert.Equal(2, pool.SpecialDevices.Count);
+    }
+
+    private sealed class ConcurrentPoolStatusExecutor(
+        string listJson,
+        string statusJson,
+        string ashiftJson,
+        string propertiesJson) : ICommandExecutor
+    {
+        private readonly TaskCompletionSource<bool> bothStatusRequestsStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int statusInvocationCount;
+
+        public int StatusInvocationCount => Volatile.Read(ref this.statusInvocationCount);
+
+        public async Task<string> ExecuteAsync(string command, string arguments)
+        {
+            if (command == "zpool" && arguments == "list -Hpvj -o name,size,alloc,free,health,frag")
+                return listJson;
+
+            if (command == "zpool" && arguments.StartsWith("status -Pj ", StringComparison.Ordinal))
+            {
+                if (Interlocked.Increment(ref this.statusInvocationCount) == 2)
+                    this.bothStatusRequestsStarted.TrySetResult(true);
+
+                await this.bothStatusRequestsStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+                return statusJson;
+            }
+
+            if (command == "zpool" && arguments.StartsWith("get -Hpj ashift ", StringComparison.Ordinal))
+                return ashiftJson;
+
+            if (command == "zfs" && arguments.StartsWith("get -Hpj ", StringComparison.Ordinal))
+                return propertiesJson;
+
+            return "";
+        }
     }
 
     // ── Helper: build a zfs get JSON response with selective property overrides ──

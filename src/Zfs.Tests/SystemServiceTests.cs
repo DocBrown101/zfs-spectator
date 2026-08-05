@@ -191,13 +191,14 @@ public class SystemServiceTests
             ["backup"] = ScrubInfo.Idle,
         };
 
-        var data = await new SystemService().GetDashboardDataAsync(
-            new StubZfsService(),
-            new StubZpoolService(pools, scrubs));
+        var zpool = new StubZpoolService(pools, scrubs);
+        var data = await new SystemService().GetDashboardDataAsync(new StubZfsService(), zpool);
 
         Assert.Equal(2, data.PoolScrubs.Count);
         Assert.Equal("finished", data.PoolScrubs["tank"].State);
         Assert.Equal("idle",     data.PoolScrubs["backup"].State);
+        Assert.Equal(1, zpool.GetAllPoolsWithScrubCallCount);
+        Assert.Equal(0, zpool.GetScrubStatusCallCount);
     }
 
     [Fact]
@@ -230,7 +231,15 @@ public class SystemServiceTests
 
     private sealed class StubZpoolService(List<Pool> pools, Dictionary<string, ScrubInfo> scrubs) : IZpoolService
     {
+        public int GetAllPoolsWithScrubCallCount { get; private set; }
+        public int GetScrubStatusCallCount { get; private set; }
+
         public Task<List<Pool>> GetAllPoolsAsync()   => Task.FromResult(pools);
+        public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync()
+        {
+            this.GetAllPoolsWithScrubCallCount++;
+            return Task.FromResult(pools.Select(pool => (pool, scrubs.GetValueOrDefault(pool.Name, ScrubInfo.Idle))).ToList());
+        }
         public Task<List<string>> GetPoolNamesAsync() => Task.FromResult(pools.Select(p => p.Name).ToList());
         public Task<Pool?> GetPoolByNameAsync(string name) =>
             Task.FromResult<Pool?>(pools.FirstOrDefault(p => p.Name == name));
@@ -240,7 +249,10 @@ public class SystemServiceTests
             if (pool is null) return Task.FromResult<(Pool, ScrubInfo)?>(null);
             return Task.FromResult<(Pool, ScrubInfo)?>((pool, scrubs.GetValueOrDefault(name, ScrubInfo.Idle)));
         }
-        public Task<ScrubInfo> GetScrubStatusAsync(string poolName) =>
-            Task.FromResult(scrubs.GetValueOrDefault(poolName, ScrubInfo.Idle));
+        public Task<ScrubInfo> GetScrubStatusAsync(string poolName)
+        {
+            this.GetScrubStatusCallCount++;
+            return Task.FromResult(scrubs.GetValueOrDefault(poolName, ScrubInfo.Idle));
+        }
     }
 }

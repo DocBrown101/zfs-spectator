@@ -8,7 +8,10 @@ public class DemoDataZpoolService : IZpoolService
     private const string ZpoolListData = "zpool_list.json";
     private const string ZpoolStatus = "zpool_status.json";
 
-    public Task<List<Pool>> GetAllPoolsAsync()
+    public async Task<List<Pool>> GetAllPoolsAsync()
+        => (await this.GetAllPoolsWithScrubAsync()).Select(snapshot => snapshot.Pool).ToList();
+
+    public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync()
     {
         var poolListJson = DemoDataHelper.ReadEmbeddedJson(ZpoolListData);
         var pools = ZpoolParser.ParsePools(poolListJson);
@@ -16,19 +19,21 @@ public class DemoDataZpoolService : IZpoolService
         var statusJson = DemoDataHelper.ReadEmbeddedJson(ZpoolStatus);
         var ashiftJson = DemoDataHelper.ReadEmbeddedJson("zpool_get_ashift.json");
 
-        var result = new List<Pool>();
+        var result = new List<(Pool Pool, ScrubInfo Scrub)>();
         foreach (var pool in pools)
         {
             var layout = ZpoolParser.ParsePoolLayout(statusJson, pool.Name);
             var ashift = ZpoolParser.ParseAshift(ashiftJson, pool.Name);
+            var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
 
-            result.Add(layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree) with
+            var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree) with
             {
                 UsableUsed = pool.Alloc,
                 UsableAvail = pool.Free,
                 UsableSize = pool.Alloc + pool.Free,
                 Ashift = ashift,
-            });
+            };
+            result.Add((enriched, scrub));
         }
 
         return Task.FromResult(result);
@@ -48,10 +53,12 @@ public class DemoDataZpoolService : IZpoolService
 
     public async Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
     {
-        var pool = await this.GetPoolByNameAsync(name);
-        if (pool == null) return null;
-        var scrub = await this.GetScrubStatusAsync(name);
-        return (pool, scrub);
+        var snapshots = await this.GetAllPoolsWithScrubAsync();
+        foreach (var snapshot in snapshots)
+        {
+            if (snapshot.Pool.Name == name) return snapshot;
+        }
+        return null;
     }
 
     public Task<ScrubInfo> GetScrubStatusAsync(string poolName)
