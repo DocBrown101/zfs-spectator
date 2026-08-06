@@ -1,4 +1,4 @@
-﻿namespace Zfs.Core.Services.Parser
+namespace Zfs.Core.Services.Parser
 {
     using System.Text.Json;
 
