@@ -26,18 +26,6 @@ public class DemoDataSystemService : ISystemService
 
     public async Task<DashboardData> GetDashboardDataAsync(
         IZfsService zfs,
-        IZpoolService zpool,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var poolsTask = zpool.GetAllPoolsWithScrubAsync(cancellationToken);
-        var systemTask = this.GetSystemInfoAsync(zfs, cancellationToken);
-        await Task.WhenAll(poolsTask, systemTask);
-        return BuildDashboardData(systemTask.Result, poolsTask.Result);
-    }
-
-    public async Task<DashboardData> GetDashboardDataAsync(
-        IZfsService zfs,
         IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots,
         CancellationToken cancellationToken = default)
     {

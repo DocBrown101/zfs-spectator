@@ -8,12 +8,8 @@ public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfs
     // ── Datasets ──────────────────────────────────────────────────────────
 
     public async Task<List<Dataset>> GetAllDatasetsAsync()
-    {
-        var names = await zpoolService.GetPoolNamesAsync();
-        var tasks = names.Select(name => this.GetDatasetsAsync(name));
-        var results = await Task.WhenAll(tasks);
-        return results.SelectMany(r => r).ToList();
-    }
+        => (await ZfsAggregation.GetAllByPoolAsync(zpoolService, this.GetDatasetsAsync))
+            .SelectMany(group => group.Items).ToList();
 
     public async Task<List<Dataset>> GetDatasetsAsync(string poolName)
     {
@@ -85,11 +81,7 @@ public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfs
                 DataSize = stats.GetValueOrDefault("data_size"),
             };
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return new ArcStats();
         }

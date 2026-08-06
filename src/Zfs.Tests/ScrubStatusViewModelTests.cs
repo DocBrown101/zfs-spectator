@@ -40,4 +40,46 @@ public class ScrubStatusViewModelTests
         Assert.Equal(statusCss, model.StatusCss);
         Assert.Equal(iconCss, model.IconCss);
     }
+
+    [Fact]
+    public void Constructor_FinishedScrubIncludesDurationWhenAvailable()
+    {
+        var model = new ScrubStatusViewModel(new ScrubInfo
+        {
+            State = "finished",
+            Duration = "04:27:25",
+            Errors = 0,
+            FinishTime = "17:22:17",
+        });
+
+        Assert.Equal(["Duration: 04:27:25", "Errors: 0", "17:22:17"], model.Details);
+    }
+
+    [Fact]
+    public void Constructor_FinishedScrubOmitsMissingDurationAndFinishTime()
+    {
+        var model = new ScrubStatusViewModel(new ScrubInfo
+        {
+            State = "finished",
+            Duration = "",
+            Errors = 0,
+            FinishTime = "",
+        });
+
+        Assert.Equal(["Errors: 0"], model.Details);
+    }
+
+    [Fact]
+    public void Constructor_FinishedScrubOmitsOnlyMissingDuration()
+    {
+        var model = new ScrubStatusViewModel(new ScrubInfo
+        {
+            State = "finished",
+            Duration = "",
+            Errors = 1,
+            FinishTime = "17:22:17",
+        });
+
+        Assert.Equal(["Errors: 1", "17:22:17"], model.Details);
+    }
 }

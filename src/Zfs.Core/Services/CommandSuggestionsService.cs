@@ -151,23 +151,4 @@ public static class CommandSuggestionsService
             "boot.zfs.extraPools = [ \"newpool\" ];\n" +
             "# Create the pool imperatively first, then add it here.",
     };
-
-    public static CommandSuggestion SuggestSendReceive(string snapName, string target)
-    {
-        var dataset = snapName.Split('@').First();
-        return new()
-        {
-            Description = $"Send snapshot to another pool/host",
-            ZfsCommand = $"sudo zfs send {snapName} | sudo zfs receive {target}",
-            NixOsConfig =
-                $"# configuration.nix — automated replication with syncoid\n" +
-                $"services.syncoid = {{\n" +
-                $"  enable = true;\n" +
-                $"  commands.\"{dataset}\" = {{\n" +
-                $"    source = \"{dataset}\";\n" +
-                $"    target = \"{target}\";\n" +
-                $"  }};\n" +
-                $"}};",
-        };
-    }
 }

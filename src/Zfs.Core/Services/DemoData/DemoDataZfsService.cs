@@ -6,12 +6,8 @@ namespace Zfs.Core.Services.TestData;
 public class DemoDataZfsService(IZpoolService zpoolService) : IZfsService
 {
     public async Task<List<Dataset>> GetAllDatasetsAsync()
-    {
-        var names = await zpoolService.GetPoolNamesAsync();
-        var tasks = names.Select(name => this.GetDatasetsAsync(name));
-        var results = await Task.WhenAll(tasks);
-        return results.SelectMany(r => r).ToList();
-    }
+        => (await ZfsAggregation.GetAllByPoolAsync(zpoolService, this.GetDatasetsAsync))
+            .SelectMany(group => group.Items).ToList();
 
     public Task<List<Dataset>> GetDatasetsAsync(string poolName)
     {

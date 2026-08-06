@@ -56,18 +56,6 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolNames_ShouldReturnNames()
-    {
-        var json = File.ReadAllText("TestData/zpool_list.json");
-
-        var names = ZpoolParser.ParsePoolNames(json);
-
-        Assert.Equal(2, names.Count);
-        Assert.Contains("miniTank", names);
-        Assert.Contains("zfsPool", names);
-    }
-
-    [Fact]
     public void ParseAshift_ShouldReturnValue()
     {
         var json = File.ReadAllText("TestData/zpool_get_ashift.json");
@@ -136,6 +124,34 @@ public class ZpoolParserTests
         Assert.Equal(0, scrub.Errors);
         Assert.Contains("12:54:52", scrub.StartTime);
         Assert.Contains("17:22:17", scrub.FinishTime);
+        Assert.Equal("04:27:25", scrub.Duration);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldComputeDurationWithoutTimezone()
+    {
+        const string json = """
+            {
+              "output_version": { "command": "zpool status" },
+              "pools": {
+                "tank": {
+                  "name": "tank",
+                  "scan_stats": {
+                    "function": "SCRUB",
+                    "state": "FINISHED",
+                    "start_time": "Wed Mar 27 12:54:52 2024",
+                    "end_time": "Wed Mar 27 17:22:17 2024",
+                    "errors": "0"
+                  }
+                }
+              }
+            }
+            """;
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+
+        Assert.Equal("finished", scrub.State);
+        Assert.Equal("04:27:25", scrub.Duration);
     }
 
     [Fact]

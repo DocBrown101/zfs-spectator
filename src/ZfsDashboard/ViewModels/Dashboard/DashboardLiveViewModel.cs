@@ -6,11 +6,6 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 
 public sealed record DashboardLiveViewModel
 {
-    public DashboardLiveViewModel(DashboardData data)
-        : this(data, [])
-    {
-    }
-
     public DashboardLiveViewModel(DashboardSnapshot snapshot)
         : this(snapshot.Data, snapshot.Pools)
     {

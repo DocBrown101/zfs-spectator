@@ -238,12 +238,6 @@ public class DashboardSnapshotServiceTests
 
         public Task<DashboardData> GetDashboardDataAsync(
             IZfsService zfs,
-            IZpoolService zpool,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<DashboardData> GetDashboardDataAsync(
-            IZfsService zfs,
             IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots,
             CancellationToken cancellationToken = default)
         {
@@ -304,7 +298,6 @@ public class DashboardSnapshotServiceTests
 
         public Task<List<Pool>> GetAllPoolsAsync() => Task.FromResult(this.detailSnapshots.Select(item => item.Pool).ToList());
         public Task<List<string>> GetPoolNamesAsync() => Task.FromResult(this.detailSnapshots.Select(item => item.Pool.Name).ToList());
-        public Task<Pool?> GetPoolByNameAsync(string name) => Task.FromResult(this.detailSnapshots.Select(item => item.Pool).FirstOrDefault(pool => pool.Name == name));
         public Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
         {
             foreach (var snapshot in this.detailSnapshots)
@@ -314,7 +307,6 @@ public class DashboardSnapshotServiceTests
 
             return Task.FromResult<(Pool, ScrubInfo)?>(null);
         }
-        public Task<ScrubInfo> GetScrubStatusAsync(string poolName) => Task.FromResult(ScrubInfo.Idle);
     }
 
     private sealed class StubZfsService : IZfsService

@@ -37,13 +37,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     {
         var pools = await this.ListPoolsAsync(cancellationToken, requireOutput: true);
         var result = (await Task.WhenAll(pools.Select(pool => this.GetPoolRuntimeAsync(pool, cancellationToken)))).ToList();
-        var scrubs = await Task.WhenAll(result.Select(snapshot =>
-            this.AddScrubTimeLeftAsync(snapshot.Pool.Name, snapshot.Scrub, cancellationToken)));
-
-        for (var i = 0; i < result.Count; i++)
-            result[i] = (result[i].Pool, scrubs[i]);
-
-        return result;
+        return await this.AttachScrubTimeLeftAsync(result, cancellationToken);
     }
 
     private async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsCoreAsync(
@@ -55,13 +49,20 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var result = (await Task.WhenAll(pools.Select(pool =>
             this.EnrichPoolAsync(pool, cancellationToken, requireOutput)))).ToList();
 
-        if (includeScrubTimeLeft)
-        {
-            var scrubs = await Task.WhenAll(result.Select(snapshot =>
-                this.AddScrubTimeLeftAsync(snapshot.Pool.Name, snapshot.Scrub, cancellationToken)));
-            for (var i = 0; i < result.Count; i++)
-                result[i] = (result[i].Pool, scrubs[i]);
-        }
+        return includeScrubTimeLeft
+            ? await this.AttachScrubTimeLeftAsync(result, cancellationToken)
+            : result;
+    }
+
+    private async Task<List<(Pool Pool, ScrubInfo Scrub)>> AttachScrubTimeLeftAsync(
+        List<(Pool Pool, ScrubInfo Scrub)> result,
+        CancellationToken cancellationToken)
+    {
+        var scrubs = await Task.WhenAll(result.Select(snapshot =>
+            this.AddScrubTimeLeftAsync(snapshot.Pool.Name, snapshot.Scrub, cancellationToken)));
+
+        for (var i = 0; i < result.Count; i++)
+            result[i] = (result[i].Pool, scrubs[i]);
 
         return result;
     }
@@ -76,15 +77,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         }
 
         return snapshot?.ToList() ?? [];
-    }
-
-    public async Task<Pool?> GetPoolByNameAsync(string name)
-    {
-        var pools = await this.ListPoolsAsync();
-        var pool = pools.FirstOrDefault(p => p.Name == name);
-        if (pool == null) return null;
-        var (enriched, _) = await this.EnrichPoolAsync(pool, CancellationToken.None);
-        return enriched;
     }
 
     public async Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
@@ -127,7 +119,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             RequirePoolStatus(statusJson, pool.Name);
 
         var layout = ParsePoolLayout(statusJson, pool.Name);
-        var scrub = ParseScrubInfo(statusJson, pool.Name);
+        var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
 
         var props = await propsTask;
         var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree);
@@ -154,7 +146,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         RequirePoolStatus(statusJson, pool.Name);
         return (
             ParsePoolLayout(statusJson, pool.Name).ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree),
-            ParseScrubInfo(statusJson, pool.Name));
+            ZpoolParser.ParseScrubInfo(statusJson, pool.Name));
     }
 
     private async Task<PoolProperties> GetPoolPropertiesAsync(
@@ -194,19 +186,18 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
                 throw new InvalidOperationException($"zfs get returned incomplete data for {poolName}");
 
             var encryption = JsonHelper.GetPropertyString(props, "encryption");
-            var encrypted = encryption is not ("off" or "-" or "");
-            var keystatus = JsonHelper.GetPropertyString(props, "keystatus");
+            var encrypted = JsonHelper.IsEncryptionEnabled(props);
 
             return new PoolProperties(
                 UsableUsed: JsonHelper.GetPropertyUlong(props, "used"),
                 UsableAvail: JsonHelper.GetPropertyUlong(props, "available"),
-                Compression: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "compression"), "lz4"),
-                CompRatio: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "compressratio"), "1.00x"),
-                Dedup: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "dedup"), "off"),
-                Sync: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "sync"), "standard"),
-                Atime: DefaultIfEmpty(JsonHelper.GetPropertyString(props, "atime"), "off"),
+                Compression: JsonHelper.GetPropertyString(props, "compression", "lz4"),
+                CompRatio: JsonHelper.GetPropertyString(props, "compressratio", "1.00x"),
+                Dedup: JsonHelper.GetPropertyString(props, "dedup", "off"),
+                Sync: JsonHelper.GetPropertyString(props, "sync", "standard"),
+                Atime: JsonHelper.GetPropertyString(props, "atime", "off"),
                 Encrypted: encrypted,
-                KeyLocked: keystatus == "unavailable",
+                KeyLocked: JsonHelper.IsKeyLocked(props),
                 EncryptionAlgorithm: encrypted ? encryption : "");
         }
     }
@@ -346,21 +337,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return result;
     }
 
-    private static ScrubInfo ParseScrubInfo(string statusJson, string poolName)
-    {
-        return ZpoolParser.ParseScrubInfo(statusJson, poolName);
-    }
-
-    public async Task<ScrubInfo> GetScrubStatusAsync(string poolName)
-    {
-        var json = await cmd.ExecuteAsync("zpool", $"status -Pj {poolName}");
-        var scrub = ParseScrubInfo(json, poolName);
-
-        scrub = await this.AddScrubTimeLeftAsync(poolName, scrub, CancellationToken.None);
-
-        return scrub;
-    }
-
     private async Task<ScrubInfo> AddScrubTimeLeftAsync(
         string poolName,
         ScrubInfo scrub,
@@ -372,9 +348,4 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
         return string.IsNullOrEmpty(timeLeft) ? scrub : scrub with { TimeLeft = timeLeft };
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    private static string DefaultIfEmpty(string value, string fallback)
-        => string.IsNullOrEmpty(value) ? fallback : value;
 }

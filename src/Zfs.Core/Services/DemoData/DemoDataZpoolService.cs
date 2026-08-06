@@ -46,13 +46,7 @@ public class DemoDataZpoolService : IZpoolService
     public Task<List<string>> GetPoolNamesAsync()
     {
         var json = DemoDataHelper.ReadEmbeddedJson(ZpoolListData);
-        return Task.FromResult(ZpoolParser.ParsePoolNames(json));
-    }
-
-    public async Task<Pool?> GetPoolByNameAsync(string name)
-    {
-        var pools = await this.GetAllPoolsAsync();
-        return pools.FirstOrDefault(p => p.Name == name);
+        return Task.FromResult(ZpoolParser.ParsePools(json).Select(p => p.Name).ToList());
     }
 
     public async Task<(Pool Pool, ScrubInfo Scrub)?> GetPoolWithScrubAsync(string name)
@@ -63,13 +57,6 @@ public class DemoDataZpoolService : IZpoolService
             if (snapshot.Pool.Name == name) return snapshot;
         }
         return null;
-    }
-
-    public Task<ScrubInfo> GetScrubStatusAsync(string poolName)
-    {
-        var json = DemoDataHelper.ReadEmbeddedJson(ZpoolStatus);
-        var scrub = ZpoolParser.ParseScrubInfo(json, poolName);
-        return Task.FromResult(scrub);
     }
 
 }

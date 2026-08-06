@@ -1,5 +1,6 @@
 namespace Zfs.Core.Services.Parser;
 
+using System.Globalization;
 using System.Text.Json;
 using Zfs.Core.Models;
 
@@ -43,18 +44,6 @@ public static class ZpoolParser
             });
         }
         return result;
-    }
-
-    // ── Pool Names (from zpool list -Hpj) ───────────────────────────────
-
-    public static List<string> ParsePoolNames(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return [];
-
-        return pools.EnumerateObject().Select(p => p.Name).ToList();
     }
 
     // ── Ashift (from zpool get -Hpj ashift) ─────────────────────────────
@@ -173,23 +162,68 @@ public static class ZpoolParser
 
         return JsonHelper.GetString(scan, "state") switch
         {
-            "FINISHED" => new ScrubInfo
-            {
-                State = "finished",
-                Errors = JsonHelper.GetLong(scan, "errors"),
-                StartTime = JsonHelper.GetString(scan, "start_time"),
-                FinishTime = JsonHelper.GetString(scan, "end_time"),
-            },
             "SCANNING" => CreateRunningScrubInfo(scan),
-            "CANCELED" => new ScrubInfo
-            {
-                State = "canceled",
-                Errors = JsonHelper.GetLong(scan, "errors"),
-                StartTime = JsonHelper.GetString(scan, "start_time"),
-                FinishTime = JsonHelper.GetString(scan, "end_time"),
-            },
+            "FINISHED" or "CANCELED" => CreateCompletedScrubInfo(scan),
             _ => ScrubInfo.Idle,
         };
+    }
+
+    private static ScrubInfo CreateCompletedScrubInfo(JsonElement scan)
+    {
+        var startTime = JsonHelper.GetString(scan, "start_time");
+        var endTime = JsonHelper.GetString(scan, "end_time");
+        return new ScrubInfo
+        {
+            State = JsonHelper.GetString(scan, "state") == "FINISHED" ? "finished" : "canceled",
+            Errors = JsonHelper.GetLong(scan, "errors"),
+            StartTime = startTime,
+            FinishTime = endTime,
+            Duration = ComputeDuration(startTime, endTime),
+        };
+    }
+
+    private static string ComputeDuration(string startTime, string endTime)
+    {
+        if (!TryParseScanTime(startTime, out var start) || !TryParseScanTime(endTime, out var end))
+            return "";
+        if (end <= start) return "";
+        var elapsed = end - start;
+        return $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
+    }
+
+    private static readonly (string Format, CultureInfo Culture)[] ScanTimeFormats =
+    [
+        ("ddd d. MMM HH:mm:ss yyyy", CultureInfo.GetCultureInfo("de-DE")),
+        ("ddd MMM d HH:mm:ss yyyy", CultureInfo.GetCultureInfo("en-US")),
+        ("ddd d MMM HH:mm:ss yyyy", CultureInfo.GetCultureInfo("en-US")),
+    ];
+
+    private static bool TryParseScanTime(string value, out DateTime result)
+    {
+        if (string.IsNullOrEmpty(value) || value == "-")
+        {
+            result = default;
+            return false;
+        }
+
+        // zfs emits scan timestamps in the system locale (e.g. "Mi 27. Mär 12:54:52 CET 2024").
+        // Strip the timezone abbreviation (the token right before the year); both timestamps
+        // parse the same way, so the wall-clock difference is the duration zfs reports.
+        // Without a timezone (e.g. "Wed Mar 27 12:54:52 2024") the token before the year is
+        // the clock time and must be kept, so only drop alphabetic timezone tokens.
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 3 && parts[^1].Length == 4 && int.TryParse(parts[^1], out _) &&
+            parts[^2].All(char.IsLetter))
+            value = string.Join(' ', parts[..^2].Concat(parts[^1..]));
+
+        foreach (var (format, culture) in ScanTimeFormats)
+        {
+            if (DateTime.TryParseExact(value, format, culture, DateTimeStyles.AllowWhiteSpaces, out result))
+                return true;
+        }
+
+        result = default;
+        return false;
     }
 
     // ── Scrub text parsing (from zpool status without -j) ───────────────

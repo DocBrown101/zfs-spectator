@@ -24,9 +24,8 @@ public static class ZfsParser
             var depth = name.Count(c => c == '/') - poolName.Count(c => c == '/');
             var shortName = name.Split('/').Last();
 
-            var encValue = JsonHelper.GetPropertyString(props, "encryption");
-            var encrypted = encValue is not ("off" or "-" or "");
-            var keyLocked = JsonHelper.GetPropertyString(props, "keystatus") == "unavailable";
+            var encryption = JsonHelper.GetPropertyString(props, "encryption");
+            var encrypted = JsonHelper.IsEncryptionEnabled(props);
 
             result.Add(new Dataset
             {
@@ -48,8 +47,8 @@ public static class ZfsParser
                 Comment = NormalizeComment(props),
                 Depth = depth,
                 Encrypted = encrypted,
-                KeyLocked = keyLocked,
-                EncryptionAlgorithm = encrypted ? encValue : "",
+                KeyLocked = JsonHelper.IsKeyLocked(props),
+                EncryptionAlgorithm = encrypted ? encryption : "",
                 Mounted = JsonHelper.GetPropertyString(props, "mounted") == "yes",
                 CanMount = JsonHelper.GetPropertyString(props, "canmount"),
                 UsedBySnapshots = JsonHelper.GetPropertyUlong(props, "usedbysnapshots"),
@@ -119,7 +118,6 @@ public static class ZfsParser
             if (!vol.TryGetProperty("properties", out var props)) continue;
 
             var name = JsonHelper.GetString(vol, "name");
-            var encValue = JsonHelper.GetPropertyString(props, "encryption");
 
             result.Add(new ZVol
             {
@@ -133,7 +131,7 @@ public static class ZfsParser
                 Sync = JsonHelper.GetPropertyString(props, "sync"),
                 Dedup = JsonHelper.GetPropertyString(props, "dedup"),
                 VolBlockSize = JsonHelper.GetPropertyString(props, "volblocksize"),
-                Encrypted = encValue is not ("off" or "-" or ""),
+                Encrypted = JsonHelper.IsEncryptionEnabled(props),
                 Comment = NormalizeComment(props),
                 Refreservation = JsonHelper.GetPropertyUlong(props, "refreservation"),
             });

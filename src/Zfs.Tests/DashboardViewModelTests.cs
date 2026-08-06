@@ -1,4 +1,5 @@
 using Zfs.Core.Models;
+using ZfsDashboard.Services;
 using ZfsDashboard.ViewModels.Dashboard;
 
 namespace Zfs.Tests;
@@ -36,7 +37,8 @@ public class DashboardViewModelTests
         };
 
         var page = new DashboardPageViewModel([], system, new StaticSystemInfo());
-        var live = new DashboardLiveViewModel(new DashboardData { System = system });
+        var live = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData { System = system }, [], new StaticSystemInfo()));
 
         Assert.Equal(page.Memory.UsagePercent, live.Memory.UsagePercent);
         Assert.Equal(page.Memory.Details, live.Memory.Details);
@@ -48,13 +50,16 @@ public class DashboardViewModelTests
     [Fact]
     public void LiveResponse_KeepsOptionalArcRowsInTheStableContract()
     {
-        var response = new DashboardLiveViewModel(new DashboardData
-        {
-            System = new SystemInfo
+        var response = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData
             {
-                Arc = new ArcStats { MaxSize = 1024 },
+                System = new SystemInfo
+                {
+                    Arc = new ArcStats { MaxSize = 1024 },
+                },
             },
-        });
+            [],
+            new StaticSystemInfo()));
 
         Assert.Equal(["arcSize", "arcMeta", "arcData", "arcMruMfu"], response.Arc.Details.Select(row => row.ElementId));
         Assert.True(response.Arc.IsVisible);
@@ -65,7 +70,8 @@ public class DashboardViewModelTests
     [Fact]
     public void LiveResponse_KeepsUnavailableArcInTheStableContract()
     {
-        var response = new DashboardLiveViewModel(new DashboardData());
+        var response = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData(), [], new StaticSystemInfo()));
 
         Assert.False(response.Arc.IsVisible);
         Assert.Null(response.Arc.L2HitRate);

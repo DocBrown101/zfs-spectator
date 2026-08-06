@@ -12,15 +12,17 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 
     public async Task OnGetAsync()
     {
-        var names = await zpool.GetPoolNamesAsync();
         var snapshots = new List<Snapshot>();
-        var tasks = names.Select(n => zfs.GetSnapshotsAsync(n));
-        foreach (var snaps in await Task.WhenAll(tasks))
+        var poolNames = new List<string>();
+        foreach (var (pool, snaps) in await ZfsAggregation.GetAllByPoolAsync(zpool, zfs.GetSnapshotsAsync))
+        {
+            poolNames.Add(pool);
             snapshots.AddRange(snaps);
+        }
 
         this.Snapshots = new SnapshotPageViewModel(snapshots);
 
-        foreach (var pool in names.Order())
+        foreach (var pool in poolNames.Order())
             this.Suggestions.Add(CommandSuggestionsService.SuggestCreateSnapshot(pool));
     }
 }

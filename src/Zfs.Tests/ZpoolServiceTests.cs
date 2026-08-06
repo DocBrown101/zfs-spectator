@@ -48,12 +48,15 @@ public class ZpoolServiceTests
     public async Task GetPoolNamesAsync_EmptyResponse_ShouldReturnEmpty()
     {
         var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpj -o name", "");
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "");
         var service = new ZpoolService(executor);
 
         var names = await service.GetPoolNamesAsync();
 
         Assert.Empty(names);
+        Assert.Single(executor.Invocations);
+        Assert.Equal("zpool", executor.Invocations[0].Command);
+        Assert.Equal("list -Hpvj -o name,size,alloc,free,health,frag", executor.Invocations[0].Arguments);
     }
 
     [Fact]
@@ -248,6 +251,74 @@ public class ZpoolServiceTests
         Assert.Equal(2, executor.StatusInvocationCount);
     }
 
+    // ── GetPoolWithScrubAsync ────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPoolWithScrubAsync_ShouldReturnEnrichedPoolWithScrub()
+    {
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status zfsPool", "");
+        var service = new ZpoolService(executor);
+
+        var result = await service.GetPoolWithScrubAsync("zfsPool");
+
+        Assert.NotNull(result);
+        Assert.Equal("zfsPool", result.Value.Pool.Name);
+        Assert.Equal("lz4", result.Value.Pool.Compression);
+        Assert.Equal(12, result.Value.Pool.Ashift);
+        Assert.Equal("finished", result.Value.Scrub.State);
+        Assert.Equal(0, result.Value.Scrub.Errors);
+        Assert.NotEmpty(result.Value.Scrub.StartTime);
+        Assert.NotEmpty(result.Value.Scrub.FinishTime);
+    }
+
+    [Fact]
+    public async Task GetPoolWithScrubAsync_UnknownPool_ShouldReturnNull()
+    {
+        var executor = CreateExecutorForPool();
+        var service = new ZpoolService(executor);
+
+        var result = await service.GetPoolWithScrubAsync("nonexistent");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetPoolWithScrubAsync_RunningScrub_ShouldFetchTimeLeft()
+    {
+        var zpoolStatusScanningJson = File.ReadAllText("TestData/zpool_status_scanning.json");
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status -Pj zfsPool", zpoolStatusScanningJson)
+            .On("zpool", "status zfsPool",
+                "  scan: scrub in progress since Mon Mar 23 09:07:04 2026\n" +
+                "        7.65T / 8.64T scanned, 6.50T issued at 1.23G/s\n" +
+                "        0B repaired, 88.55% done, 0 days 01:23:45 to go\n");
+        var service = new ZpoolService(executor);
+
+        var result = await service.GetPoolWithScrubAsync("zfsPool");
+
+        Assert.NotNull(result);
+        Assert.Equal("running", result.Value.Scrub.State);
+        Assert.True(result.Value.Scrub.ProgressPct > 0);
+        Assert.Equal("01:23:45", result.Value.Scrub.TimeLeft);
+    }
+
+    [Fact]
+    public async Task GetPoolWithScrubAsync_RunningScrub_NoTimeInText_ShouldKeepEmptyTimeLeft()
+    {
+        var zpoolStatusScanningJson = File.ReadAllText("TestData/zpool_status_scanning.json");
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status -Pj zfsPool", zpoolStatusScanningJson)
+            .On("zpool", "status zfsPool", "  scan: scrub in progress\n");
+        var service = new ZpoolService(executor);
+
+        var result = await service.GetPoolWithScrubAsync("zfsPool");
+
+        Assert.NotNull(result);
+        Assert.Equal("running", result.Value.Scrub.State);
+        Assert.Equal("", result.Value.Scrub.TimeLeft);
+    }
+
     [Fact]
     public async Task GetAllPoolsAsync_ShouldEnrichWithUsableUsage()
     {
@@ -329,104 +400,6 @@ public class ZpoolServiceTests
         var pools = await service.GetAllPoolsAsync();
 
         Assert.Empty(pools);
-    }
-
-    // ── GetPoolByNameAsync ───────────────────────────────────────────────
-
-    [Fact]
-    public async Task GetPoolByNameAsync_ShouldReturnEnrichedPool()
-    {
-        var executor = CreateExecutorForPool();
-        var service = new ZpoolService(executor);
-
-        var pool = await service.GetPoolByNameAsync("zfsPool");
-
-        Assert.NotNull(pool);
-        Assert.Equal("zfsPool", pool.Name);
-        Assert.Equal("lz4", pool.Compression);
-        Assert.Equal(12, pool.Ashift);
-    }
-
-    [Fact]
-    public async Task GetPoolByNameAsync_EmptyResponse_ShouldReturnNull()
-    {
-        var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag nonexistent", "");
-        var service = new ZpoolService(executor);
-
-        var pool = await service.GetPoolByNameAsync("nonexistent");
-
-        Assert.Null(pool);
-    }
-
-    [Fact]
-    public async Task GetPoolByNameAsync_ValidJsonNoMatchingPool_ShouldReturnNull()
-    {
-        // JSON with a different pool name than the one requested
-        var json = """{"output_version":{"command":"zpool list"},"pools":{}}""";
-        var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag otherPool", json);
-        var service = new ZpoolService(executor);
-
-        var pool = await service.GetPoolByNameAsync("otherPool");
-
-        Assert.Null(pool);
-    }
-
-    // ── GetScrubStatusAsync ──────────────────────────────────────────────
-
-    [Fact]
-    public async Task GetScrubStatusAsync_FinishedScrub_ShouldReturnFinishedState()
-    {
-        var zpoolStatusJson = File.ReadAllText("TestData/zpool_status.json");
-        var executor = new FakeCommandExecutor()
-            .On("zpool", "status -Pj zfsPool", zpoolStatusJson);
-        var service = new ZpoolService(executor);
-
-        var scrub = await service.GetScrubStatusAsync("zfsPool");
-
-        Assert.Equal("finished", scrub.State);
-        Assert.Equal(0, scrub.Errors);
-        Assert.NotEmpty(scrub.StartTime);
-        Assert.NotEmpty(scrub.FinishTime);
-    }
-
-    [Fact]
-    public async Task GetScrubStatusAsync_RunningScrub_ShouldFetchTimeLeft()
-    {
-        var zpoolStatusScanningJson = File.ReadAllText("TestData/zpool_status_scanning.json");
-        var textOutput =
-            "  pool: zfsPool\n" +
-            " state: ONLINE\n" +
-            "  scan: scrub in progress since Mon Mar 23 09:07:04 2026\n" +
-            "        7.65T / 8.64T scanned, 6.50T issued at 1.23G/s\n" +
-            "        0B repaired, 88.55% done, 0 days 01:23:45 to go\n";
-
-        var executor = new FakeCommandExecutor()
-            .On("zpool", "status -Pj zfsPool", zpoolStatusScanningJson)
-            .On("zpool", "status zfsPool", textOutput);
-        var service = new ZpoolService(executor);
-
-        var scrub = await service.GetScrubStatusAsync("zfsPool");
-
-        Assert.Equal("running", scrub.State);
-        Assert.True(scrub.ProgressPct > 0);
-        Assert.Equal("01:23:45", scrub.TimeLeft);
-    }
-
-    [Fact]
-    public async Task GetScrubStatusAsync_RunningScrub_NoTimeInText_ShouldHaveEmptyTimeLeft()
-    {
-        var zpoolStatusScanningJson = File.ReadAllText("TestData/zpool_status_scanning.json");
-        var executor = new FakeCommandExecutor()
-            .On("zpool", "status -Pj zfsPool", zpoolStatusScanningJson)
-            .On("zpool", "status zfsPool", "  scan: scrub in progress\n");
-        var service = new ZpoolService(executor);
-
-        var scrub = await service.GetScrubStatusAsync("zfsPool");
-
-        Assert.Equal("running", scrub.State);
-        Assert.Equal("", scrub.TimeLeft);
     }
 
     // ── Encryption edge cases ────────────────────────────────────────────

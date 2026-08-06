@@ -5,32 +5,31 @@ namespace Zfs.Core.Services.Parser
     internal static class JsonHelper
     {
         internal static ulong GetPropertyUlong(JsonElement properties, string name)
-        {
-            if (!properties.TryGetProperty(name, out var prop)) return 0;
-            if (!prop.TryGetProperty("value", out var val)) return 0;
-
-            var raw = val.GetString();
-            if (string.IsNullOrEmpty(raw) || raw == "-") return 0;
-
-            return ulong.TryParse(raw, out var result) ? result : 0;
-        }
-
-        internal static string GetPropertyString(JsonElement properties, string name)
-        {
-            if (!properties.TryGetProperty(name, out var prop)) return "";
-            if (!prop.TryGetProperty("value", out var val)) return "";
-            return val.GetString() ?? "";
-        }
+            => ulong.TryParse(GetPropertyRaw(properties, name), out var result) ? result : 0;
 
         internal static int GetPropertyInt(JsonElement properties, string name)
+            => int.TryParse(GetPropertyRaw(properties, name), out var result) ? result : 0;
+
+        internal static string GetPropertyString(JsonElement properties, string name)
+            => GetPropertyString(properties, name, "");
+
+        internal static string GetPropertyString(JsonElement properties, string name, string fallback)
         {
-            if (!properties.TryGetProperty(name, out var prop)) return 0;
-            if (!prop.TryGetProperty("value", out var val)) return 0;
+            var raw = GetPropertyRaw(properties, name);
+            return string.IsNullOrEmpty(raw) ? fallback : raw;
+        }
 
-            var raw = val.GetString();
-            if (string.IsNullOrEmpty(raw) || raw == "-") return 0;
+        internal static bool IsEncryptionEnabled(JsonElement properties)
+            => GetPropertyString(properties, "encryption") is not ("off" or "-" or "");
 
-            return int.TryParse(raw, out var result) ? result : 0;
+        internal static bool IsKeyLocked(JsonElement properties)
+            => GetPropertyString(properties, "keystatus") == "unavailable";
+
+        private static string? GetPropertyRaw(JsonElement properties, string name)
+        {
+            if (!properties.TryGetProperty(name, out var prop)) return null;
+            if (!prop.TryGetProperty("value", out var val)) return null;
+            return val.GetString();
         }
 
         internal static string GetString(JsonElement element, string name)

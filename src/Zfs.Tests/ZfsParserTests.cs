@@ -202,31 +202,34 @@ public class ZfsParserTests
     [Fact]
     public void DashboardLiveViewModel_ShouldSerializeWithFrontendPropertyNames()
     {
-        var data = new DashboardLiveViewModel(new DashboardData
-        {
-            System = new SystemInfo
+        var data = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData
             {
-                Uptime = "1h 2m 3s",
-                CpuUsagePercent = 5,
-                Memory = new MemoryInfo { Total = 1024, Used = 512, Available = 512 },
-            },
-            NetworkRates = [],
-            DiskIoRates =
-            [
-                new DiskIoRateInfo
+                System = new SystemInfo
                 {
-                    Device = "sda",
-                    ReadBytesPerSec = 1024,
-                    WriteBytesPerSec = 512,
-                    ReadOpsPerSec = 100,
-                    WriteOpsPerSec = 50,
-                    ReadLatencyMs = 1.5,
-                    WriteLatencyMs = 2.0,
-                    QueueDepth = 0.5,
-                    UtilizationPct = 25.0,
+                    Uptime = "1h 2m 3s",
+                    CpuUsagePercent = 5,
+                    Memory = new MemoryInfo { Total = 1024, Used = 512, Available = 512 },
                 },
-            ],
-        });
+                NetworkRates = [],
+                DiskIoRates =
+                [
+                    new DiskIoRateInfo
+                    {
+                        Device = "sda",
+                        ReadBytesPerSec = 1024,
+                        WriteBytesPerSec = 512,
+                        ReadOpsPerSec = 100,
+                        WriteOpsPerSec = 50,
+                        ReadLatencyMs = 1.5,
+                        WriteLatencyMs = 2.0,
+                        QueueDepth = 0.5,
+                        UtilizationPct = 25.0,
+                    },
+                ],
+            },
+            [],
+            new StaticSystemInfo()));
 
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var json = JsonSerializer.Serialize(data, options);

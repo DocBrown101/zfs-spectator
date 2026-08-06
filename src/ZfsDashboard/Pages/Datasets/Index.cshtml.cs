@@ -12,9 +12,7 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 
     public async Task OnGetAsync()
     {
-        var names = await zpool.GetPoolNamesAsync();
-        var tasks = names.Select(async n => (Pool: n, Datasets: await zfs.GetDatasetsAsync(n)));
-        foreach (var (pool, datasets) in await Task.WhenAll(tasks))
+        foreach (var (pool, datasets) in await ZfsAggregation.GetAllByPoolAsync(zpool, zfs.GetDatasetsAsync))
         {
             this.DatasetsByPool[pool] = datasets;
             this.TotalCount += datasets.Count;

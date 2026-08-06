@@ -36,12 +36,7 @@ public sealed record ScrubStatusViewModel
                 this.Headline = "Completed";
                 this.StatusCss = "text-success";
                 this.IconCss = "bi-check-circle";
-                this.Details =
-                [
-                    $"Duration: {scrub.Duration}",
-                    $"Errors: {scrub.Errors}",
-                    scrub.FinishTime,
-                ];
+                this.Details = CompletedDetails(scrub);
                 break;
             case "canceled":
                 this.Headline = "Canceled";
@@ -59,6 +54,15 @@ public sealed record ScrubStatusViewModel
     public string IconCss { get; }
     public double ProgressPercent { get; }
     public IReadOnlyList<string> Details { get; }
+
+    private static IReadOnlyList<string> CompletedDetails(ScrubInfo scrub)
+    {
+        var details = new List<string>();
+        if (!string.IsNullOrEmpty(scrub.Duration)) details.Add($"Duration: {scrub.Duration}");
+        details.Add($"Errors: {scrub.Errors}");
+        if (!string.IsNullOrEmpty(scrub.FinishTime)) details.Add(scrub.FinishTime);
+        return details;
+    }
 
     private static IReadOnlyList<string> RunningDetails(ScrubInfo scrub)
     {

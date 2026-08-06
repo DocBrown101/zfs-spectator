@@ -17,20 +17,6 @@ public class SystemService() : ISystemService
 
     public async Task<DashboardData> GetDashboardDataAsync(
         IZfsService zfs,
-        IZpoolService zpool,
-        CancellationToken cancellationToken = default)
-    {
-        var poolsTask = zpool.GetAllPoolsWithScrubAsync(cancellationToken);
-        var systemTask = this.GetSystemInfoAsync(zfs, cancellationToken);
-        var networkTask = this.GetNetworkInfoAsync(cancellationToken);
-        var diskTask = GetDiskIoInfoAsync(cancellationToken);
-
-        await Task.WhenAll(poolsTask, systemTask, networkTask, diskTask);
-        return this.BuildDashboardData(systemTask.Result, networkTask.Result, diskTask.Result, poolsTask.Result);
-    }
-
-    public async Task<DashboardData> GetDashboardDataAsync(
-        IZfsService zfs,
         IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots,
         CancellationToken cancellationToken = default)
     {
@@ -203,11 +189,7 @@ public class SystemService() : ISystemService
                 CpuCount = cpuCount > 0 ? cpuCount : 1,
             };
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return new StaticSystemInfo();
         }
@@ -236,11 +218,7 @@ public class SystemService() : ISystemService
                 CpuUsagePercent = cpuTask.Result,
             };
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return new SystemInfo { Uptime = "N/A", Arc = new(), Memory = new(), CpuUsagePercent = 0 };
         }
@@ -291,11 +269,7 @@ public class SystemService() : ISystemService
                 return total == 0 ? 0 : (double)(total - idle) / total * 100;
             }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return 0;
         }
@@ -339,11 +313,7 @@ public class SystemService() : ISystemService
                 SwapFree = swapFree,
             };
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return new MemoryInfo();
         }
@@ -380,11 +350,7 @@ public class SystemService() : ISystemService
             }
             return interfaces;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return [];
         }
@@ -424,11 +390,7 @@ public class SystemService() : ISystemService
             }
             return disks.OrderBy(d => d.Device).ToList();
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return [];
         }
