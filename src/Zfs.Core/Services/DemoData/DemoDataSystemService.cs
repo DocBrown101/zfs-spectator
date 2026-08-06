@@ -102,7 +102,6 @@ public class DemoDataSystemService : ISystemService
                 Cached = 8589934592,
                 SwapTotal = 8589934592,
                 SwapUsed = 0,
-                SwapFree = 8589934592,
             },
             CpuUsagePercent = 50.0 + Random.Shared.NextDouble() * 40.0,
         };
@@ -128,8 +127,6 @@ public class DemoDataSystemService : ISystemService
                 Device = name,
                 ReadBytesPerSec = Math.Round(readBps, 1),
                 WriteBytesPerSec = Math.Round(writeBps, 1),
-                ReadOpsPerSec = Math.Round(readOps, 1),
-                WriteOpsPerSec = Math.Round(writeOps, 1),
                 ReadLatencyMs = Math.Round(readLatMs, 2),
                 WriteLatencyMs = Math.Round(writeLatMs, 2),
                 QueueDepth = Math.Round(isNvme ? rng.NextDouble() * 8 : rng.NextDouble() * 3, 1),

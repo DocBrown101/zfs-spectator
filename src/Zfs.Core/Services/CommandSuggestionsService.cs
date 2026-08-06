@@ -14,33 +14,34 @@ public static class CommandSuggestionsService
         ZfsCommand = $"sudo zfs set {property}={value} {dataset}",
         NixOsConfig = property switch
         {
-            "compression" =>
-                $"# configuration.nix — set via postCreationHook or systemd oneshot\n" +
-                $"systemd.services.\"zfs-set-{dataset.Replace('/', '-')}-compression\" = {{\n" +
-                $"  description = \"Set ZFS compression on {dataset}\";\n" +
-                $"  after = [ \"zfs-import.target\" ];\n" +
-                $"  wantedBy = [ \"zfs.target\" ];\n" +
-                $"  serviceConfig.Type = \"oneshot\";\n" +
-                $"  script = ''\n" +
-                $"    ${{{{{{}}}}/bin/zfs}} set compression={value} {dataset}\n" +
-                $"  '';\n" +
-                $"}};",
+            "compression" => OneshotService(
+                "set via postCreationHook or systemd oneshot",
+                $"zfs-set-{dataset.Replace('/', '-')}-compression",
+                $"Set ZFS compression on {dataset}",
+                $"\n    ${{{{{{}}}}/bin/zfs}} set compression={value} {dataset}\n  "),
             "atime" =>
                 $"# configuration.nix\n" +
                 $"fileSystems.\"{dataset}\" = {{\n" +
                 $"  options = [ \"noatime\" ];\n" +
                 $"}};",
-            "quota" =>
-                $"# configuration.nix — set quota via systemd oneshot\n" +
-                $"systemd.services.\"zfs-quota-{dataset.Replace('/', '-')}\" = {{\n" +
-                $"  after = [ \"zfs-import.target\" ];\n" +
-                $"  wantedBy = [ \"zfs.target\" ];\n" +
-                $"  serviceConfig.Type = \"oneshot\";\n" +
-                $"  script = ''zfs set quota={value} {dataset}'';\n" +
-                $"}};",
+            "quota" => OneshotService(
+                "set quota via systemd oneshot",
+                $"zfs-quota-{dataset.Replace('/', '-')}",
+                null,
+                $"zfs set quota={value} {dataset}"),
             _ => null,
         },
     };
+
+    private static string OneshotService(string comment, string serviceName, string? description, string script)
+        => $"# configuration.nix — {comment}\n" +
+           $"systemd.services.\"{serviceName}\" = {{\n" +
+           (description is null ? "" : $"  description = \"{description}\";\n") +
+           $"  after = [ \"zfs-import.target\" ];\n" +
+           $"  wantedBy = [ \"zfs.target\" ];\n" +
+           $"  serviceConfig.Type = \"oneshot\";\n" +
+           $"  script = ''{script}'';\n" +
+           $"}};";
 
     public static CommandSuggestion SuggestCreateSnapshot(string dataset) => new()
     {

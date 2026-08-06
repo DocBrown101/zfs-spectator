@@ -42,7 +42,6 @@ public record MemoryInfo
     public ulong Cached { get; init; }
     public ulong SwapTotal { get; init; }
     public ulong SwapUsed { get; init; }
-    public ulong SwapFree { get; init; }
     public double UsagePercent => this.Total > 0 ? (double)this.Used / this.Total * 100 : 0;
     public double SwapUsagePercent => this.SwapTotal > 0 ? (double)this.SwapUsed / this.SwapTotal * 100 : 0;
 }

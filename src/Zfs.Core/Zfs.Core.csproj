@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\Zfs.Tests\TestData\*.json" LinkBase="TestData" />
+    <EmbeddedResource Include="..\Zfs.Tests\TestData\arcstats.txt" LinkBase="TestData" />
   </ItemGroup>
 
 </Project>

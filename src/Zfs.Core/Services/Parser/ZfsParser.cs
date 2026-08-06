@@ -9,13 +9,11 @@ public static class ZfsParser
 
     public static List<Dataset> ParseDatasets(string json, string poolName)
     {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("datasets", out var datasets)) return [];
+        using var datasets = JsonHelper.TryGetObject(json, "datasets");
+        if (datasets is null) return [];
 
         var result = new List<Dataset>();
-        foreach (var entry in datasets.EnumerateObject())
+        foreach (var entry in datasets.Value.EnumerateObject())
         {
             var ds = entry.Value;
             if (!ds.TryGetProperty("properties", out var props)) continue;
@@ -61,13 +59,11 @@ public static class ZfsParser
 
     public static List<Snapshot> ParseSnapshots(string json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("datasets", out var datasets)) return [];
+        using var datasets = JsonHelper.TryGetObject(json, "datasets");
+        if (datasets is null) return [];
 
         var result = new List<Snapshot>();
-        foreach (var entry in datasets.EnumerateObject())
+        foreach (var entry in datasets.Value.EnumerateObject())
         {
             var snap = entry.Value;
             if (!snap.TryGetProperty("properties", out var props)) continue;
@@ -106,13 +102,11 @@ public static class ZfsParser
 
     public static List<ZVol> ParseZVols(string json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("datasets", out var datasets)) return [];
+        using var datasets = JsonHelper.TryGetObject(json, "datasets");
+        if (datasets is null) return [];
 
         var result = new List<ZVol>();
-        foreach (var entry in datasets.EnumerateObject())
+        foreach (var entry in datasets.Value.EnumerateObject())
         {
             var vol = entry.Value;
             if (!vol.TryGetProperty("properties", out var props)) continue;

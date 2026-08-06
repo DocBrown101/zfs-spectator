@@ -22,6 +22,24 @@
           }
         }
       }
+    },
+    "miniTank": {
+      "name": "miniTank",
+      "type": "POOL",
+      "state": "ONLINE",
+      "pool_guid": "1234567890123456789",
+      "txg": "1234",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "properties": {
+        "ashift": {
+          "value": "12",
+          "source": {
+            "type": "LOCAL",
+            "data": "-"
+          }
+        }
+      }
     }
   }
 }

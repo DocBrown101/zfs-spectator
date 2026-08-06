@@ -22,6 +22,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return (await this.GetAllPoolsCoreAsync(
                 includeScrubTimeLeft: false,
                 requireOutput: false,
+                includeProperties: true,
                 cancellationToken: CancellationToken.None))
             .Select(snapshot => snapshot.Pool)
             .ToList();
@@ -31,23 +32,25 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         => this.GetAllPoolsCoreAsync(
             includeScrubTimeLeft: true,
             requireOutput: true,
+            includeProperties: true,
             cancellationToken: cancellationToken);
 
     public async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetDashboardPoolsAsync(CancellationToken cancellationToken = default)
-    {
-        var pools = await this.ListPoolsAsync(cancellationToken, requireOutput: true);
-        var result = (await Task.WhenAll(pools.Select(pool => this.GetPoolRuntimeAsync(pool, cancellationToken)))).ToList();
-        return await this.AttachScrubTimeLeftAsync(result, cancellationToken);
-    }
+        => await this.GetAllPoolsCoreAsync(
+            includeScrubTimeLeft: true,
+            requireOutput: true,
+            includeProperties: false,
+            cancellationToken: cancellationToken);
 
     private async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsCoreAsync(
         bool includeScrubTimeLeft,
         bool requireOutput,
+        bool includeProperties,
         CancellationToken cancellationToken)
     {
         var pools = await this.ListPoolsAsync(cancellationToken, requireOutput);
         var result = (await Task.WhenAll(pools.Select(pool =>
-            this.EnrichPoolAsync(pool, cancellationToken, requireOutput)))).ToList();
+            this.EnrichPoolAsync(pool, cancellationToken, requireOutput, includeProperties)))).ToList();
 
         return includeScrubTimeLeft
             ? await this.AttachScrubTimeLeftAsync(result, cancellationToken)
@@ -96,9 +99,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         bool requireOutput = false)
     {
         var json = await cmd.ExecuteAsync("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", cancellationToken);
-        if (requireOutput && !string.IsNullOrWhiteSpace(json))
-            RequirePoolList(json);
-        var pools = string.IsNullOrWhiteSpace(json) ? [] : ZpoolParser.ParsePools(json);
+        var pools = ZpoolParser.ParsePools(json, requireOutput);
 
         this.cachedPoolNames = pools.Select(p => p.Name).ToList().AsReadOnly();
 
@@ -108,21 +109,23 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     private async Task<(Pool Pool, ScrubInfo Scrub)> EnrichPoolAsync(
         Pool pool,
         CancellationToken cancellationToken,
-        bool requireOutput = false)
+        bool requireOutput = false,
+        bool includeProperties = true)
     {
-        var propsTask = this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput);
+        var propsTask = includeProperties
+            ? this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput)
+            : Task.FromResult(DefaultPoolProperties);
         var statusTask = cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}", cancellationToken);
         await Task.WhenAll(propsTask, statusTask);
 
         var statusJson = await statusTask;
-        if (requireOutput)
-            RequirePoolStatus(statusJson, pool.Name);
-
-        var layout = ParsePoolLayout(statusJson, pool.Name);
+        var layout = ParsePoolLayout(statusJson, pool.Name, requireOutput);
         var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
 
-        var props = await propsTask;
         var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree);
+        if (!includeProperties) return (enriched, scrub);
+
+        var props = await propsTask;
         return (enriched with
         {
             UsableUsed = props.UsableUsed,
@@ -140,15 +143,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         }, scrub);
     }
 
-    private async Task<(Pool Pool, ScrubInfo Scrub)> GetPoolRuntimeAsync(Pool pool, CancellationToken cancellationToken)
-    {
-        var statusJson = await cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}", cancellationToken);
-        RequirePoolStatus(statusJson, pool.Name);
-        return (
-            ParsePoolLayout(statusJson, pool.Name).ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree),
-            ZpoolParser.ParseScrubInfo(statusJson, pool.Name));
-    }
-
     private async Task<PoolProperties> GetPoolPropertiesAsync(
         string poolName,
         CancellationToken cancellationToken,
@@ -162,19 +156,10 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             return DefaultPoolProperties;
         }
 
-        JsonDocument doc;
-        try { doc = JsonDocument.Parse(json); }
-        catch (JsonException ex)
+        try
         {
-            if (requireOutput) throw new InvalidOperationException($"zfs get returned invalid data for {poolName}", ex);
-            return DefaultPoolProperties;
-        }
-
-        using (doc)
-        {
-            if (!doc.RootElement.TryGetProperty("datasets", out var datasets) ||
-                !datasets.TryGetProperty(poolName, out var ds) ||
-                !ds.TryGetProperty("properties", out var props))
+            using var pool = JsonHelper.TryGetObject(json, "datasets", poolName);
+            if (pool is null || !pool.Value.TryGetProperty("properties", out var props))
             {
                 if (requireOutput) throw new InvalidOperationException($"zfs get returned incomplete data for {poolName}");
                 return DefaultPoolProperties;
@@ -200,6 +185,11 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
                 KeyLocked: JsonHelper.IsKeyLocked(props),
                 EncryptionAlgorithm: encrypted ? encryption : "");
         }
+        catch (JsonException ex)
+        {
+            if (requireOutput) throw new InvalidOperationException($"zfs get returned invalid data for {poolName}", ex);
+            return DefaultPoolProperties;
+        }
     }
 
     private async Task<int> GetPoolAshiftAsync(
@@ -208,96 +198,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         bool requireOutput)
     {
         var json = await cmd.ExecuteAsync("zpool", $"get -Hpj ashift {poolName}", cancellationToken);
-        if (requireOutput)
-        {
-            RequirePoolEntry(json, "pools", poolName, "zpool get ashift");
-            using var doc = JsonDocument.Parse(json);
-            var pool = doc.RootElement.GetProperty("pools").GetProperty(poolName);
-            if (!pool.TryGetProperty("properties", out var properties) ||
-                !properties.TryGetProperty("ashift", out var ashift) ||
-                !ashift.TryGetProperty("value", out _))
-                throw new InvalidOperationException($"zpool get ashift returned incomplete data for {poolName}");
-        }
-        return ZpoolParser.ParseAshift(json, poolName);
-    }
-
-    private static void RequirePoolEntry(string json, string containerName, string poolName, string command)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            throw new InvalidOperationException($"{command} returned no data for {poolName}");
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty(containerName, out var container) ||
-                container.ValueKind != JsonValueKind.Object ||
-                !container.TryGetProperty(poolName, out var pool) ||
-                pool.ValueKind != JsonValueKind.Object)
-                throw new InvalidOperationException($"{command} returned incomplete data for {poolName}");
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException($"{command} returned invalid data for {poolName}", ex);
-        }
-    }
-
-    private static void RequirePoolStatus(string json, string poolName)
-    {
-        RequirePoolEntry(json, "pools", poolName, "zpool status");
-
-        using var doc = JsonDocument.Parse(json);
-        var pool = doc.RootElement.GetProperty("pools").GetProperty(poolName);
-        if (!pool.TryGetProperty("vdevs", out var vdevs) ||
-            vdevs.ValueKind != JsonValueKind.Object ||
-            !vdevs.TryGetProperty(poolName, out var rootVdev) ||
-            rootVdev.ValueKind != JsonValueKind.Object)
-            throw new InvalidOperationException($"zpool status returned incomplete data for {poolName}");
-    }
-
-    private static void RequirePoolList(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("pools", out var pools) ||
-                pools.ValueKind != JsonValueKind.Object)
-                throw new InvalidOperationException("zpool list returned incomplete data");
-
-            foreach (var entry in pools.EnumerateObject())
-            {
-                if (entry.Value.ValueKind != JsonValueKind.Object ||
-                    string.IsNullOrEmpty(JsonHelper.GetString(entry.Value, "name")) ||
-                    !entry.Value.TryGetProperty("properties", out var properties) ||
-                    properties.ValueKind != JsonValueKind.Object ||
-                    !TryGetPropertyValue(properties, "size", out var size) ||
-                    !ulong.TryParse(size, out _) ||
-                    !TryGetPropertyValue(properties, "allocated", out var allocated) ||
-                    !ulong.TryParse(allocated, out _) ||
-                    !TryGetPropertyValue(properties, "free", out var free) ||
-                    !ulong.TryParse(free, out _) ||
-                    !TryGetPropertyValue(properties, "health", out _) ||
-                    !TryGetPropertyValue(properties, "fragmentation", out var fragmentation) ||
-                    !int.TryParse(fragmentation, out _))
-                    throw new InvalidOperationException($"zpool list returned incomplete data for {entry.Name}");
-            }
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException("zpool list returned invalid data", ex);
-        }
-    }
-
-    private static bool TryGetPropertyValue(JsonElement properties, string name, out string value)
-    {
-        value = "";
-        if (!properties.TryGetProperty(name, out var property) ||
-            property.ValueKind != JsonValueKind.Object ||
-            !property.TryGetProperty("value", out var propertyValue) ||
-            propertyValue.ValueKind != JsonValueKind.String)
-            return false;
-
-        value = propertyValue.GetString() ?? "";
-        return value.Length > 0;
+        return ZpoolParser.ParseAshift(json, poolName, requireOutput);
     }
 
     private static readonly PoolProperties DefaultPoolProperties =
@@ -310,9 +211,9 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     // ── Pool Layout & Scrub ──────────────────────────────────────────────
 
-    private static PoolLayout ParsePoolLayout(string statusJson, string poolName)
+    private static PoolLayout ParsePoolLayout(string statusJson, string poolName, bool requireOutput = false)
     {
-        var layout = ZpoolParser.ParsePoolLayout(statusJson, poolName);
+        var layout = ZpoolParser.ParsePoolLayout(statusJson, poolName, requireOutput);
 
         return layout with
         {

@@ -77,7 +77,7 @@ public class SystemService() : ISystemService
 
         foreach (var dk in disks)
         {
-            double readBps = 0, writeBps = 0, readOps = 0, writeOps = 0;
+            double readBps = 0, writeBps = 0;
             double readLatMs = 0, writeLatMs = 0, utilPct = 0;
 
             if (prev != null && elapsed > 0)
@@ -90,8 +90,6 @@ public class SystemService() : ISystemService
 
                     readBps = SafeDelta(dk.SectorsRead, p.SectorsRead) * 512.0 / elapsed;
                     writeBps = SafeDelta(dk.SectorsWritten, p.SectorsWritten) * 512.0 / elapsed;
-                    readOps = dReads / elapsed;
-                    writeOps = dWrites / elapsed;
 
                     // Average latency = delta time / delta ops
                     readLatMs = dReads > 0 ? SafeDelta(dk.ReadTimeMs, p.ReadTimeMs) / dReads : 0;
@@ -107,8 +105,6 @@ public class SystemService() : ISystemService
                 Device = dk.Device,
                 ReadBytesPerSec = Math.Round(readBps, 1),
                 WriteBytesPerSec = Math.Round(writeBps, 1),
-                ReadOpsPerSec = Math.Round(readOps, 1),
-                WriteOpsPerSec = Math.Round(writeOps, 1),
                 ReadLatencyMs = Math.Round(readLatMs, 2),
                 WriteLatencyMs = Math.Round(writeLatMs, 2),
                 QueueDepth = dk.IoInProgress,
@@ -164,7 +160,7 @@ public class SystemService() : ISystemService
         IZfsService zfs,
         CancellationToken cancellationToken = default)
     {
-        try
+        return await RunSafeAsync(async () =>
         {
             var hostnameTask = File.ReadAllTextAsync("/proc/sys/kernel/hostname", cancellationToken);
             var kernelTask = File.ReadAllTextAsync("/proc/sys/kernel/osrelease", cancellationToken);
@@ -188,18 +184,14 @@ public class SystemService() : ISystemService
                 Processor = processor,
                 CpuCount = cpuCount > 0 ? cpuCount : 1,
             };
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return new StaticSystemInfo();
-        }
+        }, new StaticSystemInfo());
     }
 
     public async Task<SystemInfo> GetSystemInfoAsync(
         IZfsService zfs,
         CancellationToken cancellationToken = default)
     {
-        try
+        return await RunSafeAsync(async () =>
         {
             var arcTask = zfs.GetArcStatsAsync(cancellationToken);
             var memTask = this.GetMemoryInfoAsync(cancellationToken);
@@ -217,10 +209,18 @@ public class SystemService() : ISystemService
                 Memory = memTask.Result,
                 CpuUsagePercent = cpuTask.Result,
             };
+        }, new SystemInfo { Uptime = "N/A" });
+    }
+
+    internal static async Task<T> RunSafeAsync<T>(Func<Task<T>> action, T fallback)
+    {
+        try
+        {
+            return await action();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return new SystemInfo { Uptime = "N/A", Arc = new(), Memory = new(), CpuUsagePercent = 0 };
+            return fallback;
         }
     }
 
@@ -238,9 +238,8 @@ public class SystemService() : ISystemService
 
     // ── CPU Usage ────────────────────────────────────────────────────────
 
-    private async Task<double> GetCpuUsagePercentAsync(CancellationToken cancellationToken)
-    {
-        try
+    private Task<double> GetCpuUsagePercentAsync(CancellationToken cancellationToken)
+        => RunSafeAsync(async () =>
         {
             var lines = await File.ReadAllLinesAsync("/proc/stat", cancellationToken);
             var line = lines.FirstOrDefault(l => l.StartsWith("cpu "));
@@ -268,18 +267,12 @@ public class SystemService() : ISystemService
 
                 return total == 0 ? 0 : (double)(total - idle) / total * 100;
             }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return 0;
-        }
-    }
+        }, 0);
 
     // ── Memory Info ──────────────────────────────────────────────────────
 
-    private async Task<MemoryInfo> GetMemoryInfoAsync(CancellationToken cancellationToken)
-    {
-        try
+    private Task<MemoryInfo> GetMemoryInfoAsync(CancellationToken cancellationToken)
+        => RunSafeAsync(async () =>
         {
             var lines = await File.ReadAllLinesAsync("/proc/meminfo", cancellationToken);
             var values = new Dictionary<string, ulong>();
@@ -310,20 +303,13 @@ public class SystemService() : ISystemService
                 Cached = cached,
                 SwapTotal = swapTotal,
                 SwapUsed = swapTotal >= swapFree ? swapTotal - swapFree : 0,
-                SwapFree = swapFree,
             };
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return new MemoryInfo();
-        }
-    }
+        }, new MemoryInfo());
 
     // ── Network Info ─────────────────────────────────────────────────────
 
-    private async Task<List<NetworkInterfaceInfo>> GetNetworkInfoAsync(CancellationToken cancellationToken)
-    {
-        try
+    private Task<List<NetworkInterfaceInfo>> GetNetworkInfoAsync(CancellationToken cancellationToken)
+        => RunSafeAsync(async () =>
         {
             var lines = await File.ReadAllLinesAsync("/proc/net/dev", cancellationToken);
             var interfaces = new List<NetworkInterfaceInfo>();
@@ -349,18 +335,12 @@ public class SystemService() : ISystemService
                 });
             }
             return interfaces;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return [];
-        }
-    }
+        }, []);
 
     // ── Disk I/O Info ────────────────────────────────────────────────────
 
-    private static async Task<List<DiskIoInfo>> GetDiskIoInfoAsync(CancellationToken cancellationToken)
-    {
-        try
+    private static Task<List<DiskIoInfo>> GetDiskIoInfoAsync(CancellationToken cancellationToken)
+        => RunSafeAsync(async () =>
         {
             var lines = await File.ReadAllLinesAsync("/proc/diskstats", cancellationToken);
             var disks = new List<DiskIoInfo>();
@@ -389,12 +369,7 @@ public class SystemService() : ISystemService
                 });
             }
             return disks.OrderBy(d => d.Device).ToList();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return [];
-        }
-    }
+        }, []);
 
     // ── Pool-to-Disk Mapping ────────────────────────────────────────────
 

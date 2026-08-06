@@ -56,6 +56,47 @@ public class ZpoolParserTests
     }
 
     [Fact]
+    public void ParsePools_ShouldReturnEmptyForNonObjectContainer()
+    {
+        Assert.Empty(ZpoolParser.ParsePools("{\"pools\":[]}"));
+        Assert.Empty(ZpoolParser.ParsePools("{\"pools\":\"text\"}"));
+    }
+
+    [Fact]
+    public void ParsePools_RequireOutput_ShouldThrowForNonObjectContainer()
+    {
+        Assert.Throws<InvalidOperationException>(() => ZpoolParser.ParsePools("{\"pools\":[]}", requireOutput: true));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("\"text\"")]
+    public void ParsePools_ShouldReturnEmptyForNonObjectRoot(string json)
+    {
+        Assert.Empty(ZpoolParser.ParsePools(json));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("\"text\"")]
+    public void ParsePools_RequireOutput_ShouldReportIncompleteDataForNonObjectRoot(string json)
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ZpoolParser.ParsePools(json, requireOutput: true));
+
+        Assert.Equal("zpool list returned incomplete data", exception.Message);
+    }
+
+    [Fact]
+    public void ParseAshift_ShouldReturnZeroForNonObjectPool()
+    {
+        Assert.Equal(0, ZpoolParser.ParseAshift("{\"pools\":[]}", "zfsPool"));
+        Assert.Equal(0, ZpoolParser.ParseAshift("{\"pools\":{\"zfsPool\":[]}}", "zfsPool"));
+    }
+
+    [Fact]
     public void ParseAshift_ShouldReturnValue()
     {
         var json = File.ReadAllText("TestData/zpool_get_ashift.json");

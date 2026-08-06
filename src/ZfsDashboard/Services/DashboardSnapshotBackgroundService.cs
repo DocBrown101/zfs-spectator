@@ -154,25 +154,7 @@ public sealed class DashboardSnapshotBackgroundService(
                 return (runtime, item.Scrub);
             }
 
-            var merged = item.Pool with
-            {
-                UsableSize = details.UsableSize,
-                UsableUsed = details.UsableUsed,
-                UsableAvail = details.UsableAvail,
-                Ashift = details.Ashift,
-                Compression = details.Compression,
-                CompRatio = details.CompRatio,
-                Dedup = details.Dedup,
-                Sync = details.Sync,
-                Atime = details.Atime,
-                Encrypted = details.Encrypted,
-                KeyLocked = details.KeyLocked,
-                EncryptionAlgorithm = details.EncryptionAlgorithm,
-                SpecialSize = details.SpecialSize,
-                SpecialAlloc = details.SpecialAlloc,
-                SpecialFree = details.SpecialFree,
-            };
-            return (merged, item.Scrub);
+            return (item.Pool.WithUsableDetails(details), item.Scrub);
         }).ToList().AsReadOnly();
     }
 

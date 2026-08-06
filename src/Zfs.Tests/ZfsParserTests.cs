@@ -106,6 +106,15 @@ public class ZfsParserTests
         Assert.Empty(ZfsParser.ParseDatasets("{}", "zfsPool"));
     }
 
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("\"text\"")]
+    public void ParseDatasets_ShouldReturnEmptyForNonObjectRoot(string json)
+    {
+        Assert.Empty(ZfsParser.ParseDatasets(json, "zfsPool"));
+    }
+
     // ── Snapshot Tests ──────────────────────────────────────────────────
 
     [Fact]
@@ -219,8 +228,6 @@ public class ZfsParserTests
                         Device = "sda",
                         ReadBytesPerSec = 1024,
                         WriteBytesPerSec = 512,
-                        ReadOpsPerSec = 100,
-                        WriteOpsPerSec = 50,
                         ReadLatencyMs = 1.5,
                         WriteLatencyMs = 2.0,
                         QueueDepth = 0.5,

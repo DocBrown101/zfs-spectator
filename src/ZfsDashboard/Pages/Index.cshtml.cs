@@ -7,15 +7,16 @@ namespace ZfsDashboard.Pages;
 
 public class IndexModel(IDashboardSnapshotProvider snapshots) : PageModel
 {
-    public DashboardPageViewModel Dashboard { get; private set; } = null!;
+    public DashboardLiveViewModel Live { get; private set; } = null!;
+    public CpuCardViewModel Cpu { get; private set; } = null!;
+    public IReadOnlyList<PoolCardViewModel> Pools { get; private set; } = null!;
 
     public async Task OnGetAsync()
     {
         var snapshot = await snapshots.GetSnapshotAsync(this.HttpContext.RequestAborted);
-        this.Dashboard = new DashboardPageViewModel(
-            snapshot.Pools,
-            snapshot.Data.System,
-            snapshot.StaticSystem);
+        this.Live = new DashboardLiveViewModel(snapshot);
+        this.Cpu = new CpuCardViewModel(snapshot.Data.System, snapshot.StaticSystem);
+        this.Pools = snapshot.Pools.Select(pool => new PoolCardViewModel(pool)).ToList();
     }
 
     public IActionResult OnGetLive()

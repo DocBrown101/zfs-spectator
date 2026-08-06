@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
+using Zfs.Tests.Helper;
 using ZfsDashboard.Services;
 
 namespace Zfs.Tests;
@@ -189,7 +190,7 @@ public class DashboardSnapshotServiceTests
         TimeProvider timeProvider) =>
         new(
             system,
-            new StubZfsService(),
+            new TestDataHelpers.StubZfsService(),
             zpool,
             new StubTemperatureProvider(),
             timeProvider,
@@ -197,18 +198,7 @@ public class DashboardSnapshotServiceTests
 
     private static (Pool Pool, ScrubInfo Scrub) Snapshot(Pool pool, ScrubInfo scrub) => (pool, scrub);
 
-    private static Pool MakePool(string name) => new()
-    {
-        Name = name,
-        Health = "ONLINE",
-        VdevType = "mirror",
-        Operation = "",
-        Compression = "lz4",
-        CompRatio = "1.00x",
-        Dedup = "off",
-        Sync = "standard",
-        Atime = "off",
-    };
+    private static Pool MakePool(string name) => TestDataHelpers.MakePool(name);
 
     private sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider
     {
@@ -307,15 +297,5 @@ public class DashboardSnapshotServiceTests
 
             return Task.FromResult<(Pool, ScrubInfo)?>(null);
         }
-    }
-
-    private sealed class StubZfsService : IZfsService
-    {
-        public Task<List<Dataset>> GetAllDatasetsAsync() => Task.FromResult(new List<Dataset>());
-        public Task<List<Dataset>> GetDatasetsAsync(string poolName) => Task.FromResult(new List<Dataset>());
-        public Task<List<Snapshot>> GetSnapshotsAsync(string poolName) => Task.FromResult(new List<Snapshot>());
-        public Task<List<ZVol>> GetAllZVolsAsync() => Task.FromResult(new List<ZVol>());
-        public Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default) => Task.FromResult("test");
-        public Task<ArcStats> GetArcStatsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ArcStats());
     }
 }

@@ -8,18 +8,26 @@ public static class ZpoolParser
 {
     // ── Pool Listing (from zpool list -Hpj) ─────────────────────────────
 
-    public static List<Pool> ParsePools(string json)
+    public static List<Pool> ParsePools(string json, bool requireOutput = false)
     {
         if (string.IsNullOrWhiteSpace(json)) return [];
 
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return [];
+        using var pools = TryGetPoolContainer(json, "zpool list", null, requireOutput);
+        if (pools is null) return [];
 
         var result = new List<Pool>();
-        foreach (var poolEntry in pools.EnumerateObject())
+        foreach (var poolEntry in pools.Value.EnumerateObject())
         {
             var pool = poolEntry.Value;
-            if (!pool.TryGetProperty("properties", out var props)) continue;
+            if (pool.ValueKind != JsonValueKind.Object ||
+                string.IsNullOrEmpty(JsonHelper.GetString(pool, "name")) ||
+                !pool.TryGetProperty("properties", out var props) ||
+                props.ValueKind != JsonValueKind.Object ||
+                (requireOutput && !HasValidListFields(props)))
+            {
+                if (requireOutput) throw new InvalidOperationException($"zpool list returned incomplete data for {poolEntry.Name}");
+                continue;
+            }
 
             var (specialSize, specialAlloc, specialFree) = ParseSpecialVdevSizes(pool);
 
@@ -46,32 +54,49 @@ public static class ZpoolParser
         return result;
     }
 
+    private static bool HasValidListFields(JsonElement props)
+        => JsonHelper.TryGetPropertyValue(props, "size", out var size) && ulong.TryParse(size, out _) &&
+           JsonHelper.TryGetPropertyValue(props, "allocated", out var allocated) && ulong.TryParse(allocated, out _) &&
+           JsonHelper.TryGetPropertyValue(props, "free", out var free) && ulong.TryParse(free, out _) &&
+           JsonHelper.TryGetPropertyValue(props, "health", out _) &&
+           JsonHelper.TryGetPropertyValue(props, "fragmentation", out var fragmentation) && int.TryParse(fragmentation, out _);
+
     // ── Ashift (from zpool get -Hpj ashift) ─────────────────────────────
 
-    public static int ParseAshift(string json, string poolName)
+    public static int ParseAshift(string json, string poolName, bool requireOutput = false)
     {
-        if (string.IsNullOrWhiteSpace(json)) return 0;
+        using var pool = TryGetPoolContainer(json, "zpool get ashift", poolName, requireOutput);
+        if (pool is null) return 0;
 
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return 0;
-        if (!pools.TryGetProperty(poolName, out var pool)) return 0;
-        if (!pool.TryGetProperty("properties", out var props)) return 0;
+        if (!pool.Value.TryGetProperty("properties", out var props))
+        {
+            if (requireOutput) throw new InvalidOperationException($"zpool get ashift returned incomplete data for {poolName}");
+            return 0;
+        }
+
+        if (requireOutput &&
+            (!props.TryGetProperty("ashift", out var ashift) || !ashift.TryGetProperty("value", out _)))
+            throw new InvalidOperationException($"zpool get ashift returned incomplete data for {poolName}");
 
         return JsonHelper.GetPropertyInt(props, "ashift");
     }
 
     // ── Pool Layout (from zpool status -Pj) ─────────────────────────────
 
-    public static PoolLayout ParsePoolLayout(string json, string poolName)
+    public static PoolLayout ParsePoolLayout(string json, string poolName, bool requireOutput = false)
     {
-        if (string.IsNullOrWhiteSpace(json)) return new PoolLayout();
+        using var pool = TryGetPoolContainer(json, "zpool status", poolName, requireOutput);
+        if (pool is null) return new PoolLayout();
 
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return new PoolLayout();
-        if (!pools.TryGetProperty(poolName, out var pool)) return new PoolLayout();
+        if (requireOutput &&
+            (!pool.Value.TryGetProperty("vdevs", out var checkedVdevs) ||
+             checkedVdevs.ValueKind != JsonValueKind.Object ||
+             !checkedVdevs.TryGetProperty(poolName, out var checkedRootVdev) ||
+             checkedRootVdev.ValueKind != JsonValueKind.Object))
+            throw new InvalidOperationException($"zpool status returned incomplete data for {poolName}");
 
         var operation = "";
-        if (pool.TryGetProperty("scan_stats", out var scanStats))
+        if (pool.Value.TryGetProperty("scan_stats", out var scanStats))
         {
             var function = JsonHelper.GetString(scanStats, "function");
             var state = JsonHelper.GetString(scanStats, "state");
@@ -90,7 +115,7 @@ public static class ZpoolParser
         var vdevType = "stripe";
         var dataDevices = new List<PoolDevice>();
 
-        if (pool.TryGetProperty("vdevs", out var vdevs) &&
+        if (pool.Value.TryGetProperty("vdevs", out var vdevs) &&
             vdevs.TryGetProperty(poolName, out var rootVdev))
         {
             poolErrR = JsonHelper.GetLong(rootVdev, "read_errors");
@@ -123,23 +148,23 @@ public static class ZpoolParser
             }
         }
 
-        var logDevices = ParseSectionDevices(pool, "logs", "log");
+        var logDevices = ParseSectionDevices(pool.Value, "logs", "log");
         if (logDevices.Count == 0)
-            logDevices = ParseSectionDevices(pool, "log", "log");
+            logDevices = ParseSectionDevices(pool.Value, "log", "log");
 
-        var spareDevices = ParseSectionDevices(pool, "spares", "spare");
+        var spareDevices = ParseSectionDevices(pool.Value, "spares", "spare");
         if (spareDevices.Count == 0)
-            spareDevices = ParseSectionDevices(pool, "spare", "spare");
+            spareDevices = ParseSectionDevices(pool.Value, "spare", "spare");
 
         return new PoolLayout
         {
             VdevType = vdevType,
             Operation = operation,
             DataDevices = dataDevices,
-            CacheDevices = ParseSectionDevices(pool, "cache", "cache"),
+            CacheDevices = ParseSectionDevices(pool.Value, "cache", "cache"),
             LogDevices = logDevices,
             SpareDevices = spareDevices,
-            SpecialDevices = ParseSectionDevices(pool, "special", "special"),
+            SpecialDevices = ParseSectionDevices(pool.Value, "special", "special"),
             PoolErrorsRead = poolErrR,
             PoolErrorsWrite = poolErrW,
             PoolErrorsChecksum = poolErrC,
@@ -150,12 +175,9 @@ public static class ZpoolParser
 
     public static ScrubInfo ParseScrubInfo(string json, string poolName)
     {
-        if (string.IsNullOrWhiteSpace(json)) return ScrubInfo.Idle;
-
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("pools", out var pools)) return ScrubInfo.Idle;
-        if (!pools.TryGetProperty(poolName, out var pool)) return ScrubInfo.Idle;
-        if (!pool.TryGetProperty("scan_stats", out var scan)) return ScrubInfo.Idle;
+        using var pool = JsonHelper.TryGetObject(json, "pools", poolName);
+        if (pool is null) return ScrubInfo.Idle;
+        if (!pool.Value.TryGetProperty("scan_stats", out var scan)) return ScrubInfo.Idle;
 
         var function = JsonHelper.GetString(scan, "function");
         if (function is not ("SCRUB" or "RESILVER")) return ScrubInfo.Idle;
@@ -256,6 +278,36 @@ public static class ZpoolParser
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static JsonHelper.JsonObjectLease? TryGetPoolContainer(
+        string json,
+        string commandName,
+        string? poolName,
+        bool requireOutput)
+    {
+        JsonHelper.JsonObjectLease? result;
+        try
+        {
+            result = JsonHelper.TryGetObject(json, "pools", poolName);
+        }
+        catch (JsonException ex)
+        {
+            if (!requireOutput) throw;
+            throw new InvalidOperationException(
+                poolName is null ? $"{commandName} returned invalid data" : $"{commandName} returned invalid data for {poolName}", ex);
+        }
+
+        if (result is null && requireOutput)
+        {
+            var poolSuffix = poolName is null ? "" : $" for {poolName}";
+            throw new InvalidOperationException(
+                string.IsNullOrWhiteSpace(json)
+                    ? $"{commandName} returned no data{poolSuffix}"
+                    : $"{commandName} returned incomplete data{poolSuffix}");
+        }
+
+        return result;
+    }
 
     private static List<PoolDevice> ParseSectionDevices(JsonElement pool, string sectionName, string role)
     {

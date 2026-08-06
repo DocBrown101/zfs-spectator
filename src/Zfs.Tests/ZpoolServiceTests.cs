@@ -14,16 +14,14 @@ public class ZpoolServiceTests
         var zpoolStatusJson = File.ReadAllText("TestData/zpool_status.json");
         var zpoolAshiftJson = File.ReadAllText("TestData/zpool_get_ashift.json");
         var zfsGetPropsJson = File.ReadAllText("TestData/zfs_get_pool_props.json");
-        var miniTankAshiftJson = zpoolAshiftJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal);
-        var miniTankPropsJson = zfsGetPropsJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal);
 
         return new FakeCommandExecutor()
             .On("zpool", $"list -Hpvj -o name,size,alloc,free,health,frag {poolName}", zpoolListJson)
             .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", zpoolListJson)
             .On("zpool", "list -Hpj -o name", zpoolListJson)
             .On("zpool", "status -Pj miniTank", zpoolStatusJson)
-            .On("zpool", "get -Hpj ashift miniTank", miniTankAshiftJson)
-            .On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus miniTank", miniTankPropsJson)
+            .On("zpool", "get -Hpj ashift miniTank", zpoolAshiftJson)
+            .On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus miniTank", zfsGetPropsJson)
             .On("zpool", $"status -Pj {poolName}", zpoolStatusJson)
             .On("zpool", $"get -Hpj ashift {poolName}", zpoolAshiftJson)
             .On("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}", zfsGetPropsJson);
@@ -520,14 +518,10 @@ public class ZpoolServiceTests
             }
 
             if (command == "zpool" && arguments.StartsWith("get -Hpj ashift ", StringComparison.Ordinal))
-                return arguments.EndsWith("miniTank", StringComparison.Ordinal)
-                    ? ashiftJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal)
-                    : ashiftJson;
+                return ashiftJson;
 
             if (command == "zfs" && arguments.StartsWith("get -Hpj ", StringComparison.Ordinal))
-                return arguments.EndsWith("miniTank", StringComparison.Ordinal)
-                    ? propertiesJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal)
-                    : propertiesJson;
+                return propertiesJson;
 
             return "";
         }

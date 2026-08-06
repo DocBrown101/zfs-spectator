@@ -7,47 +7,6 @@ namespace Zfs.Tests;
 public class DashboardViewModelTests
 {
     [Fact]
-    public void PageAndLive_UseTheSameMemoryAndArcModels()
-    {
-        var system = new SystemInfo
-        {
-            Uptime = "1h 2m 3s",
-            CpuUsagePercent = 12.5,
-            Memory = new MemoryInfo
-            {
-                Total = 4096,
-                Available = 1024,
-                Used = 3072,
-                Buffers = 256,
-                Cached = 512,
-                SwapTotal = 2048,
-                SwapUsed = 1024,
-            },
-            Arc = new ArcStats
-            {
-                Size = 1024,
-                MaxSize = 2048,
-                MetadataSize = 128,
-                DataSize = 896,
-                MruSize = 256,
-                MfuSize = 640,
-                Hits = 90,
-                Misses = 10,
-            },
-        };
-
-        var page = new DashboardPageViewModel([], system, new StaticSystemInfo());
-        var live = new DashboardLiveViewModel(new DashboardSnapshot(
-            new DashboardData { System = system }, [], new StaticSystemInfo()));
-
-        Assert.Equal(page.Memory.UsagePercent, live.Memory.UsagePercent);
-        Assert.Equal(page.Memory.Details, live.Memory.Details);
-        Assert.Equal(page.Arc.UsagePercent, live.Arc.UsagePercent);
-        Assert.Equal(page.Arc.HitRate, live.Arc.HitRate);
-        Assert.Equal(page.Arc.Details, live.Arc.Details);
-    }
-
-    [Fact]
     public void LiveResponse_KeepsOptionalArcRowsInTheStableContract()
     {
         var response = new DashboardLiveViewModel(new DashboardSnapshot(
@@ -79,10 +38,10 @@ public class DashboardViewModelTests
     }
 
     [Fact]
-    public void PageResponse_FormatsUnavailableCpuCountAsUnknown()
+    public void CpuCard_FormatsUnavailableCpuCountAsUnknown()
     {
-        var response = new DashboardPageViewModel([], new SystemInfo(), new StaticSystemInfo());
+        var response = new CpuCardViewModel(new SystemInfo(), new StaticSystemInfo());
 
-        Assert.Equal("unknown", response.Cpu.Details.Single(row => row.Label == "CPU Count").Value);
+        Assert.Equal("unknown", response.Details.Single(row => row.Label == "CPU Count").Value);
     }
 }

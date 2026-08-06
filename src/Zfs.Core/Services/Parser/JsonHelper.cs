@@ -4,6 +4,54 @@ namespace Zfs.Core.Services.Parser
 
     internal static class JsonHelper
     {
+        /// <summary>
+        /// Parses JSON and navigates to the root (or root[key]) object.
+        /// Returns null for empty input or when the path is missing or not an object.
+        /// Throws <see cref="JsonException"/> for malformed JSON.
+        /// </summary>
+        internal static JsonObjectLease? TryGetObject(string json, string rootName, string? key = null)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+
+            var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object ||
+                !doc.RootElement.TryGetProperty(rootName, out var root) ||
+                root.ValueKind != JsonValueKind.Object)
+            {
+                doc.Dispose();
+                return null;
+            }
+
+            if (key != null &&
+                (!root.TryGetProperty(key, out root) || root.ValueKind != JsonValueKind.Object))
+            {
+                doc.Dispose();
+                return null;
+            }
+
+            return new JsonObjectLease(doc, root);
+        }
+
+        internal sealed class JsonObjectLease(JsonDocument document, JsonElement value) : IDisposable
+        {
+            internal JsonElement Value { get; } = value;
+
+            public void Dispose() => document.Dispose();
+        }
+
+        internal static bool TryGetPropertyValue(JsonElement properties, string name, out string value)
+        {
+            value = "";
+            if (!properties.TryGetProperty(name, out var property) ||
+                property.ValueKind != JsonValueKind.Object ||
+                !property.TryGetProperty("value", out var propertyValue) ||
+                propertyValue.ValueKind != JsonValueKind.String)
+                return false;
+
+            value = propertyValue.GetString() ?? "";
+            return value.Length > 0;
+        }
+
         internal static ulong GetPropertyUlong(JsonElement properties, string name)
             => ulong.TryParse(GetPropertyRaw(properties, name), out var result) ? result : 0;
 

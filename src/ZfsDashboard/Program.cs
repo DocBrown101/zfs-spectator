@@ -9,8 +9,9 @@ builder.Services.AddRazorPages();
 
 if (builder.Environment.IsDevelopment())
 {
-    builder.Services.AddSingleton<IZpoolService, DemoDataZpoolService>();
-    builder.Services.AddSingleton<IZfsService, DemoDataZfsService>();
+    builder.Services.AddSingleton<ICommandExecutor, EmbeddedJsonCommandExecutor>();
+    builder.Services.AddSingleton<IZpoolService, ZpoolService>();
+    builder.Services.AddSingleton<IZfsService, ZfsService>();
     builder.Services.AddSingleton<ISystemService, DemoDataSystemService>();
     builder.Services.AddSingleton<IDiskTemperatureProvider, DemoDataDiskTemperatureProvider>();
 }

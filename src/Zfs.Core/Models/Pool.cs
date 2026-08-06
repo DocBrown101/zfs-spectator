@@ -36,6 +36,29 @@ public record Pool
 
     public double UsagePercent => this.UsableSize > 0 ? (double)this.UsableUsed / this.UsableSize * 100 : 0;
     public bool HasErrors => this.ErrorsRead > 0 || this.ErrorsWrite > 0 || this.ErrorsChecksum > 0;
+
+    /// <summary>
+    /// Merges the static pool properties (usable sizes, encryption, special vdev sizes)
+    /// from a detailed pool snapshot into this runtime snapshot.
+    /// </summary>
+    public Pool WithUsableDetails(Pool details) => this with
+    {
+        UsableSize = details.UsableSize,
+        UsableUsed = details.UsableUsed,
+        UsableAvail = details.UsableAvail,
+        Ashift = details.Ashift,
+        Compression = details.Compression,
+        CompRatio = details.CompRatio,
+        Dedup = details.Dedup,
+        Sync = details.Sync,
+        Atime = details.Atime,
+        Encrypted = details.Encrypted,
+        KeyLocked = details.KeyLocked,
+        EncryptionAlgorithm = details.EncryptionAlgorithm,
+        SpecialSize = details.SpecialSize,
+        SpecialAlloc = details.SpecialAlloc,
+        SpecialFree = details.SpecialFree,
+    };
 }
 
 public record PoolDevice
