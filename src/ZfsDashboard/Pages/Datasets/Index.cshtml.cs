@@ -20,6 +20,9 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
             this.TotalCount += datasets.Count;
         }
         foreach (var pool in this.DatasetsByPool.Keys.Order())
+        {
             this.Suggestions.Add(CommandSuggestionsService.SuggestCreateChildDataset(pool));
+            this.Suggestions.Add(CommandSuggestionsService.SuggestDeleteChildDataset(pool));
+        }
     }
 }

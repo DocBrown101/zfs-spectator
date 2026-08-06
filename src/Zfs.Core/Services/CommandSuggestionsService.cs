@@ -112,6 +112,12 @@ public static class CommandSuggestionsService
             $"}};",
     };
 
+    public static CommandSuggestion SuggestDeleteChildDataset(string parentDataset) => new()
+    {
+        Description = $"Delete child dataset in {parentDataset}",
+        ZfsCommand = $"sudo zfs destroy -r {parentDataset}/currentdataset"
+    };
+
     public static CommandSuggestion SuggestSetSpecialSmallBlocks(string pool) => new()
     {
         Description = $"Set special_small_blocks on {pool} (for special vdev metadata offloading)",
