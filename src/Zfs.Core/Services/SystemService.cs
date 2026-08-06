@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using Zfs.Core.Models;
 
@@ -8,36 +9,57 @@ public class SystemService() : ISystemService
     private readonly Lock sync = new();
     private ulong[] prevCpuJiffies = [];
     private List<NetworkInterfaceInfo>? prevNetwork;
-    private DateTime prevNetworkTime;
+    private long prevNetworkTimestamp;
     private List<DiskIoInfo>? prevDisks;
-    private DateTime prevDiskTime;
+    private long prevDiskTimestamp;
 
     // ── Dashboard API ────────────────────────────────────────────────────
 
-    public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
+    public async Task<DashboardData> GetDashboardDataAsync(
+        IZfsService zfs,
+        IZpoolService zpool,
+        CancellationToken cancellationToken = default)
     {
-        var systemTask = this.GetSystemInfoAsync(zfs);
-        var networkTask = this.GetNetworkInfoAsync();
-        var diskTask = GetDiskIoInfoAsync();
-        var poolsTask = zpool.GetAllPoolsWithScrubAsync();
+        var poolsTask = zpool.GetAllPoolsWithScrubAsync(cancellationToken);
+        var systemTask = this.GetSystemInfoAsync(zfs, cancellationToken);
+        var networkTask = this.GetNetworkInfoAsync(cancellationToken);
+        var diskTask = GetDiskIoInfoAsync(cancellationToken);
 
-        await Task.WhenAll(systemTask, networkTask, diskTask, poolsTask);
+        await Task.WhenAll(poolsTask, systemTask, networkTask, diskTask);
+        return this.BuildDashboardData(systemTask.Result, networkTask.Result, diskTask.Result, poolsTask.Result);
+    }
 
-        var sys = systemTask.Result;
-        var network = networkTask.Result;
-        var disks = diskTask.Result;
-        var poolSnapshots = poolsTask.Result;
+    public async Task<DashboardData> GetDashboardDataAsync(
+        IZfsService zfs,
+        IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots,
+        CancellationToken cancellationToken = default)
+    {
+        var systemTask = this.GetSystemInfoAsync(zfs, cancellationToken);
+        var networkTask = this.GetNetworkInfoAsync(cancellationToken);
+        var diskTask = GetDiskIoInfoAsync(cancellationToken);
+
+        await Task.WhenAll(systemTask, networkTask, diskTask);
+
+        return this.BuildDashboardData(systemTask.Result, networkTask.Result, diskTask.Result, poolSnapshots);
+    }
+
+    private DashboardData BuildDashboardData(
+        SystemInfo system,
+        List<NetworkInterfaceInfo> network,
+        List<DiskIoInfo> disks,
+        IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots)
+    {
         var pools = poolSnapshots.Select(snapshot => snapshot.Pool).ToList();
-        var now = DateTime.UtcNow;
+        var timestamp = Stopwatch.GetTimestamp();
 
-        var netRates = this.BuildNetworkRates(network, now);
-        var diskRates = this.BuildDiskIoRates(disks, now);
+        var netRates = this.BuildNetworkRates(network, timestamp);
+        var diskRates = this.BuildDiskIoRates(disks, timestamp);
         var poolDiskRates = BuildPoolDiskGroups(pools, diskRates);
         var poolScrubs = poolSnapshots.ToDictionary(snapshot => snapshot.Pool.Name, snapshot => snapshot.Scrub);
 
         return new DashboardData
         {
-            System = sys,
+            System = system,
             NetworkRates = netRates,
             DiskIoRates = diskRates,
             PoolDiskIoRates = poolDiskRates,
@@ -47,16 +69,16 @@ public class SystemService() : ISystemService
 
     // ── Disk I/O rate computation ────────────────────────────────────────
 
-    private List<DiskIoRateInfo> BuildDiskIoRates(List<DiskIoInfo> disks, DateTime now)
+    private List<DiskIoRateInfo> BuildDiskIoRates(List<DiskIoInfo> disks, long timestamp)
     {
         List<DiskIoInfo>? prev;
         double elapsed;
         lock (this.sync)
         {
             prev = this.prevDisks;
-            elapsed = prev != null ? (now - this.prevDiskTime).TotalSeconds : 0;
+            elapsed = prev != null ? Stopwatch.GetElapsedTime(this.prevDiskTimestamp, timestamp).TotalSeconds : 0;
             this.prevDisks = disks;
-            this.prevDiskTime = now;
+            this.prevDiskTimestamp = timestamp;
         }
 
         return ComputeDiskIoRates(disks, prev, elapsed);
@@ -113,7 +135,7 @@ public class SystemService() : ISystemService
 
     // ── Network rate computation ───────────────────────────────────────────
 
-    private List<NetworkRateInfo> BuildNetworkRates(List<NetworkInterfaceInfo> network, DateTime now)
+    private List<NetworkRateInfo> BuildNetworkRates(List<NetworkInterfaceInfo> network, long timestamp)
     {
         var rates = new List<NetworkRateInfo>();
 
@@ -125,9 +147,9 @@ public class SystemService() : ISystemService
         lock (this.sync)
         {
             prevNet = this.prevNetwork;
-            elapsed = prevNet != null ? (now - this.prevNetworkTime).TotalSeconds : 0;
+            elapsed = prevNet != null ? Stopwatch.GetElapsedTime(this.prevNetworkTimestamp, timestamp).TotalSeconds : 0;
             this.prevNetwork = network;
-            this.prevNetworkTime = now;
+            this.prevNetworkTimestamp = timestamp;
         }
 
         foreach (var n in network)
@@ -152,14 +174,16 @@ public class SystemService() : ISystemService
 
     // ── System Info ──────────────────────────────────────────────────────
 
-    public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(IZfsService zfs)
+    public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(
+        IZfsService zfs,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var hostnameTask = File.ReadAllTextAsync("/proc/sys/kernel/hostname");
-            var kernelTask = File.ReadAllTextAsync("/proc/sys/kernel/osrelease");
-            var cpuInfoTask = File.ReadAllLinesAsync("/proc/cpuinfo");
-            var zfsVersionTask = zfs.GetZfsVersionAsync();
+            var hostnameTask = File.ReadAllTextAsync("/proc/sys/kernel/hostname", cancellationToken);
+            var kernelTask = File.ReadAllTextAsync("/proc/sys/kernel/osrelease", cancellationToken);
+            var cpuInfoTask = File.ReadAllLinesAsync("/proc/cpuinfo", cancellationToken);
+            var zfsVersionTask = zfs.GetZfsVersionAsync(cancellationToken);
 
             await Task.WhenAll(hostnameTask, kernelTask, cpuInfoTask, zfsVersionTask);
 
@@ -179,20 +203,26 @@ public class SystemService() : ISystemService
                 CpuCount = cpuCount > 0 ? cpuCount : 1,
             };
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
-            return new StaticSystemInfo { Hostname = "unknown", Kernel = "unknown", ZfsVersion = "unknown", Processor = "unknown", CpuCount = 1 };
+            return new StaticSystemInfo();
         }
     }
 
-    public async Task<SystemInfo> GetSystemInfoAsync(IZfsService zfs)
+    public async Task<SystemInfo> GetSystemInfoAsync(
+        IZfsService zfs,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var arcTask = zfs.GetArcStatsAsync();
-            var memTask = this.GetMemoryInfoAsync();
-            var cpuTask = this.GetCpuUsagePercentAsync();
-            var uptimeTask = File.ReadAllTextAsync("/proc/uptime");
+            var arcTask = zfs.GetArcStatsAsync(cancellationToken);
+            var memTask = this.GetMemoryInfoAsync(cancellationToken);
+            var cpuTask = this.GetCpuUsagePercentAsync(cancellationToken);
+            var uptimeTask = File.ReadAllTextAsync("/proc/uptime", cancellationToken);
 
             await Task.WhenAll(uptimeTask, arcTask, memTask, cpuTask);
 
@@ -205,6 +235,10 @@ public class SystemService() : ISystemService
                 Memory = memTask.Result,
                 CpuUsagePercent = cpuTask.Result,
             };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -226,11 +260,11 @@ public class SystemService() : ISystemService
 
     // ── CPU Usage ────────────────────────────────────────────────────────
 
-    private async Task<double> GetCpuUsagePercentAsync()
+    private async Task<double> GetCpuUsagePercentAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var lines = await File.ReadAllLinesAsync("/proc/stat");
+            var lines = await File.ReadAllLinesAsync("/proc/stat", cancellationToken);
             var line = lines.FirstOrDefault(l => l.StartsWith("cpu "));
             if (line == null) return 0;
 
@@ -257,6 +291,10 @@ public class SystemService() : ISystemService
                 return total == 0 ? 0 : (double)(total - idle) / total * 100;
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return 0;
@@ -265,11 +303,11 @@ public class SystemService() : ISystemService
 
     // ── Memory Info ──────────────────────────────────────────────────────
 
-    private async Task<MemoryInfo> GetMemoryInfoAsync()
+    private async Task<MemoryInfo> GetMemoryInfoAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var lines = await File.ReadAllLinesAsync("/proc/meminfo");
+            var lines = await File.ReadAllLinesAsync("/proc/meminfo", cancellationToken);
             var values = new Dictionary<string, ulong>();
 
             foreach (var line in lines)
@@ -301,6 +339,10 @@ public class SystemService() : ISystemService
                 SwapFree = swapFree,
             };
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return new MemoryInfo();
@@ -309,11 +351,11 @@ public class SystemService() : ISystemService
 
     // ── Network Info ─────────────────────────────────────────────────────
 
-    private async Task<List<NetworkInterfaceInfo>> GetNetworkInfoAsync()
+    private async Task<List<NetworkInterfaceInfo>> GetNetworkInfoAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var lines = await File.ReadAllLinesAsync("/proc/net/dev");
+            var lines = await File.ReadAllLinesAsync("/proc/net/dev", cancellationToken);
             var interfaces = new List<NetworkInterfaceInfo>();
 
             foreach (var line in lines)
@@ -338,6 +380,10 @@ public class SystemService() : ISystemService
             }
             return interfaces;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return [];
@@ -346,11 +392,11 @@ public class SystemService() : ISystemService
 
     // ── Disk I/O Info ────────────────────────────────────────────────────
 
-    private static async Task<List<DiskIoInfo>> GetDiskIoInfoAsync()
+    private static async Task<List<DiskIoInfo>> GetDiskIoInfoAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var lines = await File.ReadAllLinesAsync("/proc/diskstats");
+            var lines = await File.ReadAllLinesAsync("/proc/diskstats", cancellationToken);
             var disks = new List<DiskIoInfo>();
 
             foreach (var line in lines)
@@ -377,6 +423,10 @@ public class SystemService() : ISystemService
                 });
             }
             return disks.OrderBy(d => d.Device).ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {

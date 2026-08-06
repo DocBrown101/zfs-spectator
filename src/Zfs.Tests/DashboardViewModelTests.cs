@@ -71,4 +71,12 @@ public class DashboardViewModelTests
         Assert.Null(response.Arc.L2HitRate);
         Assert.Equal(4, response.Arc.Details.Count);
     }
+
+    [Fact]
+    public void PageResponse_FormatsUnavailableCpuCountAsUnknown()
+    {
+        var response = new DashboardPageViewModel([], new SystemInfo(), new StaticSystemInfo());
+
+        Assert.Equal("unknown", response.Cpu.Details.Single(row => row.Label == "CPU Count").Value);
+    }
 }

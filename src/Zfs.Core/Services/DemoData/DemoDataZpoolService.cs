@@ -11,8 +11,9 @@ public class DemoDataZpoolService : IZpoolService
     public async Task<List<Pool>> GetAllPoolsAsync()
         => (await this.GetAllPoolsWithScrubAsync()).Select(snapshot => snapshot.Pool).ToList();
 
-    public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync()
+    public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var poolListJson = DemoDataHelper.ReadEmbeddedJson(ZpoolListData);
         var pools = ZpoolParser.ParsePools(poolListJson);
 
@@ -38,6 +39,9 @@ public class DemoDataZpoolService : IZpoolService
 
         return Task.FromResult(result);
     }
+
+    public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetDashboardPoolsAsync(CancellationToken cancellationToken = default)
+        => this.GetAllPoolsWithScrubAsync(cancellationToken);
 
     public Task<List<string>> GetPoolNamesAsync()
     {

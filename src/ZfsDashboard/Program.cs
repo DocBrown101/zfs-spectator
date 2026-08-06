@@ -25,6 +25,11 @@ else
     builder.Services.AddHostedService(sp => sp.GetRequiredService<DiskTemperatureBackgroundService>());
 }
 
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddSingleton<DashboardSnapshotBackgroundService>();
+builder.Services.AddSingleton<IDashboardSnapshotProvider>(sp => sp.GetRequiredService<DashboardSnapshotBackgroundService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DashboardSnapshotBackgroundService>());
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

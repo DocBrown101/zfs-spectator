@@ -18,11 +18,11 @@ public record NetworkRateInfo
 
 public record StaticSystemInfo
 {
-    public string Hostname { get; init; } = "";
-    public string Kernel { get; init; } = "";
-    public string ZfsVersion { get; init; } = "";
-    public string Processor { get; init; } = "";
-    public int CpuCount { get; init; }
+    public string Hostname { get; init; } = "unknown";
+    public string Kernel { get; init; } = "unknown";
+    public string ZfsVersion { get; init; } = "unknown";
+    public string Processor { get; init; } = "unknown";
+    public int CpuCount { get; init; } = -1;
 }
 
 public record SystemInfo

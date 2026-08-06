@@ -187,7 +187,7 @@ public class SystemServiceTests
         var pools = new List<Pool> { MakePool("tank"), MakePool("backup") };
         var scrubs = new Dictionary<string, ScrubInfo>
         {
-            ["tank"]   = new() { State = "finished", Duration = "01:23:45", Errors = 0, FinishTime = "2026-03-30" },
+            ["tank"] = new() { State = "finished", Duration = "01:23:45", Errors = 0, FinishTime = "2026-03-30" },
             ["backup"] = ScrubInfo.Idle,
         };
 
@@ -196,7 +196,7 @@ public class SystemServiceTests
 
         Assert.Equal(2, data.PoolScrubs.Count);
         Assert.Equal("finished", data.PoolScrubs["tank"].State);
-        Assert.Equal("idle",     data.PoolScrubs["backup"].State);
+        Assert.Equal("idle", data.PoolScrubs["backup"].State);
         Assert.Equal(1, zpool.GetAllPoolsWithScrubCallCount);
         Assert.Equal(0, zpool.GetScrubStatusCallCount);
     }
@@ -215,18 +215,25 @@ public class SystemServiceTests
 
     private static Pool MakePool(string name) => new()
     {
-        Name = name, Health = "ONLINE", VdevType = "mirror", Operation = "",
-        Compression = "lz4", CompRatio = "1.50x", Dedup = "off", Sync = "standard", Atime = "off",
+        Name = name,
+        Health = "ONLINE",
+        VdevType = "mirror",
+        Operation = "",
+        Compression = "lz4",
+        CompRatio = "1.50x",
+        Dedup = "off",
+        Sync = "standard",
+        Atime = "off",
     };
 
     private sealed class StubZfsService : IZfsService
     {
-        public Task<ArcStats> GetArcStatsAsync()                          => Task.FromResult(new ArcStats());
-        public Task<List<Dataset>> GetAllDatasetsAsync()                   => Task.FromResult(new List<Dataset>());
-        public Task<List<Dataset>> GetDatasetsAsync(string poolName)       => Task.FromResult(new List<Dataset>());
-        public Task<List<Snapshot>> GetSnapshotsAsync(string poolName)     => Task.FromResult(new List<Snapshot>());
-        public Task<List<ZVol>> GetAllZVolsAsync()                         => Task.FromResult(new List<ZVol>());
-        public Task<string> GetZfsVersionAsync()                           => Task.FromResult("zfs-2.2.0");
+        public Task<ArcStats> GetArcStatsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ArcStats());
+        public Task<List<Dataset>> GetAllDatasetsAsync() => Task.FromResult(new List<Dataset>());
+        public Task<List<Dataset>> GetDatasetsAsync(string poolName) => Task.FromResult(new List<Dataset>());
+        public Task<List<Snapshot>> GetSnapshotsAsync(string poolName) => Task.FromResult(new List<Snapshot>());
+        public Task<List<ZVol>> GetAllZVolsAsync() => Task.FromResult(new List<ZVol>());
+        public Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default) => Task.FromResult("zfs-2.2.0");
     }
 
     private sealed class StubZpoolService(List<Pool> pools, Dictionary<string, ScrubInfo> scrubs) : IZpoolService
@@ -234,12 +241,14 @@ public class SystemServiceTests
         public int GetAllPoolsWithScrubCallCount { get; private set; }
         public int GetScrubStatusCallCount { get; private set; }
 
-        public Task<List<Pool>> GetAllPoolsAsync()   => Task.FromResult(pools);
-        public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync()
+        public Task<List<Pool>> GetAllPoolsAsync() => Task.FromResult(pools);
+        public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync(CancellationToken cancellationToken = default)
         {
             this.GetAllPoolsWithScrubCallCount++;
             return Task.FromResult(pools.Select(pool => (pool, scrubs.GetValueOrDefault(pool.Name, ScrubInfo.Idle))).ToList());
         }
+        public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetDashboardPoolsAsync(CancellationToken cancellationToken = default) =>
+            this.GetAllPoolsWithScrubAsync(cancellationToken);
         public Task<List<string>> GetPoolNamesAsync() => Task.FromResult(pools.Select(p => p.Name).ToList());
         public Task<Pool?> GetPoolByNameAsync(string name) =>
             Task.FromResult<Pool?>(pools.FirstOrDefault(p => p.Name == name));

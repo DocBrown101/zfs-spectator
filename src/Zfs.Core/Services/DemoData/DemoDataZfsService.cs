@@ -31,13 +31,15 @@ public class DemoDataZfsService(IZpoolService zpoolService) : IZfsService
         return Task.FromResult(ZfsParser.ParseZVols(json));
     }
 
-    public Task<string> GetZfsVersionAsync()
+    public Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult("2.3.1");
     }
 
-    public Task<ArcStats> GetArcStatsAsync()
+    public Task<ArcStats> GetArcStatsAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(new ArcStats
         {
             Size = 8589934592,        // 8 GiB

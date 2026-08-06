@@ -47,20 +47,20 @@ public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfs
 
     // ── ZFS Version ───────────────────────────────────────────────────────
 
-    public async Task<string> GetZfsVersionAsync()
+    public async Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default)
     {
-        var output = await cmd.ExecuteAsync("zfs", "version");
+        var output = await cmd.ExecuteAsync("zfs", "version", cancellationToken);
         var match = RegexHelper.ZfsVersionRegex().Match(output);
         return match.Success ? match.Value : "unknown";
     }
 
     // ── ARC Statistics ─────────────────────────────────────────────────────
 
-    public async Task<ArcStats> GetArcStatsAsync()
+    public async Task<ArcStats> GetArcStatsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var lines = await File.ReadAllLinesAsync("/proc/spl/kstat/zfs/arcstats");
+            var lines = await File.ReadAllLinesAsync("/proc/spl/kstat/zfs/arcstats", cancellationToken);
             var stats = new Dictionary<string, ulong>();
 
             foreach (var line in lines)
@@ -84,6 +84,10 @@ public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfs
                 MetadataSize = stats.GetValueOrDefault("arc_meta_used"),
                 DataSize = stats.GetValueOrDefault("data_size"),
             };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {

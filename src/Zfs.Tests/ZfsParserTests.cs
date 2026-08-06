@@ -3,6 +3,7 @@ namespace Zfs.Tests;
 using System.Text.Json;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
+using ZfsDashboard.Services;
 using ZfsDashboard.ViewModels.Dashboard;
 
 public class ZfsParserTests
@@ -250,5 +251,44 @@ public class ZfsParserTests
         Assert.True(dev.TryGetProperty("writeRate", out _));
         Assert.True(dev.TryGetProperty("queueDepth", out _));
         Assert.True(dev.TryGetProperty("utilizationPercent", out _));
+    }
+
+    [Fact]
+    public void DashboardLiveViewModel_ShouldSerializePoolSummaryContract()
+    {
+        var pool = new Pool
+        {
+            Name = "tank",
+            Health = "ONLINE",
+            VdevType = "mirror",
+            Operation = "",
+            Compression = "lz4",
+            CompRatio = "1.00x",
+            Dedup = "off",
+            Sync = "standard",
+            Atime = "off",
+            UsableSize = 100,
+            UsableUsed = 25,
+            UsableAvail = 75,
+        };
+        var response = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData(),
+            [pool],
+            new StaticSystemInfo()));
+
+        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var doc = JsonDocument.Parse(json);
+        var summary = doc.RootElement.GetProperty("pools")[0].GetProperty("summary");
+
+        Assert.True(summary.TryGetProperty("size", out _));
+        Assert.True(summary.TryGetProperty("allocated", out _));
+        Assert.True(summary.TryGetProperty("free", out _));
+        Assert.True(summary.TryGetProperty("usagePercent", out _));
+        Assert.True(summary.TryGetProperty("health", out _));
+        Assert.True(summary.TryGetProperty("healthCss", out _));
+        Assert.True(summary.TryGetProperty("encrypted", out _));
+        Assert.True(summary.TryGetProperty("encryptionAlgorithm", out _));
+        Assert.True(summary.TryGetProperty("hasErrors", out _));
+        Assert.True(summary.TryGetProperty("errorTooltip", out _));
     }
 }

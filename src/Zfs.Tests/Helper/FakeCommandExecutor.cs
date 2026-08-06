@@ -24,8 +24,9 @@ internal class FakeCommandExecutor : ICommandExecutor
         return this;
     }
 
-    public Task<string> ExecuteAsync(string command, string arguments)
+    public Task<string> ExecuteAsync(string command, string arguments, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         this.Invocations.Add((command, arguments));
         foreach (var (cmd, args, exact, response) in this.responses)
         {

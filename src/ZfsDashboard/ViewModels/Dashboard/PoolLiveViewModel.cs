@@ -5,4 +5,5 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 public sealed record PoolLiveViewModel(
     string Name,
     IReadOnlyList<DiskIoRateViewModel> Disks,
-    ScrubStatusViewModel Scrub);
+    ScrubStatusViewModel Scrub,
+    PoolCardViewModel? Summary);

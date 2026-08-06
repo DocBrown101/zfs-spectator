@@ -2,6 +2,8 @@
     const dashboard = document.getElementById('dashboard');
     if (!dashboard) return;
 
+    let failures = 0;
+
     function escapeHtml(value) {
         return String(value)
             .replaceAll('&', '&amp;')
@@ -55,7 +57,6 @@
                 },
             },
         });
-
         return function (value0, value1) {
             labels.push('');
             data0.push(value0);
@@ -162,6 +163,52 @@
             </tr>`).join('');
     }
 
+    function updatePoolSummary(pool) {
+        const summary = pool.summary;
+        if (!summary) return;
+
+        setText('poolSize-' + pool.name, summary.size);
+        setText('poolAllocated-' + pool.name, summary.allocated);
+        setText('poolFree-' + pool.name, summary.free);
+        setText('poolCapacity-' + pool.name, summary.usagePercent.toFixed(0) + '%');
+
+        const health = document.getElementById('poolHealth-' + pool.name);
+        if (health) {
+            health.className = 'badge ' + summary.healthCss;
+            health.textContent = summary.health;
+        }
+
+        const encrypted = document.getElementById('poolEncrypted-' + pool.name);
+        if (encrypted) {
+            encrypted.classList.toggle('d-none', !summary.encrypted);
+            updateTooltip(encrypted, summary.encrypted ? 'Encrypted (' + summary.encryptionAlgorithm + ')' : '');
+        }
+
+        const errors = document.getElementById('poolErrors-' + pool.name);
+        if (errors) {
+            errors.classList.toggle('d-none', !summary.hasErrors);
+            updateTooltip(errors, summary.hasErrors ? summary.errorTooltip : '');
+        }
+
+        const progress = document.querySelector('#poolCapacityBar-' + CSS.escape(pool.name) + ' .progress-bar');
+        if (progress) {
+            progress.style.width = Math.max(0, Math.min(100, summary.usagePercent)).toFixed(1) + '%';
+            progress.className = 'progress-bar ' + (summary.usagePercent > 85 ? 'bg-danger' : summary.usagePercent > 70 ? 'bg-warning' : 'bg-success');
+        }
+    }
+
+    function updateTooltip(element, title) {
+        if ((element.getAttribute('data-bs-title') ?? '') === title) return;
+
+        bootstrap.Tooltip.getInstance(element)?.dispose();
+        element.removeAttribute('data-bs-title');
+        element.removeAttribute('title');
+        if (!title) return;
+
+        element.setAttribute('data-bs-title', title);
+        new bootstrap.Tooltip(element);
+    }
+
     function renderScrub(pool) {
         const element = document.getElementById('poolScrub-' + pool.name);
         if (!element) return;
@@ -235,10 +282,21 @@
     const arcChart = createGauge('arcCanvas');
 
     async function fetchData() {
+        const controller = new AbortController();
+        let timedOut = false;
+        const timeoutId = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, 10000);
+
         try {
-            const response = await fetch(dashboard.dataset.liveUrl);
+            const response = await fetch(dashboard.dataset.liveUrl, {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
+            failures = 0;
 
             setText('sysUptime', data.uptime);
             updateGauge(cpuChart, 'cpuPct', data.cpuUsagePercent);
@@ -256,13 +314,19 @@
             renderDiskRows(data.diskIoRates);
 
             data.pools.forEach(pool => {
+                updatePoolSummary(pool);
                 renderPoolDiskRows(pool);
                 renderScrub(pool);
             });
+            setText('poolCount', data.pools.length + ' pools');
         } catch (error) {
-            console.error('live update failed:', error.message);
+            failures++;
+            const message = timedOut ? 'Request timed out' : error.message;
+            console.error('live update failed:', message);
         } finally {
-            setTimeout(fetchData, 1000);
+            clearTimeout(timeoutId);
+            const delay = failures === 0 ? 1000 : Math.min(1000 * (2 ** (failures - 1)), 30000);
+            setTimeout(fetchData, delay);
         }
     }
 

@@ -6,9 +6,12 @@ namespace ZfsDashboard;
 public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan ProcessTerminationTimeout = TimeSpan.FromSeconds(2);
 
-    public async Task<string> ExecuteAsync(string command, string arguments)
+    public async Task<string> ExecuteAsync(string command, string arguments, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -29,10 +32,11 @@ public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to start {Command} {Arguments}", command, arguments);
-            return "";
+            throw new InvalidOperationException($"Failed to start {command}", ex);
         }
 
-        using var cts = new CancellationTokenSource(CommandTimeout);
+        using var timeoutCts = new CancellationTokenSource(CommandTimeout);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         try
         {
@@ -48,28 +52,39 @@ public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
                 logger.LogWarning("stderr from {Command} {Arguments}: {StdErr}", command, arguments, errorTask.Result);
 
             if (process.ExitCode != 0)
+            {
                 logger.LogError("Command {Command} {Arguments} exited with code {ExitCode}", command, arguments, process.ExitCode);
+                throw new InvalidOperationException($"{command} exited with code {process.ExitCode}: {errorTask.Result.Trim()}");
+            }
 
             return outputTask.Result.Trim();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             logger.LogError("Command {Command} {Arguments} timed out after {Timeout}s", command, arguments, CommandTimeout.TotalSeconds);
-            this.KillProcess(process);
-            return "";
+            await this.KillProcessAsync(process);
+            throw new TimeoutException($"{command} timed out after {CommandTimeout.TotalSeconds} seconds");
+        }
+        catch (OperationCanceledException)
+        {
+            await this.KillProcessAsync(process);
+            throw;
         }
     }
 
-    private void KillProcess(Process process)
+    private async Task KillProcessAsync(Process process)
     {
         try
         {
             if (!process.HasExited)
+            {
                 process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync(CancellationToken.None).WaitAsync(ProcessTerminationTimeout);
+            }
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to kill timed-out process");
+            logger.LogWarning(ex, "Failed to terminate process");
         }
     }
 }

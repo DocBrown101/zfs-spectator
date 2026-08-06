@@ -10,7 +10,7 @@ public sealed record CpuCardViewModel
         this.Details =
         [
             new("Processor", staticSystem.Processor),
-            new("CPU Count", staticSystem.CpuCount.ToString()),
+            new("CPU Count", staticSystem.CpuCount > 0 ? staticSystem.CpuCount.ToString() : "unknown"),
         ];
     }
 

@@ -1,4 +1,5 @@
 using Zfs.Core.Models;
+using ZfsDashboard.Services;
 using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.ViewModels.Dashboard;
@@ -6,13 +7,27 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 public sealed record DashboardLiveViewModel
 {
     public DashboardLiveViewModel(DashboardData data)
+        : this(data, [])
     {
+    }
+
+    public DashboardLiveViewModel(DashboardSnapshot snapshot)
+        : this(snapshot.Data, snapshot.Pools)
+    {
+    }
+
+    private DashboardLiveViewModel(
+        DashboardData data,
+        IReadOnlyList<Pool> pools)
+    {
+        var poolsByName = pools.ToDictionary(pool => pool.Name, StringComparer.Ordinal);
         var disksByPool = data.PoolDiskIoRates.ToDictionary(
             group => group.PoolName,
             group => (IReadOnlyList<DiskIoRateViewModel>)group.Disks.Select(rate => new DiskIoRateViewModel(rate)).ToList());
 
         var poolNames = disksByPool.Keys
             .Concat(data.PoolScrubs.Keys)
+            .Concat(poolsByName.Keys)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -26,7 +41,8 @@ public sealed record DashboardLiveViewModel
         this.Pools = poolNames.Select(name => new PoolLiveViewModel(
             name,
             disksByPool.GetValueOrDefault(name) ?? [],
-            new ScrubStatusViewModel(data.PoolScrubs.GetValueOrDefault(name, ScrubInfo.Idle)))).ToList();
+            new ScrubStatusViewModel(data.PoolScrubs.GetValueOrDefault(name, ScrubInfo.Idle)),
+            poolsByName.TryGetValue(name, out var pool) ? new PoolCardViewModel(pool) : null)).ToList();
     }
 
     public string Uptime { get; }

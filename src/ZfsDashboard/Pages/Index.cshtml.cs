@@ -1,42 +1,32 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Zfs.Core.Models;
-using Zfs.Core.Services;
+using ZfsDashboard.Services;
 using ZfsDashboard.ViewModels.Dashboard;
 
 namespace ZfsDashboard.Pages;
 
-public class IndexModel(IZfsService zfs, IZpoolService zpool, ISystemService system, IDiskTemperatureProvider temps) : PageModel
+public class IndexModel(IDashboardSnapshotProvider snapshots) : PageModel
 {
     public DashboardPageViewModel Dashboard { get; private set; } = null!;
 
     public async Task OnGetAsync()
     {
-        var poolsTask = zpool.GetAllPoolsAsync();
-        var systemTask = system.GetSystemInfoAsync(zfs);
-        var staticSystemTask = system.GetStaticSystemInfoAsync(zfs);
-
-        await Task.WhenAll(poolsTask, systemTask, staticSystemTask);
-
+        var snapshot = await snapshots.GetSnapshotAsync(this.HttpContext.RequestAborted);
         this.Dashboard = new DashboardPageViewModel(
-            poolsTask.Result,
-            systemTask.Result,
-            staticSystemTask.Result);
+            snapshot.Pools,
+            snapshot.Data.System,
+            snapshot.StaticSystem);
     }
 
-    public async Task<IActionResult> OnGetLiveAsync()
+    public IActionResult OnGetLive()
     {
-        var data = await system.GetDashboardDataAsync(zfs, zpool);
-        ApplyTemperatures(data.DiskIoRates, temps.Temperatures);
-        return new JsonResult(new DashboardLiveViewModel(data));
-    }
-
-    private static void ApplyTemperatures(List<DiskIoRateInfo> disks, IReadOnlyDictionary<string, int> temperatures)
-    {
-        for (var i = 0; i < disks.Count; i++)
+        this.Response.Headers.CacheControl = "no-store";
+        if (snapshots.Current is not { } snapshot)
         {
-            if (temperatures.TryGetValue(disks[i].Device, out var temp))
-                disks[i] = disks[i] with { Temperature = temp };
+            this.Response.Headers.RetryAfter = "1";
+            return this.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
+
+        return new JsonResult(new DashboardLiveViewModel(snapshot));
     }
 }

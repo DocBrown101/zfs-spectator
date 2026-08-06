@@ -1,10 +1,9 @@
-@using Zfs.Core.Services
-@inject ISystemService SystemSvc
-@inject IZfsService ZfsSvc
+@using ZfsDashboard.Services
+@inject IDashboardSnapshotProvider DashboardSnapshots
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     string NavActive(string page) => currentPage.StartsWith(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
-    var sysInfo = await SystemSvc.GetStaticSystemInfoAsync(ZfsSvc);
+    var sysInfo = await DashboardSnapshots.GetStaticSystemInfoAsync(Context.RequestAborted);
 
     var navItems = new (string Page, string Label, string Icon)[]
     {

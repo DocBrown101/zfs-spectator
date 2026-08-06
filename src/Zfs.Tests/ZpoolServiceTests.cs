@@ -14,11 +14,16 @@ public class ZpoolServiceTests
         var zpoolStatusJson = File.ReadAllText("TestData/zpool_status.json");
         var zpoolAshiftJson = File.ReadAllText("TestData/zpool_get_ashift.json");
         var zfsGetPropsJson = File.ReadAllText("TestData/zfs_get_pool_props.json");
+        var miniTankAshiftJson = zpoolAshiftJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal);
+        var miniTankPropsJson = zfsGetPropsJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal);
 
         return new FakeCommandExecutor()
             .On("zpool", $"list -Hpvj -o name,size,alloc,free,health,frag {poolName}", zpoolListJson)
             .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", zpoolListJson)
             .On("zpool", "list -Hpj -o name", zpoolListJson)
+            .On("zpool", "status -Pj miniTank", zpoolStatusJson)
+            .On("zpool", "get -Hpj ashift miniTank", miniTankAshiftJson)
+            .On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus miniTank", miniTankPropsJson)
             .On("zpool", $"status -Pj {poolName}", zpoolStatusJson)
             .On("zpool", $"get -Hpj ashift {poolName}", zpoolAshiftJson)
             .On("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}", zfsGetPropsJson);
@@ -98,6 +103,115 @@ public class ZpoolServiceTests
         Assert.Equal("finished", snapshot.Scrub.State);
         Assert.Single(executor.Invocations, call =>
             call.Command == "zpool" && call.Arguments == "status -Pj zfsPool");
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_ShouldSkipExpensivePoolProperties()
+    {
+        var executor = CreateExecutorForPool();
+        var service = new ZpoolService(executor);
+
+        var snapshots = await service.GetDashboardPoolsAsync();
+
+        Assert.Equal(2, snapshots.Count);
+        Assert.DoesNotContain(executor.Invocations, call => call.Command == "zfs");
+        Assert.DoesNotContain(executor.Invocations, call => call.Arguments.Contains("ashift", StringComparison.Ordinal));
+        Assert.Equal(2, executor.Invocations.Count(call =>
+            call.Command == "zpool" && call.Arguments.StartsWith("status -Pj", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_ShouldKeepSpecialVdevCapacity()
+    {
+        const string listJson = """
+            {
+              "pools": {
+                "zfsPool": {
+                  "name": "zfsPool",
+                  "properties": {
+                    "size": { "value": "1000" },
+                    "allocated": { "value": "400" },
+                    "free": { "value": "600" },
+                    "health": { "value": "ONLINE" },
+                    "fragmentation": { "value": "0" }
+                  },
+                  "vdevs": {
+                    "special": {
+                      "mirror-1": {
+                        "properties": {
+                          "size": { "value": "300" },
+                          "allocated": { "value": "100" },
+                          "free": { "value": "200" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var executor = CreateExecutorForPool()
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", listJson);
+        var service = new ZpoolService(executor);
+
+        var pool = Assert.Single(await service.GetDashboardPoolsAsync()).Pool;
+
+        Assert.Equal(300UL, pool.SpecialSize);
+        Assert.Equal(100UL, pool.SpecialAlloc);
+        Assert.Equal(200UL, pool.SpecialFree);
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_MissingPoolStatus_ShouldFail()
+    {
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status -Pj zfsPool", "{\"pools\":{}}");
+        var service = new ZpoolService(executor);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetDashboardPoolsAsync());
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_EmptyPoolStatus_ShouldFail()
+    {
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status -Pj zfsPool", "{\"pools\":{\"zfsPool\":{}}}");
+        var service = new ZpoolService(executor);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetDashboardPoolsAsync());
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_EmptySuccessfulOutput_ShouldRepresentNoPools()
+    {
+        var executor = CreateExecutorForPool()
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "");
+        var service = new ZpoolService(executor);
+
+        var snapshots = await service.GetDashboardPoolsAsync();
+
+        Assert.Empty(snapshots);
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_IncompleteList_ShouldFail()
+    {
+        var executor = CreateExecutorForPool()
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "{}");
+        var service = new ZpoolService(executor);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetDashboardPoolsAsync());
+    }
+
+    [Fact]
+    public async Task GetDashboardPoolsAsync_ListWithMissingProperties_ShouldFail()
+    {
+        const string listJson = "{\"pools\":{\"tank\":{\"name\":\"tank\",\"properties\":{}}}}";
+        var executor = CreateExecutorForPool()
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", listJson);
+        var service = new ZpoolService(executor);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetDashboardPoolsAsync());
     }
 
     [Fact]
@@ -380,6 +494,17 @@ public class ZpoolServiceTests
         Assert.Equal("off", pool.Dedup);        // default
     }
 
+    [Fact]
+    public async Task GetAllPoolsWithScrubAsync_PartialPropsOutput_ShouldFail()
+    {
+        var executor = CreateExecutorForPool();
+        executor.On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus zfsPool",
+            BuildZfsGetJson("zfsPool", ("compression", "zstd")));
+        var service = new ZpoolService(executor);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetAllPoolsWithScrubAsync());
+    }
+
     // ── Special VDEV size ────────────────────────────────────────────────
 
     [Fact]
@@ -407,7 +532,7 @@ public class ZpoolServiceTests
 
         public int StatusInvocationCount => Volatile.Read(ref this.statusInvocationCount);
 
-        public async Task<string> ExecuteAsync(string command, string arguments)
+        public async Task<string> ExecuteAsync(string command, string arguments, CancellationToken cancellationToken = default)
         {
             if (command == "zpool" && arguments == "list -Hpvj -o name,size,alloc,free,health,frag")
                 return listJson;
@@ -422,10 +547,14 @@ public class ZpoolServiceTests
             }
 
             if (command == "zpool" && arguments.StartsWith("get -Hpj ashift ", StringComparison.Ordinal))
-                return ashiftJson;
+                return arguments.EndsWith("miniTank", StringComparison.Ordinal)
+                    ? ashiftJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal)
+                    : ashiftJson;
 
             if (command == "zfs" && arguments.StartsWith("get -Hpj ", StringComparison.Ordinal))
-                return propertiesJson;
+                return arguments.EndsWith("miniTank", StringComparison.Ordinal)
+                    ? propertiesJson.Replace("zfsPool", "miniTank", StringComparison.Ordinal)
+                    : propertiesJson;
 
             return "";
         }

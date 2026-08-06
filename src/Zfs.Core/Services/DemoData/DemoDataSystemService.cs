@@ -24,13 +24,32 @@ public class DemoDataSystemService : ISystemService
         ("zfsPool",  [("sdc", "raidz1"), ("sdd", "raidz1"), ("sde", "raidz1"), ("nvme0n1", "special"), ("nvme1n1", "special")]),
     ];
 
-    public async Task<DashboardData> GetDashboardDataAsync(IZfsService zfs, IZpoolService zpool)
+    public async Task<DashboardData> GetDashboardDataAsync(
+        IZfsService zfs,
+        IZpoolService zpool,
+        CancellationToken cancellationToken = default)
     {
-        var systemTask = this.GetSystemInfoAsync(zfs);
-        var poolsTask = zpool.GetAllPoolsWithScrubAsync();
-        await Task.WhenAll(systemTask, poolsTask);
-        var system = systemTask.Result;
-        var poolSnapshots = poolsTask.Result;
+        cancellationToken.ThrowIfCancellationRequested();
+        var poolsTask = zpool.GetAllPoolsWithScrubAsync(cancellationToken);
+        var systemTask = this.GetSystemInfoAsync(zfs, cancellationToken);
+        await Task.WhenAll(poolsTask, systemTask);
+        return BuildDashboardData(systemTask.Result, poolsTask.Result);
+    }
+
+    public async Task<DashboardData> GetDashboardDataAsync(
+        IZfsService zfs,
+        IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var system = await this.GetSystemInfoAsync(zfs, cancellationToken);
+        return BuildDashboardData(system, poolSnapshots);
+    }
+
+    private static DashboardData BuildDashboardData(
+        SystemInfo system,
+        IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots)
+    {
         var poolScrubs = poolSnapshots.ToDictionary(snapshot => snapshot.Pool.Name, snapshot => snapshot.Scrub);
 
         var networkRates = new List<NetworkRateInfo>
@@ -60,22 +79,28 @@ public class DemoDataSystemService : ISystemService
         };
     }
 
-    public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(IZfsService zfs)
+    public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(
+        IZfsService zfs,
+        CancellationToken cancellationToken = default)
     {
-        var zfsVersion = await zfs.GetZfsVersionAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        var zfsVersion = await zfs.GetZfsVersionAsync(cancellationToken);
         return new StaticSystemInfo
         {
-            Hostname   = "demo-server",
-            Kernel     = "6.12.8-zfs",
+            Hostname = "demo-server",
+            Kernel = "6.12.8-zfs",
             ZfsVersion = zfsVersion,
-            Processor  = "AMD Ryzen 7 5800X 8-Core Processor",
-            CpuCount   = 16,
+            Processor = "AMD Ryzen 7 5800X 8-Core Processor",
+            CpuCount = 16,
         };
     }
 
-    public async Task<SystemInfo> GetSystemInfoAsync(IZfsService zfs)
+    public async Task<SystemInfo> GetSystemInfoAsync(
+        IZfsService zfs,
+        CancellationToken cancellationToken = default)
     {
-        var arc = await zfs.GetArcStatsAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        var arc = await zfs.GetArcStatsAsync(cancellationToken);
         return new SystemInfo
         {
             Uptime = "14d 7h 32m",
@@ -91,7 +116,7 @@ public class DemoDataSystemService : ISystemService
                 SwapUsed = 0,
                 SwapFree = 8589934592,
             },
-            CpuUsagePercent = 8.0 + Random.Shared.NextDouble() * 10.0,
+            CpuUsagePercent = 50.0 + Random.Shared.NextDouble() * 40.0,
         };
     }
 
