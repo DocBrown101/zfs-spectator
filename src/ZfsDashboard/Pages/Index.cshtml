@@ -9,9 +9,9 @@
         TrailingBadge: new(Model.Live.Uptime, "bg-body-tertiary text-body-secondary border", Icon: "bi-clock", ElementId: "sysUptime"));
 }
 
-<div id="dashboard" data-live-url="@Url.Page("/Index", "Live")">
-    <partial name="_PageHeader" model="header" />
+<partial name="_PageHeader" model="header" />
 
+<div id="dashboard" data-live-url="@Url.Page("/Index", "Live")">
     <div class="row g-4">
         <div class="col-lg-6">
             <partial name="/Pages/Dashboard/_NetworkCard.cshtml" />
