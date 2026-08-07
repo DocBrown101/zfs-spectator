@@ -6,6 +6,6 @@
     var visibility = row.IsVisible ? "" : "d-none";
     <div class="row py-2 @border small @visibility" data-metric-row>
         <div class="col-5 text-body-secondary">@row.Label</div>
-        <div class="col-7" id="@row.ElementId">@row.Value</div>
+        <div class="col-7 @row.ValueCss" id="@row.ElementId">@row.Value</div>
     </div>
 }

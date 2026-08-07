@@ -4,4 +4,5 @@ public sealed record MetricRowViewModel(
     string Label,
     string Value,
     string? ElementId = null,
-    bool IsVisible = true);
+    bool IsVisible = true,
+    string? ValueCss = null);

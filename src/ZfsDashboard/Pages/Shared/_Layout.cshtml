@@ -5,6 +5,11 @@
     string NavActive(string page) => currentPage.StartsWith(page, StringComparison.OrdinalIgnoreCase) ? "active" : "";
     var sysInfo = await DashboardSnapshots.GetStaticSystemInfoAsync(Context.RequestAborted);
 
+    var currentSnapshot = DashboardSnapshots.Current;
+    var degradedPools = currentSnapshot?.Pools.Count(pool => pool.Health == "DEGRADED") ?? 0;
+    var criticalPools = currentSnapshot?.Pools.Count(pool => pool.Health is "FAULTED" or "UNAVAIL") ?? 0;
+    var errorPools = currentSnapshot?.Pools.Count(pool => pool.Health == "ONLINE" && pool.HasErrors) ?? 0;
+
     var navItems = new (string Page, string Label, string Icon)[]
     {
         ("/Index", "Dashboard", "bi-grid-1x2"),
@@ -48,7 +53,25 @@
                     }
                 </ul>
                 <div class="d-flex align-items-center gap-3 ms-auto small">
-                    <span class="fw-semibold">@sysInfo.Hostname</span>
+                    @if (degradedPools > 0)
+                    {
+                        <span class="badge text-bg-warning" data-bs-toggle="tooltip" data-bs-title="Pools in degraded state">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@degradedPools degraded
+                        </span>
+                    }
+                    @if (criticalPools > 0)
+                    {
+                        <span class="badge text-bg-danger" data-bs-toggle="tooltip" data-bs-title="Pools in faulted or unavailable state">
+                            <i class="bi bi-exclamation-octagon me-1"></i>@criticalPools faulted
+                        </span>
+                    }
+                    @if (errorPools > 0)
+                    {
+                        <span class="badge text-bg-danger" data-bs-toggle="tooltip" data-bs-title="Pools with read/write/checksum errors">
+                            <i class="bi bi-exclamation-diamond me-1"></i>@errorPools errors
+                        </span>
+                    }
+                    <span class="fw-semibold text-truncate">@sysInfo.Hostname</span>
                     <div class="d-flex flex-column align-items-end text-body-secondary lh-sm">
                         <span>Linux-@sysInfo.Kernel</span>
                         <span>ZFS @sysInfo.ZfsVersion</span>

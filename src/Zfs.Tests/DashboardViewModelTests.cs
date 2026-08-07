@@ -20,10 +20,11 @@ public class DashboardViewModelTests
             [],
             new StaticSystemInfo()));
 
-        Assert.Equal(["arcSize", "arcMeta", "arcData", "arcMruMfu"], response.Arc.Details.Select(row => row.ElementId));
+        Assert.Equal(["arcSize", "arcHitRate", "arcMeta", "arcData", "arcMruMfu"], response.Arc.Details.Select(row => row.ElementId));
         Assert.True(response.Arc.IsVisible);
         Assert.True(response.Arc.Details[0].IsVisible);
-        Assert.All(response.Arc.Details.Skip(1), row => Assert.False(row.IsVisible));
+        Assert.True(response.Arc.Details.Single(row => row.ElementId == "arcHitRate").IsVisible);
+        Assert.All(response.Arc.Details.Where(row => row.ElementId is "arcMeta" or "arcData" or "arcMruMfu"), row => Assert.False(row.IsVisible));
     }
 
     [Fact]
@@ -34,7 +35,7 @@ public class DashboardViewModelTests
 
         Assert.False(response.Arc.IsVisible);
         Assert.Null(response.Arc.L2HitRate);
-        Assert.Equal(4, response.Arc.Details.Count);
+        Assert.Equal(5, response.Arc.Details.Count);
     }
 
     [Fact]

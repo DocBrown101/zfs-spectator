@@ -1,3 +1,4 @@
+using System.Globalization;
 using Zfs.Core.Models;
 using ZfsDashboard.Presentation;
 
@@ -17,6 +18,21 @@ public sealed record ArcCardViewModel
         this.Details =
         [
             new("ARC Size", $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}", "arcSize"),
+            new(
+                "L1 Hit Rate",
+                $"{arc.HitRate.ToString("F1", CultureInfo.InvariantCulture)}%",
+                "arcHitRate",
+                ValueCss: $"{ToArcHitRateCss(arc.HitRate)} fw-semibold"),
+            ..(arc.L2Size > 0
+                ? new MetricRowViewModel[]
+                {
+                    new(
+                        "L2 Hit Rate",
+                        $"{arc.L2HitRate.ToString("F1", CultureInfo.InvariantCulture)}% ({arc.L2Size.FormatBytes()})",
+                        "l2HitRate",
+                        ValueCss: $"{ToL2HitRateCss(arc.L2HitRate)} fw-semibold"),
+                }
+                : []),
             new("Metadata", arc.MetadataSize.FormatBytes(), "arcMeta", arc.MetadataSize > 0),
             new("Data", arc.DataSize.FormatBytes(), "arcData", arc.DataSize > 0),
             new(

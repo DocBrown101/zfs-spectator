@@ -262,15 +262,13 @@
 
         const hitRate = document.getElementById('arcHitRate');
         if (hitRate) {
-            hitRate.className = arc.hitRateCss + ' fw-semibold';
+            hitRate.className = 'col-7 ' + arc.hitRateCss + ' fw-semibold';
             hitRate.textContent = arc.hitRate.toFixed(1) + '%';
         }
 
-        const l2Row = card.querySelector('[data-l2-arc-row]');
-        l2Row?.classList.toggle('d-none', arc.l2HitRate === null);
         const l2HitRate = document.getElementById('l2HitRate');
         if (l2HitRate && arc.l2HitRate !== null) {
-            l2HitRate.className = arc.l2HitRateCss + ' fw-semibold';
+            l2HitRate.className = 'col-7 ' + arc.l2HitRateCss + ' fw-semibold';
             l2HitRate.textContent = arc.l2HitRate.toFixed(1) + '% (' + arc.l2Size + ')';
         }
     }
