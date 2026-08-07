@@ -2,12 +2,13 @@
 @model ZfsDashboard.Pages.Snapshots.IndexModel
 @{
     ViewData["Title"] = "Snapshots";
+    var header = new PageHeaderViewModel(
+        Icon: "bi-camera",
+        Title: "Snapshots",
+        Subtitle: $"All ZFS snapshots grouped by dataset \u2014 {Model.Snapshots.TotalCount} total");
 }
 
-<h3 class="fw-bold mb-1 pb-2 border-bottom border-secondary">
-    <i class="bi bi-camera me-2 text-info"></i>Snapshots
-</h3>
-<p class="text-body-secondary mb-4">All ZFS snapshots grouped by dataset &mdash; @Model.Snapshots.TotalCount total</p>
+<partial name="_PageHeader" model="header" />
 
 @if (Model.Snapshots.TotalCount == 0)
 {
@@ -21,4 +22,4 @@
     <partial name="_SnapshotGroup" model="group" />
 }
 
-<partial name="_CommandSuggestions" model="Model.Suggestions" />
+<partial name="_CommandSuggestions" model="new CommandSuggestionsViewModel(Model.Suggestions)" />

@@ -2,12 +2,13 @@
 @model ZfsDashboard.Pages.ZVols.IndexModel
 @{
     ViewData["Title"] = "ZVols";
+    var header = new PageHeaderViewModel(
+        Icon: "bi-device-hdd",
+        Title: "ZVols",
+        Subtitle: $"ZFS block devices - {Model.ZVols.Count} total");
 }
 
-<h3 class="fw-bold mb-1 pb-2 border-bottom border-secondary">
-    <i class="bi bi-device-hdd me-2 text-info"></i>ZVols
-</h3>
-<p class="text-body-secondary mb-4">ZFS block devices &mdash; @Model.ZVols.Count total</p>
+<partial name="_PageHeader" model="header" />
 
 @if (Model.ZVols.Count == 0)
 {
@@ -20,7 +21,7 @@ else
     <div class="card mb-4">
         <div class="card-body bg-surface">
             <div class="table-responsive">
-                <table class="table table-borderless table-sm table-hover-dark mb-0">
+                <table class="table table-borderless table-sm table-hover mb-0">
                     <thead>
                         <tr class="border-bottom border-secondary">
                             <th class="text-body-secondary fw-normal">Name</th>
@@ -79,17 +80,5 @@ else
         </div>
     </div>
 
-    @* ── Command Reference ────────────────────────────────────── *@
-    <div class="card mb-4">
-        <div class="card-body bg-surface">
-            <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                <i class="bi bi-terminal text-info"></i>
-                Common ZVol Commands
-            </h5>
-            <div class="mb-2">
-                <div class="small text-body-secondary mb-1">@Model.CommandSuggestion.Description</div>
-                <partial name="_CopyableCommand" model="new CopyableCommandViewModel(Model.CommandSuggestion.ZfsCommand)" />
-            </div>
-        </div>
-    </div>
+    <partial name="_CommandSuggestions" model='new CommandSuggestionsViewModel(new[] { Model.CommandSuggestion }, "Common ZVol Commands")' />
 }

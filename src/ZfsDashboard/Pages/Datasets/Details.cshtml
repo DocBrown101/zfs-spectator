@@ -3,16 +3,17 @@
 @{
     var ds = Model.Dataset!;
     ViewData["Title"] = $"Dataset: {ds.Name}";
-}
 
-@functions {
-    void Row(string label, object value, string? id = null, bool last = false)
-    {
-        <div class="row py-2 @(last ? "" : "border-bottom border-secondary") small">
-            <div class="col-5 text-body-secondary">@label</div>
-            <div class="col-7" @(id != null ? $"id=\"{id}\"" : "")>@value</div>
-        </div>
-    }
+    var header = new PageHeaderViewModel(
+        Icon: "bi-folder2",
+        Title: ds.Name,
+        Subtitle: "Dataset details and snapshots",
+        TitleIcon: ds.Encrypted
+            ? new("bi-lock-fill text-info ms-1", ds.EncryptionAlgorithm)
+            : null,
+        StatusBadge: !ds.Mounted
+            ? new("unmounted", "text-bg-secondary ms-2")
+            : null);
 }
 
 <nav aria-label="breadcrumb" class="mb-3">
@@ -22,20 +23,7 @@
     </ol>
 </nav>
 
-<div class="d-flex align-items-center gap-2 mb-1 pb-2 border-bottom border-secondary">
-    <h3 class="fw-bold mb-0">
-        <i class="bi bi-folder2 me-2 text-info"></i>@ds.Name
-    </h3>
-    @if (ds.Encrypted)
-    {
-        <i class="bi bi-lock-fill text-info" data-bs-toggle="tooltip" data-bs-title="@ds.EncryptionAlgorithm"></i>
-    }
-    @if (!ds.Mounted)
-    {
-        <span class="badge bg-secondary">unmounted</span>
-    }
-</div>
-<p class="text-body-secondary mb-4">Dataset details and snapshots</p>
+<partial name="_PageHeader" model="header" />
 
 @* ── Capacity ────────────────────────────────────────────────── *@
 <div class="card mb-4">
@@ -80,25 +68,34 @@
         </h5>
         <div class="row">
             <div class="col-md-6">
-                @{ Row("Compression", $"{ds.Compression} ({ds.CompRatio})"); }
-                @{ Row("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit"); }
-                @{ Row("Dedup", ds.Dedup); }
-                @{ Row("Sync", ds.Sync); }
-                @{ Row("Case Sensitivity", ds.CaseSensitivity, last: true); }
+                <partial name="_KeyValueRows"
+                        model="@(new KeyValueRowViewModel[]
+                        {
+                            new("Compression", $"{ds.Compression} ({ds.CompRatio})"),
+                            new("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit"),
+                            new("Dedup", ds.Dedup),
+                            new("Sync", ds.Sync),
+                            new("Case Sensitivity", ds.CaseSensitivity, Last: true),
+                        })" />
             </div>
+
             <div class="col-md-6">
-                @{ Row("Mountpoint", ds.Mountpoint); }
-                @{ Row("CanMount", ds.CanMount); }
-                @{ Row("Quota", ds.Quota.FormatBytesOrNone()); }
-                @{ Row("RefQuota", ds.RefQuota.FormatBytesOrNone()); }
-                @{ Row("Refreservation", ds.Refreservation.FormatBytesOrNone(), last: true); }
+                <partial name="_KeyValueRows"
+                        model="@(new KeyValueRowViewModel[]
+                        {
+                            new("Mountpoint", ds.Mountpoint),
+                            new("CanMount", ds.CanMount),
+                            new("Quota", ds.Quota.FormatBytesOrNone()),
+                            new("RefQuota", ds.RefQuota.FormatBytesOrNone()),
+                            new("Refreservation", ds.Refreservation.FormatBytesOrNone(), Last: true),
+                        })" />
             </div>
         </div>
         @if (ds.Encrypted)
         {
             <div class="mt-2 small">
                 <span class="text-body-secondary">Encryption:</span> @ds.EncryptionAlgorithm
-                <span class="badge @(ds.KeyLocked ? "bg-warning text-dark" : "bg-success") ms-1">@(ds.KeyLocked ? "locked" : "loaded")</span>
+                <span class="badge @(ds.KeyLocked ? "text-bg-warning" : "text-bg-success") ms-1">@(ds.KeyLocked ? "locked" : "loaded")</span>
             </div>
         }
         @if (!string.IsNullOrEmpty(ds.Comment))
@@ -120,4 +117,4 @@
     </div>
 </div>
 
-<partial name="_CommandSuggestions" model="Model.Suggestions" />
+<partial name="_CommandSuggestions" model="new CommandSuggestionsViewModel(Model.Suggestions)" />

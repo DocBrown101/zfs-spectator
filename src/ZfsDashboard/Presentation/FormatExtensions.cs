@@ -31,10 +31,10 @@ public static class FormatExtensions
 
     public static string ToStatusBadgeCss(this string status) => status switch
     {
-        "ONLINE" => "bg-success",
-        "DEGRADED" => "bg-warning text-dark",
-        "FAULTED" or "UNAVAIL" => "bg-danger",
-        "OFFLINE" or "REMOVED" => "bg-secondary",
-        _ => "bg-secondary",
+        "ONLINE" => "text-bg-success",
+        "DEGRADED" => "text-bg-warning",
+        "FAULTED" or "UNAVAIL" => "text-bg-danger",
+        "OFFLINE" or "REMOVED" => "text-bg-secondary",
+        _ => "text-bg-secondary",
     };
 }

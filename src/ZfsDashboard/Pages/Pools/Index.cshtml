@@ -2,12 +2,13 @@
 @model ZfsDashboard.Pages.Pools.IndexModel
 @{
     ViewData["Title"] = "Pools";
+    var header = new PageHeaderViewModel(
+        Icon: "bi-hdd-stack",
+        Title: "Pools",
+        Subtitle: $"All ZFS storage pools \u2014 {Model.Pools.Count} total");
 }
 
-<h3 class="fw-bold mb-1 pb-2 border-bottom border-secondary">
-    <i class="bi bi-hdd-stack me-2 text-info"></i>Pools
-</h3>
-<p class="text-body-secondary mb-4">All ZFS storage pools &mdash; @Model.Pools.Count total</p>
+<partial name="_PageHeader" model="header" />
 
 @if (Model.Pools.Count == 0)
 {
@@ -20,7 +21,7 @@ else
     <div class="card mb-4">
         <div class="card-body bg-surface">
             <div class="table-responsive">
-                <table class="table table-borderless table-sm table-hover-dark mb-0">
+                <table class="table table-borderless table-sm table-hover mb-0">
                     <thead>
                         <tr class="border-bottom border-secondary">
                             <th class="text-body-secondary fw-normal">Name</th>
@@ -101,4 +102,4 @@ else
     </div>
 }
 
-<partial name="_CommandSuggestions" model="Model.Suggestions" />
+<partial name="_CommandSuggestions" model="new CommandSuggestionsViewModel(Model.Suggestions)" />

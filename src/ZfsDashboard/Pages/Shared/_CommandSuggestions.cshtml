@@ -1,13 +1,13 @@
-@model IReadOnlyList<CommandSuggestion>
-@if (Model.Count > 0)
+@model CommandSuggestionsViewModel
+@if (Model.Suggestions.Count > 0)
 {
     <div class="card mb-4">
         <div class="card-body bg-surface">
             <h5 class="card-title d-flex align-items-center gap-2 mb-3">
                 <i class="bi bi-terminal text-info"></i>
-                Mutation-Commands
+                @Model.Title
             </h5>
-            @foreach (var cmd in Model)
+            @foreach (var cmd in Model.Suggestions)
             {
                 <div class="mb-3">
                     <div class="small text-body-secondary mb-1">@cmd.Description</div>
