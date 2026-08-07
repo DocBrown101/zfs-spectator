@@ -1,7 +1,6 @@
 @model CapacityBarViewModel
 @{
-    var healthyCss = Model.HealthyColor == CapacityBarHealthyColor.Info ? "bg-info" : "bg-success";
-    var barCss = Model.Percentage > 85 ? "bg-danger" : Model.Percentage > 70 ? "bg-warning" : healthyCss;
+    var barCss = Model.Percentage > 85 ? "bg-danger" : Model.Percentage > 70 ? "bg-warning" : "bg-success";
     var sizeCss = Model.Size switch
     {
         CapacityBarSize.Regular => "capacity-bar-regular",

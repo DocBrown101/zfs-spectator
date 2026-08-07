@@ -4,7 +4,7 @@
     ViewData["Title"] = "Pools";
 }
 
-<h3 class="fw-bold mb-1">
+<h3 class="fw-bold mb-1 pb-2 border-bottom border-secondary">
     <i class="bi bi-hdd-stack me-2 text-info"></i>Pools
 </h3>
 <p class="text-body-secondary mb-4">All ZFS storage pools &mdash; @Model.Pools.Count total</p>
@@ -20,7 +20,7 @@ else
     <div class="card mb-4">
         <div class="card-body bg-surface">
             <div class="table-responsive">
-                <table class="table table-borderless table-sm mb-0">
+                <table class="table table-borderless table-sm table-hover-dark mb-0">
                     <thead>
                         <tr class="border-bottom border-secondary">
                             <th class="text-body-secondary fw-normal">Name</th>
@@ -30,7 +30,7 @@ else
                             <th class="text-body-secondary fw-normal text-end">Usable</th>
                             <th class="text-body-secondary fw-normal text-end">Used</th>
                             <th class="text-body-secondary fw-normal text-end">Free</th>
-                            <th class="text-body-secondary fw-normal text-center" style="min-width:110px">Capacity</th>
+                            <th class="text-body-secondary fw-normal text-center col-capacity">Capacity</th>
                             <th class="text-body-secondary fw-normal text-end">Frag</th>
                             <th class="text-body-secondary fw-normal text-center">Compression</th>
                             <th class="text-body-secondary fw-normal text-center">Dedup</th>

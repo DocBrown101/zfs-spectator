@@ -124,7 +124,7 @@ public class ZfsParserTests
 
         var snapshots = ZfsParser.ParseSnapshots(json);
 
-        Assert.Single(snapshots);
+        Assert.Equal(2, snapshots.Count);
         var snap = snapshots[0];
         Assert.Equal("zfsPool/Cloud@backup-2026-03-22", snap.Name);
         Assert.Equal("zfsPool/Cloud", snap.DatasetName);
@@ -132,6 +132,14 @@ public class ZfsParserTests
         Assert.Equal(57344UL, snap.Used);
         Assert.Equal(119759839696UL, snap.Refer);
         Assert.Equal(1774166100, snap.Creation.ToUnixTimeSeconds());
+
+        var archivSnap = snapshots[1];
+        Assert.Equal("zfsPool/PC-Daniel/Archiv@backup-2026-04-01", archivSnap.Name);
+        Assert.Equal("zfsPool/PC-Daniel/Archiv", archivSnap.DatasetName);
+        Assert.Equal("backup-2026-04-01", archivSnap.SnapName);
+        Assert.Equal(1048576UL, archivSnap.Used);
+        Assert.Equal(510950575744UL, archivSnap.Refer);
+        Assert.Equal(1775030100, archivSnap.Creation.ToUnixTimeSeconds());
     }
 
     [Fact]

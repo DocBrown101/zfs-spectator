@@ -35,6 +35,37 @@
           }
         }
       }
+    },
+    "zfsPool/PC-Daniel/Archiv@backup-2026-04-01": {
+      "name": "zfsPool/PC-Daniel/Archiv@backup-2026-04-01",
+      "type": "SNAPSHOT",
+      "pool": "zfsPool",
+      "createtxg": "158901",
+      "dataset": "zfsPool/PC-Daniel/Archiv",
+      "snapshot_name": "backup-2026-04-01",
+      "properties": {
+        "used": {
+          "value": "1048576",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "referenced": {
+          "value": "510950575744",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        },
+        "creation": {
+          "value": "1775030100",
+          "source": {
+            "type": "NONE",
+            "data": "-"
+          }
+        }
+      }
     }
   }
 }

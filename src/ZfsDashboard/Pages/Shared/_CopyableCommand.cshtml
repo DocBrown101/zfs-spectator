@@ -1,33 +1,18 @@
 @model CopyableCommandViewModel
 <div class="cmd-block">
-    <pre class="bg-dark text-light p-2 rounded @(Model.Compact ? "small" : "")"><code>@Model.Command</code></pre>
+    <pre class="bg-body-tertiary text-body border p-2 rounded-2 @(Model.Compact ? "small" : "")"><code>@Model.Command</code></pre>
     <button type="button" class="btn btn-sm btn-outline-secondary btn-copy" data-bs-toggle="tooltip" data-bs-title="@Model.Tooltip" aria-label="@Model.Tooltip">
         <i class="bi bi-clipboard"></i>
     </button>
 </div>
 
-<script>
-    document.querySelectorAll('.btn-copy:not([data-copy-initialized])').forEach(function (btn) {
-        btn.dataset.copyInitialized = 'true';
-        btn.addEventListener('click', function () {
-            const target = btn.closest('.cmd-block');
-            if (!target) return;
+@{
+    const string scriptName = "CopyableCommand.js";
+    const string scriptKey = "__" + scriptName;
+    var renderScript = Context.Items.TryAdd(scriptKey, true);
+}
 
-            const code = target.querySelector('code') || target.querySelector('pre');
-            if (!code) return;
-
-            navigator.clipboard.writeText(code.textContent.trim()).then(function () {
-                const icon = btn.querySelector('i');
-                const original = icon.className;
-                icon.className = 'bi bi-check2';
-                btn.classList.add('btn-success');
-                btn.classList.remove('btn-outline-secondary');
-                setTimeout(function () {
-                    icon.className = original;
-                    btn.classList.remove('btn-success');
-                    btn.classList.add('btn-outline-secondary');
-                }, 1500);
-            });
-        });
-    });
-</script>
+@if (renderScript)
+{
+    <script src="~/js/shared/@scriptName"></script>
+}

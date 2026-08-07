@@ -41,7 +41,7 @@
                         <li class="nav-item">
                             <a class="nav-link d-flex align-items-center gap-1 @NavActive(page)"
                                asp-page="@(page == "/Index" ? page : page + "/Index")">
-                                <i class="bi @icon" style="font-size:.85rem"></i>
+                                <i class="bi @icon navbar-icon"></i>
                                 @label
                             </a>
                         </li>
@@ -49,7 +49,7 @@
                 </ul>
                 <div class="d-flex align-items-center gap-3 ms-auto small">
                     <span class="fw-semibold">@sysInfo.Hostname</span>
-                    <div class="d-flex flex-column align-items-end text-body-secondary" style="line-height:1.3">
+                    <div class="d-flex flex-column align-items-end text-body-secondary navbar-sysinfo">
                         <span>Linux-@sysInfo.Kernel</span>
                         <span>ZFS @sysInfo.ZfsVersion</span>
                     </div>

@@ -9,6 +9,7 @@ public sealed record SnapshotTableViewModel
         string idPrefix = "dataset-snapshot",
         bool includeSeconds = false)
     {
+        this.AccordionId = $"{idPrefix}-accordion";
         this.Rows = snapshots
             .OrderByDescending(snapshot => snapshot.Creation)
             .Select((snapshot, index) => new SnapshotRowViewModel(
@@ -18,6 +19,7 @@ public sealed record SnapshotTableViewModel
             .ToList();
     }
 
+    public string AccordionId { get; }
     public IReadOnlyList<SnapshotRowViewModel> Rows { get; }
     public string EmptyMessage { get; } = "No snapshots";
 }

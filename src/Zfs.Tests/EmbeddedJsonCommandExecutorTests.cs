@@ -57,7 +57,7 @@ public class EmbeddedJsonCommandExecutorTests
     [Theory]
     [InlineData("filesystem", "zfsPool", 9)]
     [InlineData("filesystem", "miniTank", 0)]
-    [InlineData("snapshot", "zfsPool", 1)]
+    [InlineData("snapshot", "zfsPool", 2)]
     [InlineData("snapshot", "miniTank", 0)]
     public async Task PoolScopedLists_OnlyReturnEntriesFromTheRequestedPool(
         string type,

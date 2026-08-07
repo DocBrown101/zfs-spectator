@@ -30,19 +30,9 @@
                             {
                                 <i id="poolEncrypted-@pool.Name" class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="Encrypted (@pool.EncryptionAlgorithm)"></i>
                             }
-                            else
-                            {
-                                <i id="poolEncrypted-@pool.Name" class="bi bi-lock-fill text-warning ms-1 d-none" data-bs-toggle="tooltip"></i>
-                            }
                             @if (pool.HasErrors)
                             {
                                 <span id="poolErrors-@pool.Name" class="badge bg-danger ms-1" data-bs-toggle="tooltip" data-bs-title="@pool.ErrorTooltip">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                </span>
-                            }
-                            else
-                            {
-                                <span id="poolErrors-@pool.Name" class="badge bg-danger ms-1 d-none" data-bs-toggle="tooltip">
                                     <i class="bi bi-exclamation-triangle"></i>
                                 </span>
                             }
@@ -73,7 +63,7 @@
                         </div>
                     </div>
                     <div class="table-responsive mt-2">
-                        <table class="table table-borderless table-sm mb-0 small dashboard-table">
+                        <table class="table table-borderless table-sm table-hover-dark mb-0 small dashboard-table">
                             <colgroup>
                                 <col class="dashboard-pool-disk-name">
                                 <col class="dashboard-pool-disk-metric">

@@ -23,22 +23,24 @@
     </ol>
 </nav>
 
-<div class="d-flex justify-content-between align-items-center mb-1">
+<div class="d-flex justify-content-between align-items-center mb-1 pb-2 border-bottom border-secondary">
     <h3 class="fw-bold mb-0">
         <i class="bi bi-hdd-stack me-2 text-info"></i>@p.Name
         <span class="badge @p.Health.ToStatusBadgeCss() ms-2">@p.Health</span>
         @if (p.Encrypted)
         {
-            <i class="bi bi-lock-fill text-info ms-1" data-bs-toggle="tooltip" data-bs-title="@p.EncryptionAlgorithm"></i>
+            <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="Encrypted (@p.EncryptionAlgorithm)"></i>
         }
         @if (p.HasErrors)
         {
-            <span class="badge bg-danger ms-1"><i class="bi bi-exclamation-triangle"></i> errors</span>
+            <span class="badge bg-danger ms-1">
+                <i class="bi bi-exclamation-triangle"></i> errors
+            </span>
         }
     </h3>
     @if (!string.IsNullOrEmpty(p.Operation))
     {
-        <span class="badge bg-info fs-6">@p.Operation</span>
+        <span class="badge bg-info text-dark fs-6">@p.Operation</span>
     }
 </div>
 <p class="text-body-secondary mb-4">Pool details and configuration</p>

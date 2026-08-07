@@ -4,7 +4,7 @@
     ViewData["Title"] = "ZVols";
 }
 
-<h3 class="fw-bold mb-1">
+<h3 class="fw-bold mb-1 pb-2 border-bottom border-secondary">
     <i class="bi bi-device-hdd me-2 text-info"></i>ZVols
 </h3>
 <p class="text-body-secondary mb-4">ZFS block devices &mdash; @Model.ZVols.Count total</p>
@@ -20,7 +20,7 @@ else
     <div class="card mb-4">
         <div class="card-body bg-surface">
             <div class="table-responsive">
-                <table class="table table-borderless table-sm mb-0">
+                <table class="table table-borderless table-sm table-hover-dark mb-0">
                     <thead>
                         <tr class="border-bottom border-secondary">
                             <th class="text-body-secondary fw-normal">Name</th>
@@ -48,7 +48,7 @@ else
                                     }
                                     @if (!string.IsNullOrEmpty(zv.Comment))
                                     {
-                                        <div class="text-body-secondary small" style="font-family:var(--bs-body-font-family)">@zv.Comment</div>
+                                        <div class="text-body-secondary small font-body">@zv.Comment</div>
                                     }
                                 </td>
                                 <td>
@@ -64,7 +64,7 @@ else
                                 <td class="small text-end">@zv.VolBlockSize</td>
                                 <td>
                                     <div class="cmd-block d-inline-flex align-items-center gap-1">
-                                        <code class="font-monospace small text-body-secondary">@zv.DevPath</code>
+                                        <code class="font-monospace small text-body-secondary bg-body-tertiary rounded-1 px-1">@zv.DevPath</code>
                                         <button type="button" class="btn btn-sm btn-outline-secondary btn-copy opacity-100 position-static py-0 px-1"
                                                 data-bs-toggle="tooltip" data-bs-title="Copy path">
                                             <i class="bi bi-clipboard small"></i>

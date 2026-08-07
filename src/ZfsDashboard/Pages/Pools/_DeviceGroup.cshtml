@@ -1,13 +1,13 @@
 @model PoolDeviceGroupViewModel
 <h6 class="mt-3 mb-2 d-flex align-items-center gap-1">
     <i class="bi bi-@Model.Icon me-1 text-info"></i>@Model.Title
-    <span class="badge bg-secondary ms-1">@Model.Devices.Count</span>
+    <span class="badge bg-body-tertiary text-body-secondary border ms-1">@Model.Devices.Count</span>
 </h6>
 @if (Model.Size > 0)
 {
     <div class="d-flex align-items-center gap-4 mb-2 small">
         <div class="flex-grow-1 pool-device-capacity">
-            <partial name="_CapacityBar" model="new CapacityBarViewModel(Model.UsagePercent, HealthyColor: CapacityBarHealthyColor.Info)" />
+            <partial name="_CapacityBar" model="new CapacityBarViewModel(Model.UsagePercent)" />
         </div>
         <div><span class="text-body-secondary">Size</span> <span class="fw-semibold">@Model.Size.FormatBytes()</span></div>
         <div><span class="text-body-secondary">Used</span> <span class="fw-semibold">@Model.Allocated.FormatBytes()</span></div>
@@ -15,7 +15,7 @@
     </div>
 }
 <div class="table-responsive">
-    <table class="table table-borderless table-sm mb-0">
+    <table class="table table-borderless table-sm table-hover-dark mb-0">
         <thead>
             <tr class="border-bottom border-secondary">
                 <th class="text-body-secondary fw-normal">Device Path</th>
