@@ -7,26 +7,31 @@ namespace ZfsDashboard.ViewModels.Snapshots;
 
 public sealed record SnapshotRowViewModel
 {
+    private readonly Snapshot snapshot;
+    private readonly string collapseId;
+    private readonly bool includeSeconds;
+
     public SnapshotRowViewModel(Snapshot snapshot, string collapseId, bool includeSeconds)
     {
-        this.CollapseId = collapseId;
-        this.Name = snapshot.SnapName;
-        this.Used = snapshot.Used.FormatBytes();
-        this.Referenced = snapshot.Refer.FormatBytes();
-        this.Created = snapshot.Creation.LocalDateTime.ToString(includeSeconds ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd HH:mm");
-        this.RollbackCommand = new CopyableCommandViewModel(
-            CommandSuggestionsService.SuggestRollback(snapshot.Name).ZfsCommand,
-            Compact: true);
-        this.DestroyCommand = new CopyableCommandViewModel(
-            CommandSuggestionsService.SuggestDestroySnapshot(snapshot.Name).ZfsCommand,
-            Compact: true);
+        this.snapshot = snapshot;
+        this.collapseId = collapseId;
+        this.includeSeconds = includeSeconds;
     }
 
-    public string CollapseId { get; }
-    public string Name { get; }
-    public string Used { get; }
-    public string Referenced { get; }
-    public string Created { get; }
-    public CopyableCommandViewModel RollbackCommand { get; }
-    public CopyableCommandViewModel DestroyCommand { get; }
+    public string CollapseId => this.collapseId;
+    public string Name => this.snapshot.SnapName;
+    public string Used => this.snapshot.Used.FormatBytes();
+    public string Referenced => this.snapshot.Refer.FormatBytes();
+    public string Created =>
+        this.snapshot.Creation.LocalDateTime.ToString(this.includeSeconds ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd HH:mm");
+
+    public CopyableCommandViewModel RollbackCommand =>
+        new CopyableCommandViewModel(
+            CommandSuggestionsService.SuggestRollback(this.snapshot.Name).ZfsCommand,
+            Compact: true);
+
+    public CopyableCommandViewModel DestroyCommand =>
+        new CopyableCommandViewModel(
+            CommandSuggestionsService.SuggestDestroySnapshot(this.snapshot.Name).ZfsCommand,
+            Compact: true);
 }

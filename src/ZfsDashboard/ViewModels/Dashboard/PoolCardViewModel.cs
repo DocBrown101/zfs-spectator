@@ -6,34 +6,25 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 
 public sealed record PoolCardViewModel
 {
+    private readonly Pool pool;
+
     public PoolCardViewModel(Pool pool)
     {
-        this.Name = pool.Name;
-        this.Health = pool.Health;
-        this.HealthCss = pool.Health.ToStatusBadgeCss();
-        this.Encrypted = pool.Encrypted;
-        this.EncryptionAlgorithm = pool.EncryptionAlgorithm;
-        this.HasErrors = pool.HasErrors;
-        this.ErrorTooltip = $"R:{pool.ErrorsRead} W:{pool.ErrorsWrite} C:{pool.ErrorsChecksum}";
-        this.Size = pool.UsableSize.FormatBytes();
-        this.Allocated = pool.UsableUsed.FormatBytes();
-        this.Free = pool.UsableAvail.FormatBytes();
-        this.UsagePercent = pool.UsagePercent;
-        this.CapacityCss = pool.UsagePercent.ToCapacityCss();
+        this.pool = pool;
     }
 
-    public string Name { get; }
-    public string Health { get; }
-    public string HealthCss { get; }
-    public bool Encrypted { get; }
-    public string EncryptionAlgorithm { get; }
-    public bool HasErrors { get; }
-    public string ErrorTooltip { get; }
-    public string Size { get; }
-    public string Allocated { get; }
-    public string Free { get; }
-    public double UsagePercent { get; }
+    public string Name => this.pool.Name;
+    public string Health => this.pool.Health;
+    public string HealthCss => this.pool.Health.ToStatusBadgeCss();
+    public bool Encrypted => this.pool.Encrypted;
+    public string EncryptionAlgorithm => this.pool.EncryptionAlgorithm;
+    public bool HasErrors => this.pool.HasErrors;
+    public string ErrorTooltip => $"R:{this.pool.ErrorsRead} W:{this.pool.ErrorsWrite} C:{this.pool.ErrorsChecksum}";
+    public string Size => this.pool.UsableSize.FormatBytes();
+    public string Allocated => this.pool.UsableUsed.FormatBytes();
+    public string Free => this.pool.UsableAvail.FormatBytes();
+    public double UsagePercent => this.pool.UsagePercent;
     public double ClampedUsagePercent => Math.Clamp(this.UsagePercent, 0, 100);
     public string UsagePercentText => $"{this.UsagePercent.ToString("F0", CultureInfo.InvariantCulture)}%";
-    public string CapacityCss { get; }
+    public string CapacityCss => this.pool.UsagePercent.ToCapacityCss();
 }

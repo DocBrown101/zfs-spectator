@@ -6,38 +6,28 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 
 public sealed record DiskIoRateViewModel
 {
+    private readonly DiskIoRateInfo rate;
+
     public DiskIoRateViewModel(DiskIoRateInfo rate)
     {
-        this.Device = rate.Device;
-        this.VdevType = rate.VdevType;
-        this.ReadBytesPerSecond = rate.ReadBytesPerSec;
-        this.WriteBytesPerSecond = rate.WriteBytesPerSec;
-        this.ReadRate = rate.ReadBytesPerSec.FormatRate();
-        this.WriteRate = rate.WriteBytesPerSec.FormatRate();
-        this.QueueDepth = Math.Round(rate.QueueDepth).ToString();
-        this.ReadLatency = FormatLatency(rate.ReadLatencyMs);
-        this.WriteLatency = FormatLatency(rate.WriteLatencyMs);
-        this.UtilizationPercent = rate.UtilizationPct;
-        this.UtilizationCss = UtilizationCssFor(rate.UtilizationPct);
-        this.Temperature = rate.Temperature;
-        this.TemperatureCss = TemperatureCssFor(rate.Temperature);
+        this.rate = rate;
     }
 
-    public string Device { get; }
-    public string VdevType { get; }
-    public double ReadBytesPerSecond { get; }
-    public double WriteBytesPerSecond { get; }
-    public string ReadRate { get; }
-    public string WriteRate { get; }
-    public string QueueDepth { get; }
-    public string ReadLatency { get; }
-    public string WriteLatency { get; }
-    public double UtilizationPercent { get; }
+    public string Device => this.rate.Device;
+    public string VdevType => this.rate.VdevType;
+    public double ReadBytesPerSecond => this.rate.ReadBytesPerSec;
+    public double WriteBytesPerSecond => this.rate.WriteBytesPerSec;
+    public string ReadRate => this.rate.ReadBytesPerSec.FormatRate();
+    public string WriteRate => this.rate.WriteBytesPerSec.FormatRate();
+    public string QueueDepth => Math.Round(this.rate.QueueDepth).ToString();
+    public string ReadLatency => FormatLatency(this.rate.ReadLatencyMs);
+    public string WriteLatency => FormatLatency(this.rate.WriteLatencyMs);
+    public double UtilizationPercent => this.rate.UtilizationPct;
     public string UtilizationPercentText => $"{this.UtilizationPercent.ToString("F1", CultureInfo.InvariantCulture)}%";
-    public string UtilizationCss { get; }
-    public int? Temperature { get; }
+    public string UtilizationCss => UtilizationCssFor(this.rate.UtilizationPct);
+    public int? Temperature => this.rate.Temperature;
     public string TemperatureText => this.Temperature is { } value ? $"{value.ToString(CultureInfo.InvariantCulture)} °C" : "\u2013";
-    public string TemperatureCss { get; }
+    public string TemperatureCss => TemperatureCssFor(this.rate.Temperature);
 
     private static string UtilizationCssFor(double utilization)
     {

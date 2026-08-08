@@ -6,23 +6,26 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 
 public sealed record MemoryCardViewModel
 {
+    private readonly MemoryInfo memory;
+
     public MemoryCardViewModel(MemoryInfo memory)
     {
-        var usagePercent = memory.Total > 0 ? (double)memory.Used / memory.Total * 100 : 0;
-        var swapUsagePercent = memory.SwapTotal > 0 ? (double)memory.SwapUsed / memory.SwapTotal * 100 : 0;
-
-        this.UsagePercent = usagePercent;
-        this.Details =
-        [
-            new("Total Memory", memory.Total.FormatBytes(), "memTotal"),
-            new("Available Memory", memory.Available.FormatBytes(), "memAvail"),
-            new("Used Memory", memory.Used.FormatBytes(), "memUsed"),
-            new("Buffers / Cached", $"{memory.Buffers.FormatBytes()} / {memory.Cached.FormatBytes()}", "memBuffersCached"),
-            new("Swap Used", $"{memory.SwapUsed.FormatBytes()} / {memory.SwapTotal.FormatBytes()}", "swapUsed"),
-            new("Swap Usage", $"{swapUsagePercent:F1} %", "swapPct"),
-        ];
+        this.memory = memory;
     }
 
-    public double UsagePercent { get; }
-    public IReadOnlyList<KeyValueRowViewModel> Details { get; }
+    public double UsagePercent =>
+        this.memory.Total > 0 ? (double)this.memory.Used / this.memory.Total * 100 : 0;
+
+    private double SwapUsagePercent =>
+        this.memory.SwapTotal > 0 ? (double)this.memory.SwapUsed / this.memory.SwapTotal * 100 : 0;
+
+    public IReadOnlyList<KeyValueRowViewModel> Details =>
+    [
+        new("Total Memory", this.memory.Total.FormatBytes(), "memTotal"),
+        new("Available Memory", this.memory.Available.FormatBytes(), "memAvail"),
+        new("Used Memory", this.memory.Used.FormatBytes(), "memUsed"),
+        new("Buffers / Cached", $"{this.memory.Buffers.FormatBytes()} / {this.memory.Cached.FormatBytes()}", "memBuffersCached"),
+        new("Swap Used", $"{this.memory.SwapUsed.FormatBytes()} / {this.memory.SwapTotal.FormatBytes()}", "swapUsed"),
+        new("Swap Usage", $"{this.SwapUsagePercent:F1} %", "swapPct"),
+    ];
 }

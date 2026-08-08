@@ -5,18 +5,16 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 
 public sealed record NetworkRateViewModel
 {
+    private readonly NetworkRateInfo rate;
+
     public NetworkRateViewModel(NetworkRateInfo rate)
     {
-        this.Name = rate.Name;
-        this.RxBytesPerSecond = rate.RxBytesPerSec;
-        this.TxBytesPerSecond = rate.TxBytesPerSec;
-        this.DownloadRate = rate.RxBytesPerSec.FormatRate();
-        this.UploadRate = rate.TxBytesPerSec.FormatRate();
+        this.rate = rate;
     }
 
-    public string Name { get; }
-    public double RxBytesPerSecond { get; }
-    public double TxBytesPerSecond { get; }
-    public string DownloadRate { get; }
-    public string UploadRate { get; }
+    public string Name => this.rate.Name;
+    public double RxBytesPerSecond => this.rate.RxBytesPerSec;
+    public double TxBytesPerSecond => this.rate.TxBytesPerSec;
+    public string DownloadRate => this.rate.RxBytesPerSec.FormatRate();
+    public string UploadRate => this.rate.TxBytesPerSec.FormatRate();
 }

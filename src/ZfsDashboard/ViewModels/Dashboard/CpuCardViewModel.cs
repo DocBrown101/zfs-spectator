@@ -6,19 +6,23 @@ namespace ZfsDashboard.ViewModels.Dashboard;
 
 public sealed record CpuCardViewModel
 {
+    private readonly SystemInfo system;
+    private readonly StaticSystemInfo staticSystem;
+
     public CpuCardViewModel(SystemInfo system, StaticSystemInfo staticSystem)
     {
-        this.UsagePercent = system.CpuUsagePercent;
-        this.Details =
-        [
-            new("Processor", staticSystem.Processor),
-            new("Cores (physical / logical)", $"{FormatCoreCount(staticSystem.PhysicalCoreCount)} / {FormatCoreCount(staticSystem.LogicalCoreCount)}"),
-            new("Temperature", FormatTemperature(system.CpuTemperatureCelsius), "cpuTemperature", ValueCss: TemperatureCssFor(system.CpuTemperatureCelsius)),
-        ];
+        this.system = system;
+        this.staticSystem = staticSystem;
     }
 
-    public double UsagePercent { get; }
-    public IReadOnlyList<KeyValueRowViewModel> Details { get; }
+    public double UsagePercent => this.system.CpuUsagePercent;
+
+    public IReadOnlyList<KeyValueRowViewModel> Details =>
+    [
+        new("Processor", this.staticSystem.Processor),
+        new("Cores (physical / logical)", $"{FormatCoreCount(this.staticSystem.PhysicalCoreCount)} / {FormatCoreCount(this.staticSystem.LogicalCoreCount)}"),
+        new("Temperature", FormatTemperature(this.system.CpuTemperatureCelsius), "cpuTemperature", ValueCss: TemperatureCssFor(this.system.CpuTemperatureCelsius)),
+    ];
 
     internal static string TemperatureCssFor(double? temperature)
     {
