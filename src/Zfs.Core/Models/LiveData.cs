@@ -24,7 +24,8 @@ public record StaticSystemInfo
     public string Kernel { get; init; } = Unknown;
     public string ZfsVersion { get; init; } = Unknown;
     public string Processor { get; init; } = Unknown;
-    public int CpuCount { get; init; } = -1;
+    public int PhysicalCoreCount { get; init; } = -1;
+    public int LogicalCoreCount { get; init; } = -1;
 }
 
 public record SystemInfo
@@ -33,6 +34,7 @@ public record SystemInfo
     public ArcStats Arc { get; init; } = new();
     public MemoryInfo Memory { get; init; } = new();
     public double CpuUsagePercent { get; init; }
+    public double? CpuTemperatureCelsius { get; init; }
 }
 
 public record MemoryInfo

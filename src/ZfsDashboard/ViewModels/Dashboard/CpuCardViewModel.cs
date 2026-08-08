@@ -1,3 +1,4 @@
+using System.Globalization;
 using Zfs.Core.Models;
 using ZfsDashboard.ViewModels.Shared;
 
@@ -11,10 +12,24 @@ public sealed record CpuCardViewModel
         this.Details =
         [
             new("Processor", staticSystem.Processor),
-            new("CPU Count", staticSystem.CpuCount > 0 ? staticSystem.CpuCount.ToString() : "unknown"),
+            new("Cores (physical / logical)", $"{FormatCoreCount(staticSystem.PhysicalCoreCount)} / {FormatCoreCount(staticSystem.LogicalCoreCount)}"),
+            new("Temperature", FormatTemperature(system.CpuTemperatureCelsius), "cpuTemperature", ValueCss: TemperatureCssFor(system.CpuTemperatureCelsius)),
         ];
     }
 
     public double UsagePercent { get; }
     public IReadOnlyList<KeyValueRowViewModel> Details { get; }
+
+    internal static string TemperatureCssFor(double? temperature)
+    {
+        if (temperature >= 95) return "text-danger";
+        if (temperature >= 80) return "text-warning";
+        return "";
+    }
+
+    private static string FormatCoreCount(int count) =>
+        count > 0 ? count.ToString(CultureInfo.InvariantCulture) : "unknown";
+
+    private static string FormatTemperature(double? celsius) =>
+        celsius is { } value ? $"{value.ToString("F1", CultureInfo.InvariantCulture)} °C" : "N/A";
 }

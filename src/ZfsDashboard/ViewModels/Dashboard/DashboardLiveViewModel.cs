@@ -29,6 +29,8 @@ public sealed record DashboardLiveViewModel
 
         this.Uptime = data.System.Uptime;
         this.CpuUsagePercent = data.System.CpuUsagePercent;
+        this.CpuTemperatureCelsius = data.System.CpuTemperatureCelsius;
+        this.CpuTemperatureCss = CpuCardViewModel.TemperatureCssFor(data.System.CpuTemperatureCelsius);
         this.Memory = new MemoryCardViewModel(data.System.Memory);
         this.Arc = new ArcCardViewModel(data.System.Arc);
         this.NetworkRates = data.NetworkRates.Select(rate => new NetworkRateViewModel(rate)).ToList();
@@ -42,6 +44,8 @@ public sealed record DashboardLiveViewModel
 
     public string Uptime { get; }
     public double CpuUsagePercent { get; }
+    public double? CpuTemperatureCelsius { get; }
+    public string CpuTemperatureCss { get; }
     public MemoryCardViewModel Memory { get; }
     public ArcCardViewModel Arc { get; }
     public IReadOnlyList<NetworkRateViewModel> NetworkRates { get; }

@@ -247,6 +247,13 @@
         });
     }
 
+    function updateCpuTemperature(temperature, css) {
+        const element = document.getElementById('cpuTemperature');
+        if (!element) return;
+        element.textContent = temperature == null ? 'N/A' : temperature.toFixed(1) + ' \u00b0C';
+        element.className = 'col-7 ' + css;
+    }
+
     function updateMemory(memory) {
         updateGauge(memoryChart, 'memPct', memory.usagePercent);
         updateMetricRows(memory.details);
@@ -300,6 +307,7 @@
 
             setText('sysUptime', data.uptime);
             updateGauge(cpuChart, 'cpuPct', data.cpuUsagePercent);
+            updateCpuTemperature(data.cpuTemperatureCelsius, data.cpuTemperatureCss);
             updateMemory(data.memory);
             updateArc(data.arc);
 

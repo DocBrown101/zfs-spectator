@@ -198,7 +198,7 @@ public class DashboardSnapshotServiceTests
             Kernel = "updated-kernel",
             ZfsVersion = "updated-zfs",
             Processor = "updated-cpu",
-            CpuCount = 2,
+            LogicalCoreCount = 2,
         };
         system.StaticSystem = updated;
         time.Advance(TimeSpan.FromHours(24));
@@ -224,7 +224,7 @@ public class DashboardSnapshotServiceTests
             Kernel = "kernel",
             ZfsVersion = "zfs",
             Processor = "cpu",
-            CpuCount = 2,
+            LogicalCoreCount = 2,
         };
         time.Advance(TimeSpan.FromHours(24));
 
@@ -281,7 +281,7 @@ public class DashboardSnapshotServiceTests
             Kernel = "test-kernel",
             ZfsVersion = "test-zfs",
             Processor = "test-cpu",
-            CpuCount = 1,
+            LogicalCoreCount = 1,
         };
 
         public Task<DashboardData> GetDashboardDataAsync(

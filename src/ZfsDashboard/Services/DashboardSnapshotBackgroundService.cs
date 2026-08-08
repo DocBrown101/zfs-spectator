@@ -193,7 +193,7 @@ public sealed class DashboardSnapshotBackgroundService(
 
     private static bool IsValidStaticSystemInfo(StaticSystemInfo value)
     {
-        return value.CpuCount > 0 &&
+        return value.LogicalCoreCount > 0 &&
                IsKnown(value.Hostname) &&
                IsKnown(value.Kernel) &&
                IsKnown(value.ZfsVersion) &&

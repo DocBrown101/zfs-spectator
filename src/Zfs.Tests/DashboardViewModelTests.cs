@@ -40,11 +40,83 @@ public class DashboardViewModelTests
     }
 
     [Fact]
-    public void CpuCard_FormatsUnavailableCpuCountAsUnknown()
+    public void CpuCard_FormatsUnavailableCoreCountsAsUnknown()
     {
         var response = new CpuCardViewModel(new SystemInfo(), new StaticSystemInfo());
 
-        Assert.Equal("unknown", response.Details.Single(row => row.Label == "CPU Count").Value);
+        Assert.Equal("unknown / unknown", response.Details.Single(row => row.Label == "Cores (physical / logical)").Value);
+        Assert.Equal("N/A", response.Details.Single(row => row.Label == "Temperature").Value);
+    }
+
+    [Fact]
+    public void CpuCard_FormatsCoreCountsAndTemperature()
+    {
+        var response = new CpuCardViewModel(
+            new SystemInfo { CpuTemperatureCelsius = 52.437 },
+            new StaticSystemInfo { Processor = "AMD Ryzen 7", PhysicalCoreCount = 8, LogicalCoreCount = 16 });
+
+        Assert.Equal("AMD Ryzen 7", response.Details.Single(row => row.Label == "Processor").Value);
+        Assert.Equal("8 / 16", response.Details.Single(row => row.Label == "Cores (physical / logical)").Value);
+        Assert.Equal("52.4 °C", response.Details.Single(row => row.Label == "Temperature").Value);
+        Assert.Equal("cpuTemperature", response.Details.Single(row => row.Label == "Temperature").ElementId);
+        Assert.Equal("", response.Details.Single(row => row.Label == "Temperature").ValueCss);
+    }
+
+    [Theory]
+    [InlineData(52.4, "")]
+    [InlineData(80.0, "text-warning")]
+    [InlineData(95.0, "text-danger")]
+    [InlineData(null, "")]
+    public void CpuCard_AppliesTemperatureCssForThresholds(double? temperature, string expected)
+    {
+        var response = new CpuCardViewModel(
+            new SystemInfo { CpuTemperatureCelsius = temperature },
+            new StaticSystemInfo());
+
+        Assert.Equal(expected, response.Details.Single(row => row.Label == "Temperature").ValueCss);
+    }
+
+    [Fact]
+    public void CpuCard_FormatsPartialUnknownCores()
+    {
+        var response = new CpuCardViewModel(
+            new SystemInfo(),
+            new StaticSystemInfo { PhysicalCoreCount = -1, LogicalCoreCount = 16 });
+
+        Assert.Equal("unknown / 16", response.Details.Single(row => row.Label == "Cores (physical / logical)").Value);
+    }
+
+    [Fact]
+    public void LiveResponse_ExposesCpuTemperatureForLiveUpdates()
+    {
+        var response = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData
+            {
+                System = new SystemInfo { CpuTemperatureCelsius = 52.437 },
+            },
+            [],
+            new StaticSystemInfo()));
+
+        Assert.Equal(52.437, response.CpuTemperatureCelsius);
+        Assert.Equal("", response.CpuTemperatureCss);
+    }
+
+    [Theory]
+    [InlineData(52.4, "")]
+    [InlineData(80.0, "text-warning")]
+    [InlineData(95.0, "text-danger")]
+    [InlineData(null, "")]
+    public void LiveResponse_ExposesCpuTemperatureCssFromBackend(double? temperature, string expected)
+    {
+        var response = new DashboardLiveViewModel(new DashboardSnapshot(
+            new DashboardData
+            {
+                System = new SystemInfo { CpuTemperatureCelsius = temperature },
+            },
+            [],
+            new StaticSystemInfo()));
+
+        Assert.Equal(expected, response.CpuTemperatureCss);
     }
 
     [Fact]

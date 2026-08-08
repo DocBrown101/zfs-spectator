@@ -79,7 +79,8 @@ public class DemoDataSystemService : ISystemService
             Kernel = "6.12.8-zfs",
             ZfsVersion = zfsVersion,
             Processor = "AMD Ryzen 7 5800X 8-Core Processor",
-            CpuCount = 16,
+            PhysicalCoreCount = 8,
+            LogicalCoreCount = 16,
         };
     }
 
@@ -104,6 +105,7 @@ public class DemoDataSystemService : ISystemService
                 SwapUsed = 0,
             },
             CpuUsagePercent = 50.0 + Random.Shared.NextDouble() * 40.0,
+            CpuTemperatureCelsius = 70.0 + Random.Shared.NextDouble() * 32.0,
         };
     }
 
