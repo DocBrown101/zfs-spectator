@@ -8,29 +8,33 @@ public sealed record ArcCardViewModel
 {
     public ArcCardViewModel(ArcStats arc)
     {
+        var usagePercent = arc.MaxSize > 0 ? (double)arc.Size / arc.MaxSize * 100 : 0;
+        var hitRate = (arc.Hits + arc.Misses) > 0 ? (double)arc.Hits / (arc.Hits + arc.Misses) * 100 : 0;
+        var l2HitRate = (arc.L2Hits + arc.L2Misses) > 0 ? (double)arc.L2Hits / (arc.L2Hits + arc.L2Misses) * 100 : 0;
+
         this.IsVisible = arc.MaxSize > 0;
-        this.UsagePercent = arc.UsagePercent;
-        this.HitRate = arc.HitRate;
-        this.HitRateCss = ToArcHitRateCss(arc.HitRate);
-        this.L2HitRate = arc.L2Size > 0 ? arc.L2HitRate : null;
-        this.L2HitRateCss = arc.L2Size > 0 ? ToL2HitRateCss(arc.L2HitRate) : null;
+        this.UsagePercent = usagePercent;
+        this.HitRate = hitRate;
+        this.HitRateCss = ToArcHitRateCss(hitRate);
+        this.L2HitRate = arc.L2Size > 0 ? l2HitRate : null;
+        this.L2HitRateCss = arc.L2Size > 0 ? ToL2HitRateCss(l2HitRate) : null;
         this.L2Size = arc.L2Size > 0 ? arc.L2Size.FormatBytes() : null;
         this.Details =
         [
             new("ARC Size", $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}", "arcSize"),
             new(
                 "L1 Hit Rate",
-                $"{arc.HitRate.ToString("F1", CultureInfo.InvariantCulture)}%",
+                $"{hitRate.ToString("F1", CultureInfo.InvariantCulture)}%",
                 "arcHitRate",
-                ValueCss: $"{ToArcHitRateCss(arc.HitRate)} fw-semibold"),
+                ValueCss: $"{ToArcHitRateCss(hitRate)} fw-semibold"),
             ..(arc.L2Size > 0
                 ? new MetricRowViewModel[]
                 {
                     new(
                         "L2 Hit Rate",
-                        $"{arc.L2HitRate.ToString("F1", CultureInfo.InvariantCulture)}% ({arc.L2Size.FormatBytes()})",
+                        $"{l2HitRate.ToString("F1", CultureInfo.InvariantCulture)}% ({arc.L2Size.FormatBytes()})",
                         "l2HitRate",
-                        ValueCss: $"{ToL2HitRateCss(arc.L2HitRate)} fw-semibold"),
+                        ValueCss: $"{ToL2HitRateCss(l2HitRate)} fw-semibold"),
                 }
                 : []),
             new("Metadata", arc.MetadataSize.FormatBytes(), "arcMeta", arc.MetadataSize > 0),

@@ -3,10 +3,10 @@ namespace Zfs.Core.Models;
 public record DashboardData
 {
     public SystemInfo System { get; init; } = new();
-    public List<NetworkRateInfo> NetworkRates { get; init; } = new();
-    public List<DiskIoRateInfo> DiskIoRates { get; init; } = new();
-    public List<PoolDiskIoGroup> PoolDiskIoRates { get; init; } = new();
-    public Dictionary<string, ScrubInfo> PoolScrubs { get; init; } = new();
+    public List<NetworkRateInfo> NetworkRates { get; init; } = [];
+    public List<DiskIoRateInfo> DiskIoRates { get; init; } = [];
+    public List<PoolDiskIoGroup> PoolDiskIoRates { get; init; } = [];
+    public Dictionary<string, ScrubInfo> PoolScrubs { get; init; } = [];
 }
 
 public record NetworkRateInfo
@@ -42,8 +42,6 @@ public record MemoryInfo
     public ulong Cached { get; init; }
     public ulong SwapTotal { get; init; }
     public ulong SwapUsed { get; init; }
-    public double UsagePercent => this.Total > 0 ? (double)this.Used / this.Total * 100 : 0;
-    public double SwapUsagePercent => this.SwapTotal > 0 ? (double)this.SwapUsed / this.SwapTotal * 100 : 0;
 }
 
 public record NetworkInterfaceInfo

@@ -13,8 +13,4 @@ public record ArcStats
     public ulong MfuSize { get; init; }
     public ulong MetadataSize { get; init; }
     public ulong DataSize { get; init; }
-
-    public double HitRate => (this.Hits + this.Misses) > 0 ? (double)this.Hits / (this.Hits + this.Misses) * 100 : 0;
-    public double L2HitRate => (this.L2Hits + this.L2Misses) > 0 ? (double)this.L2Hits / (this.L2Hits + this.L2Misses) * 100 : 0;
-    public double UsagePercent => this.MaxSize > 0 ? (double)this.Size / this.MaxSize * 100 : 0;
 }
