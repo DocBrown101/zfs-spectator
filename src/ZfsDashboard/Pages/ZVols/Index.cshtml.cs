@@ -8,10 +8,12 @@ public class IndexModel(IZfsService zfs) : PageModel
 {
     public List<ZVol> ZVols { get; private set; } = [];
 
-    public CommandSuggestion CommandSuggestion { get; private set; } = CommandSuggestionsService.SuggestCreateZVol("poolname");
+    public List<CommandSuggestion> Suggestions { get; } = [];
 
     public async Task OnGetAsync()
     {
         this.ZVols = await zfs.GetAllZVolsAsync();
+
+        this.Suggestions.Add(CommandSuggestionsService.SuggestCreateZVol("poolname"));
     }
 }
