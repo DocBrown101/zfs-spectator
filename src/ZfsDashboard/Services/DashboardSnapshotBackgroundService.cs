@@ -53,58 +53,13 @@ public sealed class DashboardSnapshotBackgroundService(
 
     internal async Task CollectOnceAsync(CancellationToken cancellationToken = default)
     {
+        await this.RefreshStaticSystemAsync(cancellationToken);
+
         var now = timeProvider.GetUtcNow();
-
-        if (!this.staticSystemInitialized || now >= this.nextStaticSystemRefresh)
-        {
-            var refreshSucceeded = false;
-            try
-            {
-                var refreshed = await system.GetStaticSystemInfoAsync(zfs, cancellationToken);
-                if (IsValidStaticSystemInfo(refreshed))
-                {
-                    this.staticSystem = refreshed;
-                    refreshSucceeded = true;
-                }
-                else
-                {
-                    if (!this.staticSystemInitialized)
-                        this.staticSystem = refreshed;
-                    logger.LogWarning("Static system information is incomplete; retrying shortly");
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogError(ex, "Failed to refresh static system information");
-            }
-            finally
-            {
-                this.firstStaticSystem.TrySetResult(this.staticSystem);
-                this.staticSystemInitialized = true;
-                this.nextStaticSystemRefresh = timeProvider.GetUtcNow() +
-                    (refreshSucceeded ? StaticSystemInterval : StaticSystemRetryInterval);
-            }
-        }
-
-        now = timeProvider.GetUtcNow();
         var refreshDetails = !this.poolDetailsInitialized || now >= this.nextPoolDetailsRefresh;
         try
         {
-            if (refreshDetails)
-            {
-                this.poolSnapshots = await zpool.GetAllPoolsWithScrubAsync(cancellationToken);
-                this.poolDetailsInitialized = true;
-                var completedAt = timeProvider.GetUtcNow();
-                this.nextPoolDetailsRefresh = completedAt + PoolDetailsInterval;
-                this.nextPoolRefresh = completedAt + PoolInterval;
-            }
-            else if (now >= this.nextPoolRefresh)
-            {
-                var runtimePools = await zpool.GetDashboardPoolsAsync(cancellationToken);
-                this.poolSnapshots = MergePoolDetails(runtimePools, this.poolSnapshots);
-                var completedAt = timeProvider.GetUtcNow();
-                this.nextPoolRefresh = completedAt + PoolInterval;
-            }
+            await this.RefreshPoolDataAsync(now, refreshDetails, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -133,6 +88,60 @@ public sealed class DashboardSnapshotBackgroundService(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Failed to collect dashboard data; keeping the previous snapshot");
+        }
+    }
+
+    private async Task RefreshStaticSystemAsync(CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        if (this.staticSystemInitialized && now < this.nextStaticSystemRefresh)
+            return;
+
+        var refreshSucceeded = false;
+        try
+        {
+            var refreshed = await system.GetStaticSystemInfoAsync(zfs, cancellationToken);
+            if (IsValidStaticSystemInfo(refreshed))
+            {
+                this.staticSystem = refreshed;
+                refreshSucceeded = true;
+            }
+            else
+            {
+                if (!this.staticSystemInitialized)
+                    this.staticSystem = refreshed;
+                logger.LogWarning("Static system information is incomplete; retrying shortly");
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Failed to refresh static system information");
+        }
+        finally
+        {
+            this.firstStaticSystem.TrySetResult(this.staticSystem);
+            this.staticSystemInitialized = true;
+            this.nextStaticSystemRefresh = timeProvider.GetUtcNow() +
+                (refreshSucceeded ? StaticSystemInterval : StaticSystemRetryInterval);
+        }
+    }
+
+    private async Task RefreshPoolDataAsync(DateTimeOffset now, bool refreshDetails, CancellationToken cancellationToken)
+    {
+        if (refreshDetails)
+        {
+            this.poolSnapshots = await zpool.GetAllPoolsWithScrubAsync(cancellationToken);
+            this.poolDetailsInitialized = true;
+            var completedAt = timeProvider.GetUtcNow();
+            this.nextPoolDetailsRefresh = completedAt + PoolDetailsInterval;
+            this.nextPoolRefresh = completedAt + PoolInterval;
+        }
+        else if (now >= this.nextPoolRefresh)
+        {
+            var runtimePools = await zpool.GetDashboardPoolsAsync(cancellationToken);
+            this.poolSnapshots = MergePoolDetails(runtimePools, this.poolSnapshots);
+            var completedAt = timeProvider.GetUtcNow();
+            this.nextPoolRefresh = completedAt + PoolInterval;
         }
     }
 

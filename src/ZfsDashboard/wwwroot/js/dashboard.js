@@ -71,7 +71,9 @@
     }
 
     function gaugeColor(percentage) {
-        return percentage > 85 ? '#dc3545' : percentage > 70 ? '#ffc107' : '#0dcaf0';
+        if (percentage > 85) return '#dc3545';
+        if (percentage > 70) return '#ffc107';
+        return '#0dcaf0';
     }
 
     function createGauge(canvasId) {
@@ -198,15 +200,15 @@
     }
 
     function updateTooltip(element, title) {
-        if ((element.getAttribute('data-bs-title') ?? '') === title) return;
+        if ((element.dataset.bsTitle ?? '') === title) return;
 
         bootstrap.Tooltip.getInstance(element)?.dispose();
-        element.removeAttribute('data-bs-title');
+        delete element.dataset.bsTitle;
         element.removeAttribute('title');
         if (!title) return;
 
-        element.setAttribute('data-bs-title', title);
-        new bootstrap.Tooltip(element);
+        element.dataset.bsTitle = title;
+        bootstrap.Tooltip.getOrCreateInstance(element);
     }
 
     function renderScrub(pool) {

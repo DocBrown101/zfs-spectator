@@ -87,34 +87,46 @@ public sealed class DiskTemperatureBackgroundService(
 
         var devicePath = Path.GetFullPath(deviceLink);
 
-        if (driverName == "drivetemp")
+        return driverName switch
         {
-            // drivetemp device → /sys/devices/.../2:0:0:0/block/sda
-            var blockDir = Path.Combine(devicePath, "block");
-            if (!Directory.Exists(blockDir))
-                return null;
+            "drivetemp" => ResolveDrivetempDevice(devicePath),
+            "nvme" => ResolveNvmeDevice(devicePath),
+            _ => null,
+        };
+    }
 
-            var entries = Directory.GetDirectories(blockDir);
-            return entries.Length > 0 ? Path.GetFileName(entries[0]) : null;
-        }
+    private static string? ResolveDrivetempDevice(string devicePath)
+    {
+        // drivetemp device → /sys/devices/.../2:0:0:0/block/sda
+        var blockDir = Path.Combine(devicePath, "block");
+        if (!Directory.Exists(blockDir))
+            return null;
 
-        if (driverName == "nvme")
+        var entries = Directory.GetDirectories(blockDir);
+        return entries.Length > 0 ? Path.GetFileName(entries[0]) : null;
+    }
+
+    private static string? ResolveNvmeDevice(string devicePath)
+    {
+        // nvme device → /sys/devices/.../nvme/nvme0/nvme0n1
+        foreach (var subdir in Directory.GetDirectories(devicePath))
         {
-            // nvme device → /sys/devices/.../nvme/nvme0/nvme0n1
-            foreach (var subdir in Directory.GetDirectories(devicePath))
-            {
-                var name = Path.GetFileName(subdir);
-                if (name is not null && name.StartsWith("nvme", StringComparison.Ordinal) && name.Contains('n', StringComparison.Ordinal))
-                {
-                    // Ensure it's a namespace (nvme0n1), not another nvme sub-path
-                    // by checking that the character after the last 'n' is a digit.
-                    var lastN = name.LastIndexOf('n');
-                    if (lastN > 0 && lastN < name.Length - 1 && char.IsDigit(name[lastN + 1]))
-                        return name;
-                }
-            }
+            var name = Path.GetFileName(subdir);
+            if (IsNvmeNamespace(name))
+                return name;
         }
 
         return null;
+    }
+
+    private static bool IsNvmeNamespace(string name)
+    {
+        if (!name.StartsWith("nvme", StringComparison.Ordinal)) return false;
+        if (!name.Contains('n', StringComparison.Ordinal)) return false;
+
+        // Ensure it's a namespace (nvme0n1), not another nvme sub-path
+        // by checking that the character after the last 'n' is a digit.
+        var lastN = name.LastIndexOf('n');
+        return lastN > 0 && lastN < name.Length - 1 && char.IsDigit(name[lastN + 1]);
     }
 }

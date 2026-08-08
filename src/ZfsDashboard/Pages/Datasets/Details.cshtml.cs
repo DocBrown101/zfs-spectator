@@ -20,7 +20,7 @@ public class DetailsModel(IZfsService zfs) : PageModel
         this.Dataset = allDs.FirstOrDefault(d => d.Name == name);
         if (this.Dataset is null) return this.NotFound();
 
-        var poolName = name.Split('/').First();
+        var poolName = name.Split('/')[0];
         var allSnaps = await zfs.GetSnapshotsAsync(poolName);
         var snapshots = allSnaps.Where(s => s.DatasetName == name).ToList();
         this.SnapshotGroup = new SnapshotGroupViewModel(name, snapshots);

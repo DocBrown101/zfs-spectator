@@ -6,6 +6,8 @@ namespace Zfs.Core.Services;
 
 public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 {
+    private const string ZpoolCommand = "zpool";
+
     private static readonly string[] RequiredPoolProperties =
     [
         "used", "available", "compression", "compressratio", "dedup", "sync", "atime", "encryption", "keystatus",
@@ -68,7 +70,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         CancellationToken cancellationToken = default,
         bool requireOutput = false)
     {
-        var json = await cmd.ExecuteAsync("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", cancellationToken);
+        var json = await cmd.ExecuteAsync(ZpoolCommand, "list -Hpvj -o name,size,alloc,free,health,frag", cancellationToken);
         var pools = ZpoolParser.ParsePools(json, requireOutput);
 
         this.cachedPoolNames = pools.Select(p => p.Name).ToList().AsReadOnly();
@@ -82,7 +84,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         bool requireOutput)
     {
         var propsTask = this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput);
-        var statusTask = cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}", cancellationToken);
+        var statusTask = cmd.ExecuteAsync(ZpoolCommand, $"status -Pj {pool.Name}", cancellationToken);
         await Task.WhenAll(propsTask, statusTask);
 
         var statusJson = await statusTask;
@@ -112,7 +114,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         Pool pool,
         CancellationToken cancellationToken)
     {
-        var statusJson = await cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}", cancellationToken);
+        var statusJson = await cmd.ExecuteAsync(ZpoolCommand, $"status -Pj {pool.Name}", cancellationToken);
         var layout = ParsePoolLayout(statusJson, pool.Name, requireOutput: true);
         var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
 
@@ -186,14 +188,14 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         CancellationToken cancellationToken,
         bool requireOutput)
     {
-        var json = await cmd.ExecuteAsync("zpool", $"get -Hpj ashift {poolName}", cancellationToken);
+        var json = await cmd.ExecuteAsync(ZpoolCommand, $"get -Hpj ashift {poolName}", cancellationToken);
         return ZpoolParser.ParseAshift(json, poolName, requireOutput);
     }
 
     private static readonly PoolProperties DefaultPoolProperties =
         new(0, 0, "n/a", "n/a", "n/a", "n/a", "n/a", false, false, "n/a");
 
-    private record PoolProperties(
+    private sealed record PoolProperties(
         ulong UsableUsed, ulong UsableAvail,
         string Compression, string CompRatio, string Dedup, string Sync, string Atime,
         bool Encrypted, bool KeyLocked, string EncryptionAlgorithm);
@@ -234,7 +236,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     {
         if (scrub.State != "running") return scrub;
 
-        var text = await cmd.ExecuteAsync("zpool", $"status {poolName}", cancellationToken);
+        var text = await cmd.ExecuteAsync(ZpoolCommand, $"status {poolName}", cancellationToken);
         var timeLeft = ZpoolParser.ParseScrubTimeLeft(text);
         return string.IsNullOrEmpty(timeLeft) ? scrub : scrub with { TimeLeft = timeLeft };
     }

@@ -4,6 +4,7 @@
     ViewData["Title"] = $"Pool: {Model.Pool!.Name}";
     var p = Model.Pool!;
     var pct = p.UsagePercent;
+    var keyStatus = p.KeyLocked ? "locked" : "loaded";
     var header = new PageHeaderViewModel(
         Icon: "bi-hdd-stack",
         Title: p.Name,
@@ -93,7 +94,7 @@
                                 ..(p.Encrypted
                                     ? new KeyValueRowViewModel[]
                                     {
-                                        new("Encryption", $"{p.EncryptionAlgorithm} ({(p.KeyLocked ? "locked" : "loaded")})", ValueCss: "fw-semibold", Last: true)
+                                        new("Encryption", $"{p.EncryptionAlgorithm} ({keyStatus})", ValueCss: "fw-semibold", Last: true)
                                     }
                                     : [])
                             ])" />

@@ -59,9 +59,9 @@ public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
 
             return outputTask.Result.Trim();
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogError("Command {Command} {Arguments} timed out after {Timeout}s", command, arguments, CommandTimeout.TotalSeconds);
+            logger.LogError(ex, "Command {Command} {Arguments} timed out after {Timeout}s", command, arguments, CommandTimeout.TotalSeconds);
             await this.KillProcessAsync(process);
             throw new TimeoutException($"{command} timed out after {CommandTimeout.TotalSeconds} seconds");
         }

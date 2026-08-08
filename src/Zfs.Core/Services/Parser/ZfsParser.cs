@@ -13,14 +13,13 @@ public static class ZfsParser
         if (datasets is null) return [];
 
         var result = new List<Dataset>();
-        foreach (var entry in datasets.Value.EnumerateObject())
+        foreach (var ds in datasets.Value.EnumerateObject().Select(entry => entry.Value))
         {
-            var ds = entry.Value;
             if (!ds.TryGetProperty("properties", out var props)) continue;
 
             var name = JsonHelper.GetString(ds, "name");
             var depth = name.Count(c => c == '/') - poolName.Count(c => c == '/');
-            var shortName = name.Split('/').Last();
+            var shortName = name.Split('/')[^1];
 
             var encryption = JsonHelper.GetPropertyString(props, "encryption");
             var encrypted = JsonHelper.IsEncryptionEnabled(props);
@@ -63,9 +62,8 @@ public static class ZfsParser
         if (datasets is null) return [];
 
         var result = new List<Snapshot>();
-        foreach (var entry in datasets.Value.EnumerateObject())
+        foreach (var snap in datasets.Value.EnumerateObject().Select(entry => entry.Value))
         {
-            var snap = entry.Value;
             if (!snap.TryGetProperty("properties", out var props)) continue;
 
             var name = JsonHelper.GetString(snap, "name");
@@ -106,9 +104,8 @@ public static class ZfsParser
         if (datasets is null) return [];
 
         var result = new List<ZVol>();
-        foreach (var entry in datasets.Value.EnumerateObject())
+        foreach (var vol in datasets.Value.EnumerateObject().Select(entry => entry.Value))
         {
-            var vol = entry.Value;
             if (!vol.TryGetProperty("properties", out var props)) continue;
 
             var name = JsonHelper.GetString(vol, "name");
@@ -116,7 +113,7 @@ public static class ZfsParser
             result.Add(new ZVol
             {
                 Name = name,
-                Pool = name.Split('/').First(),
+                Pool = name.Split('/')[0],
                 Size = JsonHelper.GetPropertyUlong(props, "volsize"),
                 Used = JsonHelper.GetPropertyUlong(props, "used"),
                 Refer = JsonHelper.GetPropertyUlong(props, "referenced"),

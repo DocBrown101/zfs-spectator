@@ -38,5 +38,10 @@ public static class FormatExtensions
         _ => "text-bg-secondary",
     };
 
-    public static string ToCapacityCss(this double percentage) => percentage > 85 ? "bg-danger" : percentage > 70 ? "bg-warning" : "bg-success";
+    public static string ToCapacityCss(this double percentage)
+    {
+        if (percentage > 85) return "bg-danger";
+        if (percentage > 70) return "bg-warning";
+        return "bg-success";
+    }
 }

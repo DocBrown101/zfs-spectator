@@ -6,6 +6,10 @@ using Zfs.Core.Models;
 
 public static class ZpoolParser
 {
+    private const string StripeVdevType = "stripe";
+    private const string VdevsProperty = "vdevs";
+    private const string StateProperty = "state";
+
     // ── Pool Listing (from zpool list -Hpj) ─────────────────────────────
 
     public static List<Pool> ParsePools(string json, bool requireOutput = false)
@@ -42,7 +46,7 @@ public static class ZpoolParser
                 SpecialSize = specialSize,
                 SpecialAlloc = specialAlloc,
                 SpecialFree = specialFree,
-                VdevType = "stripe",
+                VdevType = StripeVdevType,
                 Operation = "",
                 Compression = "lz4",
                 CompRatio = "1.00x",
@@ -89,64 +93,14 @@ public static class ZpoolParser
         if (pool is null) return new PoolLayout();
 
         if (requireOutput &&
-            (!pool.Value.TryGetProperty("vdevs", out var checkedVdevs) ||
+            (!pool.Value.TryGetProperty(VdevsProperty, out var checkedVdevs) ||
              checkedVdevs.ValueKind != JsonValueKind.Object ||
              !checkedVdevs.TryGetProperty(poolName, out var checkedRootVdev) ||
              checkedRootVdev.ValueKind != JsonValueKind.Object))
             throw new InvalidOperationException($"zpool status returned incomplete data for {poolName}");
 
-        var operation = "";
-        if (pool.Value.TryGetProperty("scan_stats", out var scanStats))
-        {
-            var function = JsonHelper.GetString(scanStats, "function");
-            var state = JsonHelper.GetString(scanStats, "state");
-            if (state == "SCANNING")
-            {
-                operation = function switch
-                {
-                    "SCRUB" => "scrubbing",
-                    "RESILVER" => "resilvering",
-                    _ => "",
-                };
-            }
-        }
-
-        long poolErrR = 0, poolErrW = 0, poolErrC = 0;
-        var vdevType = "stripe";
-        var dataDevices = new List<PoolDevice>();
-
-        if (pool.Value.TryGetProperty("vdevs", out var vdevs) &&
-            vdevs.TryGetProperty(poolName, out var rootVdev))
-        {
-            poolErrR = JsonHelper.GetLong(rootVdev, "read_errors");
-            poolErrW = JsonHelper.GetLong(rootVdev, "write_errors");
-            poolErrC = JsonHelper.GetLong(rootVdev, "checksum_errors");
-
-            if (rootVdev.TryGetProperty("vdevs", out var dataVdevs))
-            {
-                foreach (var vdevEntry in dataVdevs.EnumerateObject())
-                {
-                    var vdev = vdevEntry.Value;
-                    var vdevTypeName = JsonHelper.GetString(vdev, "vdev_type");
-
-                    if (vdevTypeName == "disk")
-                    {
-                        dataDevices.Add(CreateDevice(vdev, "stripe"));
-                    }
-                    else
-                    {
-                        var role = DetectVdevType(vdevEntry.Name);
-                        vdevType = role;
-
-                        if (vdev.TryGetProperty("vdevs", out var groupDisks))
-                        {
-                            foreach (var disk in groupDisks.EnumerateObject())
-                                dataDevices.Add(CreateDevice(disk.Value, role));
-                        }
-                    }
-                }
-            }
-        }
+        var operation = ParseOperation(pool.Value);
+        var (dataDevices, vdevType, poolErrR, poolErrW, poolErrC) = ParseDataDevices(pool.Value, poolName);
 
         var logDevices = ParseSectionDevices(pool.Value, "logs", "log");
         if (logDevices.Count == 0)
@@ -171,6 +125,62 @@ public static class ZpoolParser
         };
     }
 
+    private static string ParseOperation(JsonElement pool)
+    {
+        if (!pool.TryGetProperty("scan_stats", out var scanStats)) return "";
+        if (JsonHelper.GetString(scanStats, StateProperty) != "SCANNING") return "";
+
+        return JsonHelper.GetString(scanStats, "function") switch
+        {
+            "SCRUB" => "scrubbing",
+            "RESILVER" => "resilvering",
+            _ => "",
+        };
+    }
+
+    private static (List<PoolDevice> Devices, string VdevType, long ErrorsRead, long ErrorsWrite, long ErrorsChecksum) ParseDataDevices(
+        JsonElement pool,
+        string poolName)
+    {
+        var devices = new List<PoolDevice>();
+        var vdevType = StripeVdevType;
+
+        if (!pool.TryGetProperty(VdevsProperty, out var vdevs) ||
+            !vdevs.TryGetProperty(poolName, out var rootVdev))
+            return (devices, vdevType, 0, 0, 0);
+
+        var errorsRead = JsonHelper.GetLong(rootVdev, "read_errors");
+        var errorsWrite = JsonHelper.GetLong(rootVdev, "write_errors");
+        var errorsChecksum = JsonHelper.GetLong(rootVdev, "checksum_errors");
+
+        if (!rootVdev.TryGetProperty(VdevsProperty, out var dataVdevs))
+            return (devices, vdevType, errorsRead, errorsWrite, errorsChecksum);
+
+        foreach (var vdevEntry in dataVdevs.EnumerateObject())
+        {
+            var vdev = vdevEntry.Value;
+            var vdevTypeName = JsonHelper.GetString(vdev, "vdev_type");
+
+            if (vdevTypeName == "disk")
+            {
+                devices.Add(CreateDevice(vdev, StripeVdevType));
+            }
+            else
+            {
+                var role = DetectVdevType(vdevEntry.Name);
+                vdevType = role;
+
+                if (vdev.TryGetProperty(VdevsProperty, out var groupDisks))
+                {
+                    foreach (var disk in groupDisks.EnumerateObject())
+                        devices.Add(CreateDevice(disk.Value, role));
+                }
+            }
+        }
+
+        return (devices, vdevType, errorsRead, errorsWrite, errorsChecksum);
+    }
+
     // ── Scrub Info (from zpool status -Pj) ──────────────────────────────
 
     public static ScrubInfo ParseScrubInfo(string json, string poolName)
@@ -182,7 +192,7 @@ public static class ZpoolParser
         var function = JsonHelper.GetString(scan, "function");
         if (function is not ("SCRUB" or "RESILVER")) return ScrubInfo.Idle;
 
-        return JsonHelper.GetString(scan, "state") switch
+        return JsonHelper.GetString(scan, StateProperty) switch
         {
             "SCANNING" => CreateRunningScrubInfo(scan),
             "FINISHED" or "CANCELED" => CreateCompletedScrubInfo(scan),
@@ -196,7 +206,7 @@ public static class ZpoolParser
         var endTime = JsonHelper.GetString(scan, "end_time");
         return new ScrubInfo
         {
-            State = JsonHelper.GetString(scan, "state") == "FINISHED" ? "finished" : "canceled",
+            State = JsonHelper.GetString(scan, StateProperty) == "FINISHED" ? "finished" : "canceled",
             Errors = JsonHelper.GetLong(scan, "errors"),
             StartTime = startTime,
             FinishTime = endTime,
@@ -260,7 +270,7 @@ public static class ZpoolParser
 
     private static (ulong Size, ulong Alloc, ulong Free) ParseSpecialVdevSizes(JsonElement pool)
     {
-        if (!pool.TryGetProperty("vdevs", out var vdevs)) return (0, 0, 0);
+        if (!pool.TryGetProperty(VdevsProperty, out var vdevs)) return (0, 0, 0);
         if (!vdevs.TryGetProperty("special", out var special)) return (0, 0, 0);
 
         ulong totalSize = 0, totalAlloc = 0, totalFree = 0;
@@ -314,16 +324,15 @@ public static class ZpoolParser
         var devices = new List<PoolDevice>();
         if (!pool.TryGetProperty(sectionName, out var section)) return devices;
 
-        foreach (var groupEntry in section.EnumerateObject())
+        foreach (var group in section.EnumerateObject().Select(groupEntry => groupEntry.Value))
         {
-            var group = groupEntry.Value;
             var groupType = JsonHelper.GetString(group, "vdev_type");
 
             if (groupType == "disk")
             {
                 devices.Add(CreateDevice(group, role));
             }
-            else if (group.TryGetProperty("vdevs", out var groupDisks))
+            else if (group.TryGetProperty(VdevsProperty, out var groupDisks))
             {
                 foreach (var disk in groupDisks.EnumerateObject())
                     devices.Add(CreateDevice(disk.Value, role));
@@ -342,7 +351,7 @@ public static class ZpoolParser
         {
             Path = path,
             VdevType = role,
-            Status = JsonHelper.GetString(element, "state"),
+            Status = JsonHelper.GetString(element, StateProperty),
             Present = false,
             ErrorsRead = JsonHelper.GetLong(element, "read_errors"),
             ErrorsWrite = JsonHelper.GetLong(element, "write_errors"),
@@ -372,7 +381,7 @@ public static class ZpoolParser
         _ when name.StartsWith("raidz2") => "raidz2",
         _ when name.StartsWith("raidz") => "raidz1",
         _ when name.StartsWith("draid") => "draid",
-        _ => "stripe",
+        _ => StripeVdevType,
     };
 
 }

@@ -42,6 +42,10 @@ else
                     <tbody>
                         @foreach (var p in Model.Pools)
                         {
+                            @* Fragmentation thresholds: >50% warning, >75% critical (distinct from capacity 70/85) *@
+                            var fragCss = "";
+                            if (p.Fragmentation > 75) fragCss = "text-danger";
+                            else if (p.Fragmentation > 50) fragCss = "text-warning";
                             <tr class="border-bottom border-secondary">
                                 <td>
                                     <a asp-page="Details" asp-route-name="@p.Name" class="text-info text-decoration-none fw-semibold"
@@ -60,8 +64,7 @@ else
                                 <td>
                                     <partial name="_CapacityBar" model="new CapacityBarViewModel(p.UsagePercent)" />
                                 </td>
-                                @* Fragmentation thresholds: >50% warning, >75% critical (distinct from capacity 70/85) *@
-                                <td class="small text-end @(p.Fragmentation > 75 ? "text-danger" : p.Fragmentation > 50 ? "text-warning" : "")">@p.Fragmentation%</td>
+                                <td class="small text-end @fragCss">@p.Fragmentation%</td>
                                 <td class="small text-center">@p.Compression (@p.CompRatio)</td>
                                 <td class="small text-center">@p.Dedup</td>
                                 <td class="small text-center">

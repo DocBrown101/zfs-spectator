@@ -77,28 +77,7 @@ public class SystemService() : ISystemService
 
         foreach (var dk in disks)
         {
-            double readBps = 0, writeBps = 0;
-            double readLatMs = 0, writeLatMs = 0, utilPct = 0;
-
-            if (prev != null && elapsed > 0)
-            {
-                var p = prev.Find(d => d.Device == dk.Device);
-                if (p != null)
-                {
-                    var dReads = SafeDelta(dk.ReadsCompleted, p.ReadsCompleted);
-                    var dWrites = SafeDelta(dk.WritesCompleted, p.WritesCompleted);
-
-                    readBps = SafeDelta(dk.SectorsRead, p.SectorsRead) * 512.0 / elapsed;
-                    writeBps = SafeDelta(dk.SectorsWritten, p.SectorsWritten) * 512.0 / elapsed;
-
-                    // Average latency = delta time / delta ops
-                    readLatMs = dReads > 0 ? SafeDelta(dk.ReadTimeMs, p.ReadTimeMs) / dReads : 0;
-                    writeLatMs = dWrites > 0 ? SafeDelta(dk.WriteTimeMs, p.WriteTimeMs) / dWrites : 0;
-
-                    // Utilization = delta io_time / wall_time (capped at 100%)
-                    utilPct = Math.Min(SafeDelta(dk.IoTimeMs, p.IoTimeMs) / (elapsed * 1000) * 100, 100);
-                }
-            }
+            var (readBps, writeBps, readLatMs, writeLatMs, utilPct) = ComputeRateDelta(dk, prev, elapsed);
 
             rates.Add(new DiskIoRateInfo
             {
@@ -113,6 +92,36 @@ public class SystemService() : ISystemService
         }
 
         return rates;
+    }
+
+    private static (double ReadBps, double WriteBps, double ReadLatMs, double WriteLatMs, double UtilPct) ComputeRateDelta(
+        DiskIoInfo current,
+        List<DiskIoInfo>? prev,
+        double elapsed)
+    {
+        double readBps = 0, writeBps = 0, readLatMs = 0, writeLatMs = 0, utilPct = 0;
+
+        if (prev != null && elapsed > 0)
+        {
+            var p = prev.Find(d => d.Device == current.Device);
+            if (p != null)
+            {
+                var dReads = SafeDelta(current.ReadsCompleted, p.ReadsCompleted);
+                var dWrites = SafeDelta(current.WritesCompleted, p.WritesCompleted);
+
+                readBps = SafeDelta(current.SectorsRead, p.SectorsRead) * 512.0 / elapsed;
+                writeBps = SafeDelta(current.SectorsWritten, p.SectorsWritten) * 512.0 / elapsed;
+
+                // Average latency = delta time / delta ops
+                readLatMs = dReads > 0 ? SafeDelta(current.ReadTimeMs, p.ReadTimeMs) / dReads : 0;
+                writeLatMs = dWrites > 0 ? SafeDelta(current.WriteTimeMs, p.WriteTimeMs) / dWrites : 0;
+
+                // Utilization = delta io_time / wall_time (capped at 100%)
+                utilPct = Math.Min(SafeDelta(current.IoTimeMs, p.IoTimeMs) / (elapsed * 1000) * 100, 100);
+            }
+        }
+
+        return (readBps, writeBps, readLatMs, writeLatMs, utilPct);
     }
 
     // ── Network rate computation ───────────────────────────────────────────

@@ -17,9 +17,9 @@ public sealed record DiskIoRateViewModel
         this.ReadLatency = FormatLatency(rate.ReadLatencyMs);
         this.WriteLatency = FormatLatency(rate.WriteLatencyMs);
         this.UtilizationPercent = rate.UtilizationPct;
-        this.UtilizationCss = rate.UtilizationPct > 80 ? "text-danger" : rate.UtilizationPct > 50 ? "text-warning" : "";
+        this.UtilizationCss = UtilizationCssFor(rate.UtilizationPct);
         this.Temperature = rate.Temperature;
-        this.TemperatureCss = rate.Temperature >= 50 ? "text-danger" : rate.Temperature >= 40 ? "text-warning" : "";
+        this.TemperatureCss = TemperatureCssFor(rate.Temperature);
     }
 
     public string Device { get; }
@@ -36,5 +36,23 @@ public sealed record DiskIoRateViewModel
     public int? Temperature { get; }
     public string TemperatureCss { get; }
 
-    private static string FormatLatency(double value) => value <= 0 ? "\u2013" : value < 10 ? value.ToString("F2") : value.ToString("F1");
+    private static string UtilizationCssFor(double utilization)
+    {
+        if (utilization > 80) return "text-danger";
+        if (utilization > 50) return "text-warning";
+        return "";
+    }
+
+    private static string TemperatureCssFor(int? temperature)
+    {
+        if (temperature >= 50) return "text-danger";
+        if (temperature >= 40) return "text-warning";
+        return "";
+    }
+
+    private static string FormatLatency(double value)
+    {
+        if (value <= 0) return "\u2013";
+        return value < 10 ? value.ToString("F2") : value.ToString("F1");
+    }
 }

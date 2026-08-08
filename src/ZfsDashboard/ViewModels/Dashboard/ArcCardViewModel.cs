@@ -57,6 +57,12 @@ public sealed record ArcCardViewModel
     public string? L2Size { get; }
     public IReadOnlyList<KeyValueRowViewModel> Details { get; }
 
-    private static string ToArcHitRateCss(double percentage) => percentage >= 90 ? "text-success" : percentage >= 70 ? "text-warning" : "text-danger";
+    private static string ToArcHitRateCss(double percentage)
+    {
+        if (percentage >= 90) return "text-success";
+        if (percentage >= 70) return "text-warning";
+        return "text-danger";
+    }
+
     private static string ToL2HitRateCss(double percentage) => percentage >= 70 ? "text-success" : "text-warning";
 }
