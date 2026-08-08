@@ -71,11 +71,11 @@
                 <partial name="_KeyValueRows"
                         model="@(new KeyValueRowViewModel[]
                         {
-                            new("Compression", $"{ds.Compression} ({ds.CompRatio})"),
-                            new("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit"),
-                            new("Dedup", ds.Dedup),
-                            new("Sync", ds.Sync),
-                            new("Case Sensitivity", ds.CaseSensitivity, Last: true),
+                            new("Compression", $"{ds.Compression} ({ds.CompRatio})", ValueCss: "fw-semibold"),
+                            new("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit", ValueCss: "fw-semibold"),
+                            new("Dedup", ds.Dedup, ValueCss: "fw-semibold"),
+                            new("Sync", ds.Sync, ValueCss: "fw-semibold"),
+                            new("Case Sensitivity", ds.CaseSensitivity, ValueCss: "fw-semibold", Last: true),
                         })" />
             </div>
 
@@ -83,11 +83,11 @@
                 <partial name="_KeyValueRows"
                         model="@(new KeyValueRowViewModel[]
                         {
-                            new("Mountpoint", ds.Mountpoint),
-                            new("CanMount", ds.CanMount),
-                            new("Quota", ds.Quota.FormatBytesOrNone()),
-                            new("RefQuota", ds.RefQuota.FormatBytesOrNone()),
-                            new("Refreservation", ds.Refreservation.FormatBytesOrNone(), Last: true),
+                            new("Mountpoint", ds.Mountpoint, ValueCss: "fw-semibold"),
+                            new("CanMount", ds.CanMount, ValueCss: "fw-semibold"),
+                            new("Quota", ds.Quota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
+                            new("RefQuota", ds.RefQuota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
+                            new("Refreservation", ds.Refreservation.FormatBytesOrNone(), ValueCss: "fw-semibold", Last: true),
                         })" />
             </div>
         </div>
@@ -111,9 +111,9 @@
         <h5 class="card-title d-flex align-items-center gap-2 mb-3">
             <i class="bi bi-camera text-info"></i>
             Snapshots
-            <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.SnapshotTable.Rows.Count</span>
+            <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.SnapshotGroup.Rows.Count</span>
         </h5>
-        <partial name="_SnapshotTable" model="Model.SnapshotTable" />
+        <partial name="_SnapshotTable" model="Model.SnapshotGroup" />
     </div>
 </div>
 

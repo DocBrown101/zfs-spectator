@@ -193,7 +193,7 @@
         const progress = document.querySelector('#poolCapacityBar-' + CSS.escape(pool.name) + ' .progress-bar');
         if (progress) {
             progress.style.width = Math.max(0, Math.min(100, summary.usagePercent)).toFixed(1) + '%';
-            progress.className = 'progress-bar ' + (summary.usagePercent > 85 ? 'bg-danger' : summary.usagePercent > 70 ? 'bg-warning' : 'bg-success');
+            progress.className = 'progress-bar ' + summary.capacityCss;
         }
     }
 

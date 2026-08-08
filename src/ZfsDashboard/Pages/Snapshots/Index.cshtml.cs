@@ -7,7 +7,8 @@ namespace ZfsDashboard.Pages.Snapshots;
 
 public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 {
-    public SnapshotPageViewModel Snapshots { get; private set; } = new([]);
+    public IReadOnlyList<SnapshotGroupViewModel> SnapshotGroups { get; private set; } = [];
+    public int SnapshotCount { get; private set; }
     public List<CommandSuggestion> Suggestions { get; } = [];
 
     public async Task OnGetAsync()
@@ -20,7 +21,16 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
             snapshots.AddRange(snaps);
         }
 
-        this.Snapshots = new SnapshotPageViewModel(snapshots);
+        this.SnapshotCount = snapshots.Count;
+        this.SnapshotGroups = snapshots
+            .OrderByDescending(snapshot => snapshot.Creation)
+            .GroupBy(snapshot => snapshot.DatasetName)
+            .Select((group, index) => new SnapshotGroupViewModel(
+                group.Key,
+                group,
+                idPrefix: $"snapshot-group-{index}",
+                includeSeconds: true))
+            .ToList();
 
         foreach (var pool in poolNames.Order())
             this.Suggestions.Add(CommandSuggestionsService.SuggestCreateSnapshot(pool));

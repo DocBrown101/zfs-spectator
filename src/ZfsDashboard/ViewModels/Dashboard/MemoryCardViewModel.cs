@@ -1,5 +1,6 @@
 using Zfs.Core.Models;
 using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.ViewModels.Dashboard;
 
@@ -23,5 +24,5 @@ public sealed record MemoryCardViewModel
     }
 
     public double UsagePercent { get; }
-    public IReadOnlyList<MetricRowViewModel> Details { get; }
+    public IReadOnlyList<KeyValueRowViewModel> Details { get; }
 }

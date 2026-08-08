@@ -249,6 +249,23 @@ public class ZpoolServiceTests
         Assert.Equal(2, executor.StatusInvocationCount);
     }
 
+    [Fact]
+    public async Task GetDashboardPoolsAsync_RunningScrub_ShouldNotFetchScrubTimeLeft()
+    {
+        var zpoolStatusScanningJson = File.ReadAllText("TestData/zpool_status_scanning.json");
+        var executor = CreateExecutorForPool()
+            .On("zpool", "status -Pj zfsPool", zpoolStatusScanningJson);
+        var service = new ZpoolService(executor);
+
+        var snapshots = await service.GetDashboardPoolsAsync();
+
+        var scrub = snapshots.Single(item => item.Pool.Name == "zfsPool").Scrub;
+        Assert.Equal("running", scrub.State);
+        Assert.Empty(scrub.TimeLeft);
+        Assert.DoesNotContain(executor.Invocations, call =>
+            call.Command == "zpool" && call.Arguments == "status zfsPool");
+    }
+
     // ── GetPoolWithScrubAsync ────────────────────────────────────────────
 
     [Fact]

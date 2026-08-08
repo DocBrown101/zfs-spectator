@@ -16,4 +16,16 @@ public class FormatExtensionsTests
     {
         Assert.Equal(expected, status.ToStatusBadgeCss());
     }
+
+    [Theory]
+    [InlineData(0, "bg-success")]
+    [InlineData(70, "bg-success")]
+    [InlineData(70.0001, "bg-warning")]
+    [InlineData(85, "bg-warning")]
+    [InlineData(85.0001, "bg-danger")]
+    [InlineData(100, "bg-danger")]
+    public void ToCapacityCss_UsesTheSharedCapacityThresholds(double percentage, string expected)
+    {
+        Assert.Equal(expected, percentage.ToCapacityCss());
+    }
 }

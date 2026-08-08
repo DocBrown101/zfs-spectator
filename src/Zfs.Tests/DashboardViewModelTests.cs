@@ -1,4 +1,5 @@
 using Zfs.Core.Models;
+using Zfs.Tests.Helper;
 using ZfsDashboard.Services;
 using ZfsDashboard.ViewModels.Dashboard;
 
@@ -44,5 +45,15 @@ public class DashboardViewModelTests
         var response = new CpuCardViewModel(new SystemInfo(), new StaticSystemInfo());
 
         Assert.Equal("unknown", response.Details.Single(row => row.Label == "CPU Count").Value);
+    }
+
+    [Fact]
+    public void PoolCard_ExposesCapacityCssForLiveUpdates()
+    {
+        var pool = TestDataHelpers.MakePool("tank") with { UsableSize = 100, UsableUsed = 71 };
+
+        var card = new PoolCardViewModel(pool);
+
+        Assert.Equal("bg-warning", card.CapacityCss);
     }
 }

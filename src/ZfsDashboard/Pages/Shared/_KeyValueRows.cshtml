@@ -1,8 +1,11 @@
 @model IReadOnlyList<KeyValueRowViewModel>
-@foreach (var row in Model)
+@for (var i = 0; i < Model.Count; i++)
 {
-    <div class="row py-2 small @(row.Last ? "" : "border-bottom border-secondary")">
+    var row = Model[i];
+    var border = row.Last || i == Model.Count - 1 ? "" : "border-bottom border-secondary";
+    var visibility = row.IsVisible ? "" : "d-none";
+    <div class="row py-2 small @border @visibility" data-metric-row>
         <div class="col-5 text-body-secondary">@row.Label</div>
-        <div class="col-7 fw-semibold" id="@row.ElementId">@row.Value</div>
+        <div class="col-7 @row.ValueCss" id="@row.ElementId">@row.Value</div>
     </div>
 }

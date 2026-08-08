@@ -37,4 +37,6 @@ public static class FormatExtensions
         "OFFLINE" or "REMOVED" => "text-bg-secondary",
         _ => "text-bg-secondary",
     };
+
+    public static string ToCapacityCss(this double percentage) => percentage > 85 ? "bg-danger" : percentage > 70 ? "bg-warning" : "bg-success";
 }

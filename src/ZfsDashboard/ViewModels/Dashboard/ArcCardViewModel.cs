@@ -1,6 +1,7 @@
 using System.Globalization;
 using Zfs.Core.Models;
 using ZfsDashboard.Presentation;
+using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.ViewModels.Dashboard;
 
@@ -28,7 +29,7 @@ public sealed record ArcCardViewModel
                 "arcHitRate",
                 ValueCss: $"{ToArcHitRateCss(hitRate)} fw-semibold"),
             ..(arc.L2Size > 0
-                ? new MetricRowViewModel[]
+                ? new KeyValueRowViewModel[]
                 {
                     new(
                         "L2 Hit Rate",
@@ -54,7 +55,7 @@ public sealed record ArcCardViewModel
     public double? L2HitRate { get; }
     public string? L2HitRateCss { get; }
     public string? L2Size { get; }
-    public IReadOnlyList<MetricRowViewModel> Details { get; }
+    public IReadOnlyList<KeyValueRowViewModel> Details { get; }
 
     private static string ToArcHitRateCss(double percentage) => percentage >= 90 ? "text-success" : percentage >= 70 ? "text-warning" : "text-danger";
     private static string ToL2HitRateCss(double percentage) => percentage >= 70 ? "text-success" : "text-warning";

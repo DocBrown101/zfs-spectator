@@ -50,6 +50,33 @@ public class DashboardSnapshotServiceTests
     }
 
     [Fact]
+    public async Task CollectOnceAsync_RuntimeRefresh_KeepsDetailedScrubTimeLeft()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero));
+        var detailedPool = MakePool("tank");
+        var zpool = new StubZpoolService(
+        [
+            Snapshot(detailedPool, new ScrubInfo { State = "running", ProgressPct = 50, TimeLeft = "01:23:45" }),
+        ])
+        {
+            RuntimeSnapshots =
+            [
+                Snapshot(MakePool("tank"), new ScrubInfo { State = "running", ProgressPct = 60 }),
+            ],
+        };
+        var service = CreateService(new StubSystemService(), zpool, time);
+
+        await service.CollectOnceAsync();
+        time.Advance(TimeSpan.FromSeconds(10));
+        await service.CollectOnceAsync();
+
+        var scrub = service.Current!.Data.PoolScrubs["tank"];
+        Assert.Equal("running", scrub.State);
+        Assert.Equal(60, scrub.ProgressPct);
+        Assert.Equal("01:23:45", scrub.TimeLeft);
+    }
+
+    [Fact]
     public async Task CollectOnceAsync_NewPoolInRuntimeRefresh_FallsBackToListUsableSizes()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero));

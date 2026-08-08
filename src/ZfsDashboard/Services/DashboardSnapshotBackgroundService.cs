@@ -140,7 +140,7 @@ public sealed class DashboardSnapshotBackgroundService(
         IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> runtimePools,
         IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> detailedPools)
     {
-        var detailsByIdentity = detailedPools.ToDictionary(item => PoolIdentity(item.Pool), item => item.Pool, StringComparer.Ordinal);
+        var detailsByIdentity = detailedPools.ToDictionary(item => PoolIdentity(item.Pool), item => item, StringComparer.Ordinal);
         return runtimePools.Select(item =>
         {
             if (!detailsByIdentity.TryGetValue(PoolIdentity(item.Pool), out var details))
@@ -154,7 +154,10 @@ public sealed class DashboardSnapshotBackgroundService(
                 return (runtime, item.Scrub);
             }
 
-            return (item.Pool.WithUsableDetails(details), item.Scrub);
+            // The runtime refresh does not look up scrub time_left; keep the detail snapshot's
+            // slower-changing value until the next detailed refresh refreshes it.
+            var scrub = item.Scrub with { TimeLeft = details.Scrub.TimeLeft };
+            return (item.Pool.WithUsableDetails(details.Pool), scrub);
         }).ToList().AsReadOnly();
     }
 

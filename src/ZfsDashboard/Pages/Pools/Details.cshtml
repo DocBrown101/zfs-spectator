@@ -77,23 +77,23 @@
                         <partial name="_KeyValueRows"
                             model="@(new KeyValueRowViewModel[]
                             {
-                                new("VDEV Type", p.VdevType),
-                                new("Ashift", p.Ashift.ToString()),
-                                new("Compression", $"{p.Compression} ({p.CompRatio})"),
-                                new("Dedup", p.Dedup, Last: true),
+                                new("VDEV Type", p.VdevType, ValueCss: "fw-semibold"),
+                                new("Ashift", p.Ashift.ToString(), ValueCss: "fw-semibold"),
+                                new("Compression", $"{p.Compression} ({p.CompRatio})", ValueCss: "fw-semibold"),
+                                new("Dedup", p.Dedup, ValueCss: "fw-semibold", Last: true),
                             })" />
                     </div>
                     <div class="col-6">
                         <partial name="_KeyValueRows"
                             model="@((KeyValueRowViewModel[])
                             [
-                                new("Sync", p.Sync),
-                                new("Atime", p.Atime),
-                                new("Fragmentation", $"{p.Fragmentation}%"),
+                                new("Sync", p.Sync, ValueCss: "fw-semibold"),
+                                new("Atime", p.Atime, ValueCss: "fw-semibold"),
+                                new("Fragmentation", $"{p.Fragmentation}%", ValueCss: "fw-semibold"),
                                 ..(p.Encrypted
                                     ? new KeyValueRowViewModel[]
                                     {
-                                        new("Encryption", $"{p.EncryptionAlgorithm} ({(p.KeyLocked ? "locked" : "loaded")})", Last: true)
+                                        new("Encryption", $"{p.EncryptionAlgorithm} ({(p.KeyLocked ? "locked" : "loaded")})", ValueCss: "fw-semibold", Last: true)
                                     }
                                     : [])
                             ])" />

@@ -5,19 +5,19 @@
     var header = new PageHeaderViewModel(
         Icon: "bi-camera",
         Title: "Snapshots",
-        Subtitle: $"All ZFS snapshots grouped by dataset - {Model.Snapshots.TotalCount} total");
+        Subtitle: $"All ZFS snapshots grouped by dataset - {Model.SnapshotCount} total");
 }
 
 <partial name="_PageHeader" model="header" />
 
-@if (Model.Snapshots.TotalCount == 0)
+@if (Model.SnapshotCount == 0)
 {
     <div class="alert alert-secondary">
         <i class="bi bi-info-circle me-1"></i>No snapshots found.
     </div>
 }
 
-@foreach (var group in Model.Snapshots.Groups)
+@foreach (var group in Model.SnapshotGroups)
 {
     <partial name="_SnapshotGroup" model="group" />
 }

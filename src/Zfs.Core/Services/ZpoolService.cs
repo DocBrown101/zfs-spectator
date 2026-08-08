@@ -19,55 +19,25 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
 
     public async Task<List<Pool>> GetAllPoolsAsync()
     {
-        return (await this.GetAllPoolsCoreAsync(
-                includeScrubTimeLeft: false,
-                requireOutput: false,
-                includeProperties: true,
-                cancellationToken: CancellationToken.None))
-            .Select(snapshot => snapshot.Pool)
-            .ToList();
+        var pools = await this.ListPoolsAsync();
+        var snapshots = (await Task.WhenAll(pools.Select(pool =>
+            this.LoadDetailedPoolAsync(pool, CancellationToken.None, requireOutput: false)))).ToList();
+        return snapshots.Select(snapshot => snapshot.Pool).ToList();
     }
 
-    public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync(CancellationToken cancellationToken = default)
-        => this.GetAllPoolsCoreAsync(
-            includeScrubTimeLeft: true,
-            requireOutput: true,
-            includeProperties: true,
-            cancellationToken: cancellationToken);
+    public async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsWithScrubAsync(CancellationToken cancellationToken = default)
+    {
+        var pools = await this.ListPoolsAsync(cancellationToken, requireOutput: true);
+        var snapshots = (await Task.WhenAll(pools.Select(pool =>
+            this.LoadDetailedPoolAsync(pool, cancellationToken, requireOutput: true)))).ToList();
+        return await this.AttachScrubTimeLeftAsync(snapshots, cancellationToken);
+    }
 
     public async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetDashboardPoolsAsync(CancellationToken cancellationToken = default)
-        => await this.GetAllPoolsCoreAsync(
-            includeScrubTimeLeft: true,
-            requireOutput: true,
-            includeProperties: false,
-            cancellationToken: cancellationToken);
-
-    private async Task<List<(Pool Pool, ScrubInfo Scrub)>> GetAllPoolsCoreAsync(
-        bool includeScrubTimeLeft,
-        bool requireOutput,
-        bool includeProperties,
-        CancellationToken cancellationToken)
     {
-        var pools = await this.ListPoolsAsync(cancellationToken, requireOutput);
-        var result = (await Task.WhenAll(pools.Select(pool =>
-            this.EnrichPoolAsync(pool, cancellationToken, requireOutput, includeProperties)))).ToList();
-
-        return includeScrubTimeLeft
-            ? await this.AttachScrubTimeLeftAsync(result, cancellationToken)
-            : result;
-    }
-
-    private async Task<List<(Pool Pool, ScrubInfo Scrub)>> AttachScrubTimeLeftAsync(
-        List<(Pool Pool, ScrubInfo Scrub)> result,
-        CancellationToken cancellationToken)
-    {
-        var scrubs = await Task.WhenAll(result.Select(snapshot =>
-            this.AddScrubTimeLeftAsync(snapshot.Pool.Name, snapshot.Scrub, cancellationToken)));
-
-        for (var i = 0; i < result.Count; i++)
-            result[i] = (result[i].Pool, scrubs[i]);
-
-        return result;
+        var pools = await this.ListPoolsAsync(cancellationToken, requireOutput: true);
+        return (await Task.WhenAll(pools.Select(pool =>
+            this.LoadDashboardPoolAsync(pool, cancellationToken)))).ToList();
     }
 
     public async Task<List<string>> GetPoolNamesAsync()
@@ -87,7 +57,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var pools = await this.ListPoolsAsync();
         var pool = pools.FirstOrDefault(p => p.Name == name);
         if (pool == null) return null;
-        var (enriched, scrub) = await this.EnrichPoolAsync(pool, CancellationToken.None);
+        var (enriched, scrub) = await this.LoadDetailedPoolAsync(pool, CancellationToken.None, requireOutput: false);
 
         scrub = await this.AddScrubTimeLeftAsync(name, scrub, CancellationToken.None);
 
@@ -106,15 +76,12 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         return pools;
     }
 
-    private async Task<(Pool Pool, ScrubInfo Scrub)> EnrichPoolAsync(
+    private async Task<(Pool Pool, ScrubInfo Scrub)> LoadDetailedPoolAsync(
         Pool pool,
         CancellationToken cancellationToken,
-        bool requireOutput = false,
-        bool includeProperties = true)
+        bool requireOutput)
     {
-        var propsTask = includeProperties
-            ? this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput)
-            : Task.FromResult(DefaultPoolProperties);
+        var propsTask = this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput);
         var statusTask = cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}", cancellationToken);
         await Task.WhenAll(propsTask, statusTask);
 
@@ -123,8 +90,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
 
         var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree);
-        if (!includeProperties) return (enriched, scrub);
-
         var props = await propsTask;
         return (enriched with
         {
@@ -141,6 +106,30 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             KeyLocked = props.KeyLocked,
             EncryptionAlgorithm = props.EncryptionAlgorithm,
         }, scrub);
+    }
+
+    private async Task<(Pool Pool, ScrubInfo Scrub)> LoadDashboardPoolAsync(
+        Pool pool,
+        CancellationToken cancellationToken)
+    {
+        var statusJson = await cmd.ExecuteAsync("zpool", $"status -Pj {pool.Name}", cancellationToken);
+        var layout = ParsePoolLayout(statusJson, pool.Name, requireOutput: true);
+        var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
+
+        return (layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree), scrub);
+    }
+
+    private async Task<List<(Pool Pool, ScrubInfo Scrub)>> AttachScrubTimeLeftAsync(
+        List<(Pool Pool, ScrubInfo Scrub)> result,
+        CancellationToken cancellationToken)
+    {
+        var scrubs = await Task.WhenAll(result.Select(snapshot =>
+            this.AddScrubTimeLeftAsync(snapshot.Pool.Name, snapshot.Scrub, cancellationToken)));
+
+        for (var i = 0; i < result.Count; i++)
+            result[i] = (result[i].Pool, scrubs[i]);
+
+        return result;
     }
 
     private async Task<PoolProperties> GetPoolPropertiesAsync(

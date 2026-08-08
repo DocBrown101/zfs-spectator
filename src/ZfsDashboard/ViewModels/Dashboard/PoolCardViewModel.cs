@@ -18,6 +18,7 @@ public sealed record PoolCardViewModel
         this.Allocated = pool.UsableUsed.FormatBytes();
         this.Free = pool.UsableAvail.FormatBytes();
         this.UsagePercent = pool.UsagePercent;
+        this.CapacityCss = pool.UsagePercent.ToCapacityCss();
     }
 
     public string Name { get; }
@@ -31,4 +32,5 @@ public sealed record PoolCardViewModel
     public string Allocated { get; }
     public string Free { get; }
     public double UsagePercent { get; }
+    public string CapacityCss { get; }
 }
