@@ -141,8 +141,8 @@
                 <td class="fw-semibold font-monospace">${escapeHtml(rate.device)}</td>
                 <td class="text-end font-monospace text-info">${escapeHtml(rate.readRate)}</td>
                 <td class="text-end font-monospace text-warning">${escapeHtml(rate.writeRate)}</td>
-                <td class="text-end font-monospace ${escapeHtml(rate.temperatureCss)}">${rate.temperature === null ? '&ndash;' : escapeHtml(rate.temperature) + '&deg;C'}</td>
-                <td class="text-end font-monospace ${escapeHtml(rate.utilizationCss)}">${rate.utilizationPercent.toFixed(1)}%</td>
+                <td class="text-end font-monospace ${escapeHtml(rate.temperatureCss)}">${escapeHtml(rate.temperatureText)}</td>
+                <td class="text-end font-monospace ${escapeHtml(rate.utilizationCss)}">${escapeHtml(rate.utilizationPercentText)}</td>
             </tr>`).join('');
     }
 
@@ -161,7 +161,7 @@
                 <td class="text-end font-monospace">${escapeHtml(disk.queueDepth)}</td>
                 <td class="text-end font-monospace">${escapeHtml(disk.readLatency)}</td>
                 <td class="text-end font-monospace">${escapeHtml(disk.writeLatency)}</td>
-                <td class="text-end font-monospace ${escapeHtml(disk.utilizationCss)}">${disk.utilizationPercent.toFixed(1)}%</td>
+                <td class="text-end font-monospace ${escapeHtml(disk.utilizationCss)}">${escapeHtml(disk.utilizationPercentText)}</td>
             </tr>`).join('');
     }
 
@@ -172,7 +172,7 @@
         setText('poolSize-' + pool.name, summary.size);
         setText('poolAllocated-' + pool.name, summary.allocated);
         setText('poolFree-' + pool.name, summary.free);
-        setText('poolCapacity-' + pool.name, summary.usagePercent.toFixed(0) + '%');
+        setText('poolCapacity-' + pool.name, summary.usagePercentText);
 
         const health = document.getElementById('poolHealth-' + pool.name);
         if (health) {
@@ -194,7 +194,7 @@
 
         const progress = document.querySelector('#poolCapacityBar-' + CSS.escape(pool.name) + ' .progress-bar');
         if (progress) {
-            progress.style.width = Math.max(0, Math.min(100, summary.usagePercent)).toFixed(1) + '%';
+            progress.style.width = summary.clampedUsagePercent.toFixed(1) + '%';
             progress.className = 'progress-bar ' + summary.capacityCss;
         }
     }
@@ -226,11 +226,10 @@
 
         const target = scrub.isRunning ? running : status;
         target.querySelector('[data-scrub-headline]').textContent = scrub.headline;
-        target.querySelector('[data-scrub-details]').textContent = scrub.details.join(' \u00b7 ');
+        target.querySelector('[data-scrub-details]').textContent = scrub.detailsText;
 
         if (scrub.isRunning) {
-            const progress = Math.max(0, Math.min(100, scrub.progressPercent));
-            running.querySelector('[data-scrub-progress]').style.width = progress.toFixed(1) + '%';
+            running.querySelector('[data-scrub-progress]').style.width = scrub.clampedProgressPercent.toFixed(1) + '%';
         } else {
             status.querySelector('[data-scrub-status-label]').className = scrub.statusCss;
             status.querySelector('[data-scrub-icon]').className = 'bi ' + scrub.iconCss + ' me-1';
@@ -247,10 +246,10 @@
         });
     }
 
-    function updateCpuTemperature(temperature, css) {
+    function updateCpuTemperature(temperatureText, css) {
         const element = document.getElementById('cpuTemperature');
         if (!element) return;
-        element.textContent = temperature == null ? 'N/A' : temperature.toFixed(1) + ' \u00b0C';
+        element.textContent = temperatureText;
         element.className = 'col-7 ' + css;
     }
 
@@ -272,13 +271,13 @@
         const hitRate = document.getElementById('arcHitRate');
         if (hitRate) {
             hitRate.className = 'col-7 ' + arc.hitRateCss + ' fw-semibold';
-            hitRate.textContent = arc.hitRate.toFixed(1) + '%';
+            hitRate.textContent = arc.hitRateText;
         }
 
         const l2HitRate = document.getElementById('l2HitRate');
-        if (l2HitRate && arc.l2HitRate !== null) {
+        if (l2HitRate && arc.l2HitRateText !== null) {
             l2HitRate.className = 'col-7 ' + arc.l2HitRateCss + ' fw-semibold';
-            l2HitRate.textContent = arc.l2HitRate.toFixed(1) + '% (' + arc.l2Size + ')';
+            l2HitRate.textContent = arc.l2HitRateText;
         }
     }
 
@@ -307,18 +306,14 @@
 
             setText('sysUptime', data.uptime);
             updateGauge(cpuChart, 'cpuPct', data.cpuUsagePercent);
-            updateCpuTemperature(data.cpuTemperatureCelsius, data.cpuTemperatureCss);
+            updateCpuTemperature(data.cpuTemperatureText, data.cpuTemperatureCss);
             updateMemory(data.memory);
             updateArc(data.arc);
 
-            const networkDownload = data.networkRates.reduce((sum, rate) => sum + rate.rxBytesPerSecond, 0);
-            const networkUpload = data.networkRates.reduce((sum, rate) => sum + rate.txBytesPerSecond, 0);
-            pushNetwork(networkDownload, networkUpload);
+            pushNetwork(data.networkDownloadBytesPerSecond, data.networkUploadBytesPerSecond);
             renderNetworkRows(data.networkRates);
 
-            const diskRead = data.diskIoRates.reduce((sum, disk) => sum + disk.readBytesPerSecond, 0);
-            const diskWrite = data.diskIoRates.reduce((sum, disk) => sum + disk.writeBytesPerSecond, 0);
-            pushDisk(diskRead, diskWrite);
+            pushDisk(data.diskReadBytesPerSecond, data.diskWriteBytesPerSecond);
             renderDiskRows(data.diskIoRates);
 
             data.pools.forEach(pool => {
@@ -326,7 +321,7 @@
                 renderPoolDiskRows(pool);
                 renderScrub(pool);
             });
-            setText('poolCount', data.pools.length + ' pools');
+            setText('poolCount', data.poolCount + ' pools');
         } catch (error) {
             failures++;
             const message = timedOut ? 'Request timed out' : error.message;

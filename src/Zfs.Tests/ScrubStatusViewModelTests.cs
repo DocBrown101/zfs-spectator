@@ -91,4 +91,30 @@ public class ScrubStatusViewModelTests
 
         Assert.Equal(["Errors: 1", "17:22:17"], model.Details);
     }
+
+    [Fact]
+    public void DetailsText_JoinsDetailsWithSeparator()
+    {
+        var model = new ScrubStatusViewModel(new ScrubInfo
+        {
+            State = "running",
+            ProgressPct = 42,
+            StartTime = "today",
+            TimeLeft = "5m",
+        });
+
+        Assert.Equal("Started: today \u00b7 ETA: 5m", model.DetailsText);
+    }
+
+    [Theory]
+    [InlineData(-5, 0)]
+    [InlineData(150, 100)]
+    [InlineData(42.125, 42.125)]
+    public void ClampedProgressPercent_ClampsIntoRange(double progress, double expected)
+    {
+        var model = new ScrubStatusViewModel(new ScrubInfo { State = "running", ProgressPct = progress });
+
+        Assert.Equal(expected, model.ClampedProgressPercent);
+        Assert.Equal(progress, model.ProgressPercent);
+    }
 }

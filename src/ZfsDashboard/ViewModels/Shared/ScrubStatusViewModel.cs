@@ -53,7 +53,9 @@ public sealed record ScrubStatusViewModel
     public string StatusCss { get; }
     public string IconCss { get; }
     public double ProgressPercent { get; }
+    public double ClampedProgressPercent => Math.Clamp(this.ProgressPercent, 0, 100);
     public IReadOnlyList<string> Details { get; }
+    public string DetailsText => string.Join(" \u00b7 ", this.Details);
 
     private static IReadOnlyList<string> CompletedDetails(ScrubInfo scrub)
     {

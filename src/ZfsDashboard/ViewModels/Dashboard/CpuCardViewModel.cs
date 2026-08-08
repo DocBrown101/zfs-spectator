@@ -30,6 +30,6 @@ public sealed record CpuCardViewModel
     private static string FormatCoreCount(int count) =>
         count > 0 ? count.ToString(CultureInfo.InvariantCulture) : "unknown";
 
-    private static string FormatTemperature(double? celsius) =>
+    internal static string FormatTemperature(double? celsius) =>
         celsius is { } value ? $"{value.ToString("F1", CultureInfo.InvariantCulture)} °C" : "N/A";
 }

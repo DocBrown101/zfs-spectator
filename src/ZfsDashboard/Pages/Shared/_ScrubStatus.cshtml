@@ -3,8 +3,8 @@
     var loadingCss = Model.IsLoading ? "" : "d-none";
     var runningCss = Model.IsRunning ? "" : "d-none";
     var statusCss = !Model.IsLoading && !Model.IsRunning ? "" : "d-none";
-    var progress = Model.ProgressPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
-    var details = string.Join(" \u00b7 ", Model.Details);
+    var progress = Model.ClampedProgressPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+    var details = Model.DetailsText;
 }
 <span data-scrub-loading class="text-body-secondary @loadingCss">
     <i class="bi bi-hourglass-split me-1"></i>Loading&hellip;

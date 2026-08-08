@@ -55,7 +55,7 @@
                         <div class="col">
                             <div class="text-body-secondary text-uppercase dashboard-label">Capacity</div>
                             <div class="d-flex align-items-center justify-content-center gap-2">
-                                <span id="poolCapacity-@pool.Name" class="fw-semibold">@pool.UsagePercent.ToString("F0")%</span>
+                                <span id="poolCapacity-@pool.Name" class="fw-semibold">@pool.UsagePercentText</span>
                                 <div id="poolCapacityBar-@pool.Name" class="dashboard-pool-progress">
                                     <partial name="_CapacityBar" model="new CapacityBarViewModel(pool.UsagePercent, ShowPercentage: false)" />
                                 </div>

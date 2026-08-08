@@ -1,3 +1,4 @@
+using System.Globalization;
 using Zfs.Core.Models;
 using ZfsDashboard.Presentation;
 
@@ -32,8 +33,10 @@ public sealed record DiskIoRateViewModel
     public string ReadLatency { get; }
     public string WriteLatency { get; }
     public double UtilizationPercent { get; }
+    public string UtilizationPercentText => $"{this.UtilizationPercent.ToString("F1", CultureInfo.InvariantCulture)}%";
     public string UtilizationCss { get; }
     public int? Temperature { get; }
+    public string TemperatureText => this.Temperature is { } value ? $"{value.ToString(CultureInfo.InvariantCulture)} °C" : "\u2013";
     public string TemperatureCss { get; }
 
     private static string UtilizationCssFor(double utilization)

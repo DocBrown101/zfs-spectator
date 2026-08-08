@@ -1,3 +1,4 @@
+using System.Globalization;
 using Zfs.Core.Models;
 using ZfsDashboard.Presentation;
 
@@ -32,5 +33,7 @@ public sealed record PoolCardViewModel
     public string Allocated { get; }
     public string Free { get; }
     public double UsagePercent { get; }
+    public double ClampedUsagePercent => Math.Clamp(this.UsagePercent, 0, 100);
+    public string UsagePercentText => $"{this.UsagePercent.ToString("F0", CultureInfo.InvariantCulture)}%";
     public string CapacityCss { get; }
 }

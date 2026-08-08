@@ -12,12 +12,16 @@ public sealed record ArcCardViewModel
         var usagePercent = arc.MaxSize > 0 ? (double)arc.Size / arc.MaxSize * 100 : 0;
         var hitRate = (arc.Hits + arc.Misses) > 0 ? (double)arc.Hits / (arc.Hits + arc.Misses) * 100 : 0;
         var l2HitRate = (arc.L2Hits + arc.L2Misses) > 0 ? (double)arc.L2Hits / (arc.L2Hits + arc.L2Misses) * 100 : 0;
+        var hitRateText = $"{hitRate.ToString("F1", CultureInfo.InvariantCulture)}%";
+        var l2HitRateText = arc.L2Size > 0 ? $"{l2HitRate.ToString("F1", CultureInfo.InvariantCulture)}% ({arc.L2Size.FormatBytes()})" : null;
 
         this.IsVisible = arc.MaxSize > 0;
         this.UsagePercent = usagePercent;
         this.HitRate = hitRate;
+        this.HitRateText = hitRateText;
         this.HitRateCss = ToArcHitRateCss(hitRate);
         this.L2HitRate = arc.L2Size > 0 ? l2HitRate : null;
+        this.L2HitRateText = l2HitRateText;
         this.L2HitRateCss = arc.L2Size > 0 ? ToL2HitRateCss(l2HitRate) : null;
         this.L2Size = arc.L2Size > 0 ? arc.L2Size.FormatBytes() : null;
         this.Details =
@@ -25,15 +29,15 @@ public sealed record ArcCardViewModel
             new("ARC Size", $"{arc.Size.FormatBytes()} / {arc.MaxSize.FormatBytes()}", "arcSize"),
             new(
                 "L1 Hit Rate",
-                $"{hitRate.ToString("F1", CultureInfo.InvariantCulture)}%",
+                hitRateText,
                 "arcHitRate",
                 ValueCss: $"{ToArcHitRateCss(hitRate)} fw-semibold"),
-            ..(arc.L2Size > 0
+            ..(l2HitRateText is { } value
                 ? new KeyValueRowViewModel[]
                 {
                     new(
                         "L2 Hit Rate",
-                        $"{l2HitRate.ToString("F1", CultureInfo.InvariantCulture)}% ({arc.L2Size.FormatBytes()})",
+                        value,
                         "l2HitRate",
                         ValueCss: $"{ToL2HitRateCss(l2HitRate)} fw-semibold"),
                 }
@@ -51,8 +55,10 @@ public sealed record ArcCardViewModel
     public bool IsVisible { get; }
     public double UsagePercent { get; }
     public double HitRate { get; }
+    public string HitRateText { get; }
     public string HitRateCss { get; }
     public double? L2HitRate { get; }
+    public string? L2HitRateText { get; }
     public string? L2HitRateCss { get; }
     public string? L2Size { get; }
     public IReadOnlyList<KeyValueRowViewModel> Details { get; }
