@@ -19,7 +19,16 @@
 
 @foreach (var group in Model.SnapshotGroups)
 {
-    <partial name="_SnapshotGroup" model="group" />
+    <div class="card mb-4">
+        <div class="card-body bg-surface">
+            <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-camera text-info"></i>
+                <a asp-page="/Datasets/Details" asp-route-name="@group.DatasetName" class="text-info text-decoration-none font-monospace">@group.DatasetName</a>
+                <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@group.Rows.Count</span>
+            </h5>
+            <partial name="_SnapshotTable" model="group" />
+        </div>
+    </div>
 }
 
 <partial name="_CommandSuggestions" model="new CommandSuggestionsViewModel(Model.Suggestions)" />
