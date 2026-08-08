@@ -4,36 +4,26 @@ using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.ViewModels.Dashboard;
 
-public sealed record CpuCardViewModel
+public sealed class CpuCardViewModel(SystemInfo system, StaticSystemInfo staticSystem)
 {
-    private readonly SystemInfo system;
-    private readonly StaticSystemInfo staticSystem;
+    public double UsagePercent => system.CpuUsagePercent;
 
-    public CpuCardViewModel(SystemInfo system, StaticSystemInfo staticSystem)
-    {
-        this.system = system;
-        this.staticSystem = staticSystem;
-    }
-
-    public double UsagePercent => this.system.CpuUsagePercent;
-
-    public IReadOnlyList<KeyValueRowViewModel> Details =>
+    public IReadOnlyList<KeyValueRowViewModel> Details { get; } =
     [
-        new("Processor", this.staticSystem.Processor),
-        new("Cores (physical / logical)", $"{FormatCoreCount(this.staticSystem.PhysicalCoreCount)} / {FormatCoreCount(this.staticSystem.LogicalCoreCount)}"),
-        new("Temperature", FormatTemperature(this.system.CpuTemperatureCelsius), "cpuTemperature", ValueCss: TemperatureCssFor(this.system.CpuTemperatureCelsius)),
+        new("Processor", staticSystem.Processor),
+        new("Cores (physical / logical)", $"{FormatCoreCount(staticSystem.PhysicalCoreCount)} / {FormatCoreCount(staticSystem.LogicalCoreCount)}"),
+        new("Temperature", FormatTemperature(system.CpuTemperatureCelsius), "cpuTemperature", ValueCss: TemperatureCssFor(system.CpuTemperatureCelsius)),
     ];
 
-    internal static string TemperatureCssFor(double? temperature)
-    {
-        if (temperature >= 95) return "text-danger";
-        if (temperature >= 80) return "text-warning";
-        return "";
-    }
+    private static string TemperatureCssFor(double? temperature) =>
+        temperature switch
+        {
+            >= 95 => "text-danger",
+            >= 80 => "text-warning",
+            _ => "",
+        };
 
-    private static string FormatCoreCount(int count) =>
-        count > 0 ? count.ToString(CultureInfo.InvariantCulture) : "unknown";
+    private static string FormatCoreCount(int count) => count > 0 ? count.ToString(CultureInfo.InvariantCulture) : "unknown";
 
-    internal static string FormatTemperature(double? celsius) =>
-        celsius is { } value ? $"{value.ToString("F1", CultureInfo.InvariantCulture)} °C" : "N/A";
+    internal static string FormatTemperature(double? celsius) => celsius is { } value ? $"{value.ToString("F1", CultureInfo.InvariantCulture)} °C" : "N/A";
 }
