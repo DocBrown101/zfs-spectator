@@ -74,4 +74,14 @@ public class CommandExecutorTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             executor.ExecuteAsync("/definitely/not/a/command", "", cancellation.Token));
     }
+
+    [Fact]
+    public async Task ExecuteAsync_Success_ReturnsTrimmedStandardOutput()
+    {
+        var executor = new CommandExecutor(NullLogger<CommandExecutor>.Instance);
+
+        var output = await executor.ExecuteAsync("sh", "-c \"printf '  hello  '\"");
+
+        Assert.Equal("hello", output);
+    }
 }

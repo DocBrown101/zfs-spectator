@@ -52,6 +52,32 @@ public class DiskTemperatureTests : IDisposable
     }
 
     [Fact]
+    public void ReadTemperatures_Drivetemp_ReturnsDeviceWithConvertedTemperature()
+    {
+        var hwmon = CreateHwmonWithDevice("hwmon0", "drivetemp");
+        Directory.CreateDirectory(Path.Combine(hwmon, "device", "block", "sda"));
+        File.WriteAllText(Path.Combine(hwmon, "temp1_input"), "45000");
+
+        var result = DiskTemperatureBackgroundService.ReadTemperatures(this.tempDir, NullLogger);
+
+        var entry = Assert.Single(result);
+        Assert.Equal("sda", entry.Key);
+        Assert.Equal(45, entry.Value);
+    }
+
+    [Fact]
+    public void ReadTemperatures_UnparseableTempValue_IsSkipped()
+    {
+        var hwmon = CreateHwmonWithDevice("hwmon0", "drivetemp");
+        Directory.CreateDirectory(Path.Combine(hwmon, "device", "block", "sda"));
+        File.WriteAllText(Path.Combine(hwmon, "temp1_input"), "not-a-number");
+
+        var result = DiskTemperatureBackgroundService.ReadTemperatures(this.tempDir, NullLogger);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
     public void ResolveBlockDevice_Drivetemp_FindsBlockDevice()
     {
         var hwmon = CreateHwmonWithDevice("hwmon0", "drivetemp");

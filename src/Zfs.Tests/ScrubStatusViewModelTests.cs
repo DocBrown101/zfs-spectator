@@ -42,6 +42,15 @@ public class ScrubStatusViewModelTests
     }
 
     [Fact]
+    public void Constructor_RunningScrubOmitsEmptyDetails()
+    {
+        var model = new ScrubStatusViewModel(new ScrubInfo { State = "running", ProgressPct = 0 });
+
+        Assert.True(model.IsRunning);
+        Assert.Empty(model.Details);
+    }
+
+    [Fact]
     public void Constructor_FinishedScrubIncludesDurationWhenAvailable()
     {
         var model = new ScrubStatusViewModel(new ScrubInfo

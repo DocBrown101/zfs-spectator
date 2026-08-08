@@ -202,4 +202,38 @@ public class SystemServiceTests
 
         Assert.Empty(data.PoolScrubs);
     }
+
+    // ── RunSafeAsync ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RunSafeAsync_Exception_ReturnsFallback()
+    {
+        var result = await SystemService.RunSafeAsync(
+            async () =>
+            {
+                await Task.Yield();
+                throw new InvalidOperationException("boom");
+            },
+            42);
+
+        Assert.Equal(42, result);
+    }
+
+    [Fact]
+    public async Task RunSafeAsync_NoException_ReturnsResult()
+    {
+        var result = await SystemService.RunSafeAsync(() => Task.FromResult(7), 0);
+
+        Assert.Equal(7, result);
+    }
+
+    [Fact]
+    public async Task RunSafeAsync_Cancellation_IsPropagated()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            SystemService.RunSafeAsync(() => Task.FromCanceled<int>(cts.Token), 0));
+    }
 }

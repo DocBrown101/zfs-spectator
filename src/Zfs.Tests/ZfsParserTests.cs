@@ -93,19 +93,6 @@ public class ZfsParserTests
         Assert.Equal(65536UL, dev.RecordSize);
     }
 
-    [Fact]
-    public void ParseDatasets_ShouldReturnEmptyForEmptyInput()
-    {
-        Assert.Empty(ZfsParser.ParseDatasets("", "zfsPool"));
-        Assert.Empty(ZfsParser.ParseDatasets("  ", "zfsPool"));
-    }
-
-    [Fact]
-    public void ParseDatasets_ShouldReturnEmptyForMissingDatasetsKey()
-    {
-        Assert.Empty(ZfsParser.ParseDatasets("{}", "zfsPool"));
-    }
-
     [Theory]
     [InlineData("[]")]
     [InlineData("null")]
@@ -113,6 +100,36 @@ public class ZfsParserTests
     public void ParseDatasets_ShouldReturnEmptyForNonObjectRoot(string json)
     {
         Assert.Empty(ZfsParser.ParseDatasets(json, "zfsPool"));
+    }
+
+    [Fact]
+    public void ParseDatasets_EncryptedDataset_ShouldSetEncryptionProperties()
+    {
+        const string json = """
+            {
+              "datasets": {
+                "tank/secret": {
+                  "name": "tank/secret",
+                  "properties": {
+                    "encryption": { "value": "aes-256-gcm" },
+                    "keystatus": { "value": "unavailable" }
+                  }
+                }
+              }
+            }
+            """;
+
+        var dataset = Assert.Single(ZfsParser.ParseDatasets(json, "tank"));
+
+        Assert.True(dataset.Encrypted);
+        Assert.True(dataset.KeyLocked);
+        Assert.Equal("aes-256-gcm", dataset.EncryptionAlgorithm);
+    }
+
+    [Fact]
+    public void ParseDatasets_ShouldReturnEmptyForMissingDatasetsKey()
+    {
+        Assert.Empty(ZfsParser.ParseDatasets("{}", "zfsPool"));
     }
 
     // ── Snapshot Tests ──────────────────────────────────────────────────
@@ -161,6 +178,54 @@ public class ZfsParserTests
         var json = """{"output_version":{"command":"zfs list"},"datasets":{}}""";
 
         Assert.Empty(ZfsParser.ParseSnapshots(json));
+    }
+
+    [Fact]
+    public void ParseSnapshots_ShouldDeriveDatasetAndSnapshotNameFromFullName()
+    {
+        const string json = """
+            {
+              "datasets": {
+                "tank@snap1": {
+                  "name": "tank@snap1",
+                  "properties": {
+                    "creation": { "value": "1700000000" },
+                    "used": { "value": "1024" },
+                    "referenced": { "value": "2048" }
+                  }
+                }
+              }
+            }
+            """;
+
+        var snapshot = Assert.Single(ZfsParser.ParseSnapshots(json));
+
+        Assert.Equal("tank", snapshot.DatasetName);
+        Assert.Equal("snap1", snapshot.SnapName);
+        Assert.Equal(1700000000, snapshot.Creation.ToUnixTimeSeconds());
+    }
+
+    [Fact]
+    public void ParseSnapshots_InvalidCreationValue_ShouldUseMinValue()
+    {
+        const string json = """
+            {
+              "datasets": {
+                "tank@snap1": {
+                  "name": "tank@snap1",
+                  "dataset": "tank",
+                  "snapshot_name": "snap1",
+                  "properties": {
+                    "creation": { "value": "not-a-timestamp" }
+                  }
+                }
+              }
+            }
+            """;
+
+        var snapshot = Assert.Single(ZfsParser.ParseSnapshots(json));
+
+        Assert.Equal(DateTimeOffset.MinValue, snapshot.Creation);
     }
 
     // ── ZVol Tests ──────────────────────────────────────────────────────

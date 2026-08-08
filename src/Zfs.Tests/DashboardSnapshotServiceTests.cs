@@ -50,6 +50,37 @@ public class DashboardSnapshotServiceTests
     }
 
     [Fact]
+    public async Task CollectOnceAsync_NewPoolInRuntimeRefresh_FallsBackToListUsableSizes()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero));
+        var detailedPool = MakePool("tank") with { UsableSize = 100, UsableUsed = 25, UsableAvail = 75 };
+        var newPoolScrub = new ScrubInfo { State = "running" };
+        var runtimePools = new List<(Pool Pool, ScrubInfo Scrub)>
+        {
+            Snapshot(MakePool("tank"), ScrubInfo.Idle),
+            Snapshot(MakePool("newpool") with { Size = 1000, Alloc = 400, Free = 600 }, newPoolScrub),
+        };
+        var zpool = new StubZpoolService([Snapshot(detailedPool, ScrubInfo.Idle)])
+        {
+            RuntimeSnapshots = runtimePools,
+        };
+        var service = CreateService(new StubSystemService(), zpool, time);
+
+        await service.CollectOnceAsync();
+        time.Advance(TimeSpan.FromSeconds(10));
+        await service.CollectOnceAsync();
+
+        var newPool = Assert.Single(service.Current!.Pools, pool => pool.Name == "newpool");
+        Assert.Equal(1000UL, newPool.UsableSize);
+        Assert.Equal(400UL, newPool.UsableUsed);
+        Assert.Equal(600UL, newPool.UsableAvail);
+        Assert.Same(newPoolScrub, service.Current.Data.PoolScrubs["newpool"]);
+
+        var tank = Assert.Single(service.Current.Pools, pool => pool.Name == "tank");
+        Assert.Equal(100UL, tank.UsableSize);
+    }
+
+    [Fact]
     public async Task CollectOnceAsync_FailedFastSampleKeepsPreviousSnapshot()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero));

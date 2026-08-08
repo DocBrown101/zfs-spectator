@@ -376,23 +376,13 @@ public class ZpoolServiceTests
         Assert.Equal(2, pool.SpecialDevices.Count);
     }
 
-    [Fact]
-    public async Task GetAllPoolsAsync_EmptyResponse_ShouldReturnEmpty()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetAllPoolsAsync_EmptyListResponse_ShouldReturnEmpty(string response)
     {
         var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "");
-        var service = new ZpoolService(executor);
-
-        var pools = await service.GetAllPoolsAsync();
-
-        Assert.Empty(pools);
-    }
-
-    [Fact]
-    public async Task GetAllPoolsAsync_WhitespaceResponse_ShouldReturnEmpty()
-    {
-        var executor = new FakeCommandExecutor()
-            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", "   ");
+            .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", response);
         var service = new ZpoolService(executor);
 
         var pools = await service.GetAllPoolsAsync();
@@ -476,20 +466,7 @@ public class ZpoolServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetAllPoolsWithScrubAsync());
     }
 
-    // ── Special VDEV size ────────────────────────────────────────────────
-
-    [Fact]
-    public async Task GetAllPoolsAsync_WithSpecialVdev_ShouldParseSpecialDevices()
-    {
-        var executor = CreateExecutorForPool();
-        var service = new ZpoolService(executor);
-
-        var pools = await service.GetAllPoolsAsync();
-        var pool = pools.Single(p => p.Name == "zfsPool");
-
-        // Special devices come from zpool_status.json layout
-        Assert.Equal(2, pool.SpecialDevices.Count);
-    }
+    // ── Concurrency ──────────────────────────────────────────────────────
 
     private sealed class ConcurrentPoolStatusExecutor(
         string listJson,

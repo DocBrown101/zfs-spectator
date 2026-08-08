@@ -52,36 +52,28 @@ public class ZpoolParserTests
     public void ParsePools_ShouldReturnEmptyForEmptyInput()
     {
         Assert.Empty(ZpoolParser.ParsePools(""));
-        Assert.Empty(ZpoolParser.ParsePools("{}"));
-    }
-
-    [Fact]
-    public void ParsePools_ShouldReturnEmptyForNonObjectContainer()
-    {
-        Assert.Empty(ZpoolParser.ParsePools("{\"pools\":[]}"));
-        Assert.Empty(ZpoolParser.ParsePools("{\"pools\":\"text\"}"));
-    }
-
-    [Fact]
-    public void ParsePools_RequireOutput_ShouldThrowForNonObjectContainer()
-    {
-        Assert.Throws<InvalidOperationException>(() => ZpoolParser.ParsePools("{\"pools\":[]}", requireOutput: true));
+        Assert.Empty(ZpoolParser.ParsePools("   "));
     }
 
     [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"pools\":[]}")]
+    [InlineData("{\"pools\":\"text\"}")]
     [InlineData("[]")]
     [InlineData("null")]
     [InlineData("\"text\"")]
-    public void ParsePools_ShouldReturnEmptyForNonObjectRoot(string json)
+    public void ParsePools_ShouldReturnEmptyForInvalidOrNonObjectJson(string json)
     {
         Assert.Empty(ZpoolParser.ParsePools(json));
     }
 
     [Theory]
+    [InlineData("{\"pools\":[]}")]
+    [InlineData("{\"pools\":\"text\"}")]
     [InlineData("[]")]
     [InlineData("null")]
     [InlineData("\"text\"")]
-    public void ParsePools_RequireOutput_ShouldReportIncompleteDataForNonObjectRoot(string json)
+    public void ParsePools_RequireOutput_ShouldReportIncompleteDataForInvalidJson(string json)
     {
         var exception = Assert.Throws<InvalidOperationException>(
             () => ZpoolParser.ParsePools(json, requireOutput: true));
@@ -219,13 +211,135 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolLayout_ShouldDetectScrubOperation()
+    public void ParseScrubInfo_ShouldDetectScrubOperation()
     {
         var json = File.ReadAllText("TestData/zpool_status_scanning.json");
 
         var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
 
         Assert.Equal("scrubbing", layout.Operation);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldParseCanceledScrub()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "name": "tank",
+                  "scan_stats": {
+                    "function": "SCRUB",
+                    "state": "CANCELED",
+                    "start_time": "Wed Mar 27 12:54:52 2024",
+                    "end_time": "Wed Mar 27 13:02:10 2024",
+                    "errors": "3"
+                  }
+                }
+              }
+            }
+            """;
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+
+        Assert.Equal("canceled", scrub.State);
+        Assert.Equal(3, scrub.Errors);
+        Assert.Equal("00:07:18", scrub.Duration);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldParseRunningResilver()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "scan_stats": {
+                    "function": "RESILVER",
+                    "state": "SCANNING",
+                    "start_time": "Wed Mar 27 12:54:52 2024",
+                    "to_examine": "100G",
+                    "issued": "50G",
+                    "errors": "0"
+                  }
+                }
+              }
+            }
+            """;
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+
+        Assert.Equal("running", scrub.State);
+        Assert.Equal(50.0, scrub.ProgressPct);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldReturnIdleForNonScrubFunction()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "scan_stats": {
+                    "function": "ZIO_FLUSH",
+                    "state": "SCANNING"
+                  }
+                }
+              }
+            }
+            """;
+
+        Assert.Equal("idle", ZpoolParser.ParseScrubInfo(json, "tank").State);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldStripTimezoneFromGermanTimestamp()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "scan_stats": {
+                    "function": "SCRUB",
+                    "state": "FINISHED",
+                    "start_time": "Mi 27. Mär 12:54:52 CET 2024",
+                    "end_time": "Mi 27. Mär 17:22:17 CET 2024",
+                    "errors": "0"
+                  }
+                }
+              }
+            }
+            """;
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+
+        Assert.Equal("finished", scrub.State);
+        Assert.Equal("04:27:25", scrub.Duration);
+    }
+
+    [Fact]
+    public void ParseScrubInfo_ShouldReturnEmptyDurationWhenEndBeforeStart()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "scan_stats": {
+                    "function": "SCRUB",
+                    "state": "FINISHED",
+                    "start_time": "Wed Mar 27 17:22:17 2024",
+                    "end_time": "Wed Mar 27 12:54:52 2024",
+                    "errors": "0"
+                  }
+                }
+              }
+            }
+            """;
+
+        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+
+        Assert.Equal("finished", scrub.State);
+        Assert.Equal("", scrub.Duration);
     }
 
     [Fact]
@@ -242,6 +356,128 @@ public class ZpoolParserTests
         Assert.Empty(layout.LogDevices);
         Assert.Empty(layout.SpareDevices);
         Assert.Empty(layout.SpecialDevices);
+    }
+
+    [Fact]
+    public void ParsePoolLayout_Mirror_ShouldParseDevicesWithMirrorRole()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "name": "tank",
+                  "vdevs": {
+                    "tank": {
+                      "vdev_type": "root",
+                      "vdevs": {
+                        "mirror-0": {
+                          "vdev_type": "mirror",
+                          "vdevs": {
+                            "sda": {
+                              "vdev_type": "disk",
+                              "state": "ONLINE",
+                              "path": "/dev/sda",
+                              "read_errors": "0",
+                              "write_errors": "1",
+                              "checksum_errors": "0"
+                            },
+                            "sdb": {
+                              "vdev_type": "disk",
+                              "state": "DEGRADED",
+                              "path": "/dev/sdb",
+                              "read_errors": "0",
+                              "write_errors": "0",
+                              "checksum_errors": "2"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "tank");
+
+        Assert.Equal("mirror", layout.VdevType);
+        Assert.Equal(2, layout.DataDevices.Count);
+        Assert.All(layout.DataDevices, device => Assert.Equal("mirror", device.VdevType));
+        Assert.Equal(1, layout.DataDevices[0].ErrorsWrite);
+        Assert.Equal("DEGRADED", layout.DataDevices[1].Status);
+        Assert.Equal(2, layout.DataDevices[1].ErrorsChecksum);
+    }
+
+    [Fact]
+    public void ParsePoolLayout_ShouldParseCacheLogAndSpareDevices()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "name": "tank",
+                  "vdevs": { "tank": { "vdev_type": "root", "vdevs": {} } },
+                  "cache": {
+                    "cache0": {
+                      "vdev_type": "disk",
+                      "state": "ONLINE",
+                      "name": "/dev/sdc"
+                    }
+                  },
+                  "logs": {
+                    "log0": {
+                      "vdev_type": "mirror",
+                      "vdevs": {
+                        "sdd": { "vdev_type": "disk", "state": "ONLINE", "path": "/dev/sdd" },
+                        "sde": { "vdev_type": "disk", "state": "ONLINE", "path": "/dev/sde" }
+                      }
+                    }
+                  },
+                  "spares": {
+                    "spare0": {
+                      "vdev_type": "disk",
+                      "state": "AVAIL",
+                      "path": "/dev/sdf"
+                    }
+                  }
+                }
+              }
+            }
+            """;
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "tank");
+
+        Assert.Equal("stripe", layout.VdevType);
+        Assert.Empty(layout.DataDevices);
+        Assert.Single(layout.CacheDevices);
+        Assert.Equal("/dev/sdc", layout.CacheDevices[0].Path);
+        Assert.Equal(2, layout.LogDevices.Count);
+        Assert.All(layout.LogDevices, device => Assert.Equal("log", device.VdevType));
+        Assert.Single(layout.SpareDevices);
+        Assert.Equal("spare", layout.SpareDevices[0].VdevType);
+        Assert.Equal("AVAIL", layout.SpareDevices[0].Status);
+    }
+
+    [Fact]
+    public void ParsePoolLayout_ShouldDetectResilverOperation()
+    {
+        const string json = """
+            {
+              "pools": {
+                "tank": {
+                  "scan_stats": {
+                    "function": "RESILVER",
+                    "state": "SCANNING"
+                  }
+                }
+              }
+            }
+            """;
+
+        var layout = ZpoolParser.ParsePoolLayout(json, "tank");
+
+        Assert.Equal("resilvering", layout.Operation);
     }
 
     [Fact]
