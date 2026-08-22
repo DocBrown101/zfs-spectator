@@ -1,0 +1,47 @@
+@model CommandMenuViewModel
+@if (Model.Items.Count > 0)
+{
+    @if (Model.IsContextMenu)
+    {
+        <div id="@Model.Id" class="dropdown command-context-menu">
+            <button type="button"
+                    class="visually-hidden"
+                    data-bs-toggle="dropdown"
+                    data-command-context-anchor
+                    aria-label="Row commands"></button>
+            <ul class="dropdown-menu command-menu-list shadow" role="menu">
+                <partial name="_CommandMenuItems" model="Model.Items" />
+            </ul>
+        </div>
+    }
+    else
+    {
+        <div class="dropdown">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                <i class="bi @Model.TriggerIcon me-1"></i>@Model.TriggerLabel
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end command-menu-list shadow" role="menu">
+                <partial name="_CommandMenuItems" model="Model.Items" />
+            </ul>
+        </div>
+    }
+
+    const string scriptName = "CommandMenu.js";
+    const string scriptKey = "__" + scriptName;
+    var renderScript = Context.Items.TryAdd(scriptKey, true);
+    @if (renderScript)
+    {
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div id="command-copy-toast" class="toast align-items-center text-bg-success border-0" role="status" aria-live="polite" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body" data-command-toast-message>Command copied to clipboard.</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+        <script src="~/js/shared/@scriptName"></script>
+    }
+}

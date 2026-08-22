@@ -10,6 +10,13 @@
 
 <partial name="_PageHeader" model="header" />
 
+@if (Model.Pools.Count > 0)
+{
+    <p class="small text-body-secondary mb-3">
+        <i class="bi bi-mouse2 me-1"></i>Right-click a row to copy commands.
+    </p>
+}
+
 @if (Model.Pools.Count == 0)
 {
     <div class="alert alert-secondary">
@@ -46,7 +53,9 @@ else
                             var fragCss = "";
                             if (p.Fragmentation > 75) fragCss = "text-danger";
                             else if (p.Fragmentation > 50) fragCss = "text-warning";
-                            <tr class="border-bottom border-secondary">
+                            <tr class="border-bottom border-secondary"
+                                data-command-context="@Model.ContextCommands.Id"
+                                data-command-pool="@p.Name">
                                 <td>
                                     <a asp-page="Details" asp-route-name="@p.Name" class="text-info text-decoration-none fw-semibold"
                                        data-bs-toggle="tooltip" data-bs-title="Ashift: @p.Ashift &middot; Raw: @p.Size.FormatBytes()">@p.Name</a>
@@ -105,4 +114,8 @@ else
     </div>
 }
 
-<partial name="_CommandSuggestions" model="new CommandSuggestionsViewModel(Model.Suggestions)" />
+<div class="d-flex justify-content-center mb-4">
+    <partial name="_CommandMenu" model="Model.GlobalCommands" />
+</div>
+
+<partial name="_CommandMenu" model="Model.ContextCommands" />

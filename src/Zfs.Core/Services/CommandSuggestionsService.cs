@@ -46,7 +46,7 @@ public static class CommandSuggestionsService
     public static CommandSuggestion SuggestCreateSnapshot(string dataset) => new()
     {
         Description = $"Create snapshot of {dataset}",
-        ZfsCommand = $"sudo zfs snapshot {dataset}@backup-$(date +%Y%m%d-%H%M%S)",
+        ZfsCommand = $"sudo zfs snapshot {dataset}@backup-$(date +%Y-%m-%d_%H:%M:%S)",
         NixOsConfig =
             $"# configuration.nix — automated snapshots with sanoid\n" +
             $"services.sanoid = {{\n" +
@@ -129,6 +129,12 @@ public static class CommandSuggestionsService
     {
         Description = $"Destroy dataset {dataset}",
         ZfsCommand = $"sudo zfs destroy {dataset}",
+    };
+
+    public static CommandSuggestion SuggestDestroyDatasetRecursive(string dataset) => new()
+    {
+        Description = $"Recursively destroy dataset {dataset}",
+        ZfsCommand = $"sudo zfs destroy -r {dataset}",
     };
 
     public static CommandSuggestion SuggestRenameDataset(string dataset) => new()

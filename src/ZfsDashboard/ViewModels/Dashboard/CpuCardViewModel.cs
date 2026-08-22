@@ -15,7 +15,7 @@ public sealed class CpuCardViewModel(SystemInfo system, StaticSystemInfo staticS
         new("Temperature", FormatTemperature(system.CpuTemperatureCelsius), "cpuTemperature", ValueCss: TemperatureCssFor(system.CpuTemperatureCelsius)),
     ];
 
-    private static string TemperatureCssFor(double? temperature) =>
+    internal static string TemperatureCssFor(double? temperature) =>
         temperature switch
         {
             >= 95 => "text-danger",

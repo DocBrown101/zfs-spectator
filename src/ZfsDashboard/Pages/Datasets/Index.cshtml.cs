@@ -1,14 +1,22 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
+using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.Pages.Datasets;
 
 public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 {
     public Dictionary<string, List<Dataset>> DatasetsByPool { get; private set; } = [];
-    public List<CommandSuggestion> Suggestions { get; } = [];
     public int TotalCount { get; private set; }
+    public CommandMenuViewModel ContextCommands { get; } = new(
+        "dataset-command-menu",
+        [
+            new(CommandSuggestionsService.SuggestCreateChildDataset(CommandMenuViewModel.DatasetToken), "bi-folder-plus"),
+            new(CommandSuggestionsService.SuggestCreateSnapshot(CommandMenuViewModel.DatasetToken), "bi-camera"),
+            new(CommandSuggestionsService.SuggestRenameDataset(CommandMenuViewModel.DatasetToken), "bi-pencil"),
+            new(CommandSuggestionsService.SuggestDestroyDatasetRecursive(CommandMenuViewModel.DatasetToken), "bi-trash3", IsDangerous: true),
+        ]);
 
     public async Task OnGetAsync()
     {
@@ -16,11 +24,6 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
         {
             this.DatasetsByPool[pool] = datasets;
             this.TotalCount += datasets.Count;
-        }
-        foreach (var pool in this.DatasetsByPool.Keys.Order())
-        {
-            this.Suggestions.Add(CommandSuggestionsService.SuggestCreateChildDataset(pool));
-            this.Suggestions.Add(CommandSuggestionsService.SuggestDeleteChildDataset(pool));
         }
     }
 }

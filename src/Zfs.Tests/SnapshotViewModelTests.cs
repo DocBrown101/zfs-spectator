@@ -34,6 +34,8 @@ public class SnapshotViewModelTests
 
         Assert.Equal(rows.Count, rows.Select(row => row.CollapseId).Distinct().Count());
         Assert.Equal(["snapshot-group-0-0", "snapshot-group-1-0"], rows.Select(row => row.CollapseId));
+        Assert.Contains("tank/a", rows.Select(row => row.DatasetName));
+        Assert.Contains("tank/b@daily", rows.Select(row => row.FullName));
         Assert.Contains("sudo zfs rollback -r tank/a@daily", rows.Select(row => row.RollbackCommand.Command));
         Assert.Contains("sudo zfs destroy tank/b@daily", rows.Select(row => row.DestroyCommand.Command));
     }
@@ -70,6 +72,16 @@ public class SnapshotViewModelTests
         var group = new SnapshotGroupViewModel("tank/data", [], idPrefix: "snapshot-group-0");
 
         Assert.Equal("snapshot-group-0-accordion", group.AccordionId);
+    }
+
+    [Fact]
+    public void Group_ContextMenu_IsOptIn()
+    {
+        var defaultGroup = new SnapshotGroupViewModel("tank/data", []);
+        var contextGroup = new SnapshotGroupViewModel("tank/data", [], enableContextMenu: true);
+
+        Assert.False(defaultGroup.EnableContextMenu);
+        Assert.True(contextGroup.EnableContextMenu);
     }
 
     [Fact]

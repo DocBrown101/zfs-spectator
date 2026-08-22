@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Zfs.Core.Models;
 using Zfs.Core.Services;
 using ZfsDashboard.ViewModels.Snapshots;
+using ZfsDashboard.ViewModels.Shared;
 
 namespace ZfsDashboard.Pages.Snapshots;
 
@@ -9,15 +10,19 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
 {
     public IReadOnlyList<SnapshotGroupViewModel> SnapshotGroups { get; private set; } = [];
     public int SnapshotCount { get; private set; }
-    public List<CommandSuggestion> Suggestions { get; } = [];
+    public CommandMenuViewModel ContextCommands { get; } = new(
+        "snapshot-command-menu",
+        [
+            new(CommandSuggestionsService.SuggestCreateSnapshot(CommandMenuViewModel.DatasetToken), "bi-camera"),
+            new(CommandSuggestionsService.SuggestRollback(CommandMenuViewModel.SnapshotToken), "bi-arrow-counterclockwise", IsDangerous: true),
+            new(CommandSuggestionsService.SuggestDestroySnapshot(CommandMenuViewModel.SnapshotToken), "bi-trash3", IsDangerous: true),
+        ]);
 
     public async Task OnGetAsync()
     {
         var snapshots = new List<Snapshot>();
-        var poolNames = new List<string>();
-        foreach (var (pool, snaps) in await ZfsAggregation.GetAllByPoolAsync(zpool, zfs.GetSnapshotsAsync))
+        foreach (var (_, snaps) in await ZfsAggregation.GetAllByPoolAsync(zpool, zfs.GetSnapshotsAsync))
         {
-            poolNames.Add(pool);
             snapshots.AddRange(snaps);
         }
 
@@ -29,10 +34,8 @@ public class IndexModel(IZfsService zfs, IZpoolService zpool) : PageModel
                 group.Key,
                 group,
                 idPrefix: $"snapshot-group-{index}",
-                includeSeconds: true))
+                includeSeconds: true,
+                enableContextMenu: true))
             .ToList();
-
-        foreach (var pool in poolNames.Order())
-            this.Suggestions.Add(CommandSuggestionsService.SuggestCreateSnapshot(pool));
     }
 }

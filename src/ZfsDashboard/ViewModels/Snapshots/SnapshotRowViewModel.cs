@@ -20,6 +20,8 @@ public sealed record SnapshotRowViewModel
 
     public string CollapseId => this.collapseId;
     public string Name => this.snapshot.SnapName;
+    public string DatasetName => this.snapshot.DatasetName;
+    public string FullName => this.snapshot.Name;
     public string Used => this.snapshot.Used.FormatBytes();
     public string Referenced => this.snapshot.Refer.FormatBytes();
     public string Created =>

@@ -8,10 +8,12 @@ public sealed record SnapshotGroupViewModel
         string datasetName,
         IEnumerable<Snapshot> snapshots,
         string idPrefix = "dataset-snapshot",
-        bool includeSeconds = false)
+        bool includeSeconds = false,
+        bool enableContextMenu = false)
     {
         this.DatasetName = datasetName;
         this.AccordionId = $"{idPrefix}-accordion";
+        this.EnableContextMenu = enableContextMenu;
         this.Rows = snapshots
             .OrderByDescending(snapshot => snapshot.Creation)
             .Select((snapshot, index) => new SnapshotRowViewModel(
@@ -23,6 +25,7 @@ public sealed record SnapshotGroupViewModel
 
     public string DatasetName { get; }
     public string AccordionId { get; }
+    public bool EnableContextMenu { get; }
     public IReadOnlyList<SnapshotRowViewModel> Rows { get; }
     public string EmptyMessage { get; } = "No snapshots";
 }

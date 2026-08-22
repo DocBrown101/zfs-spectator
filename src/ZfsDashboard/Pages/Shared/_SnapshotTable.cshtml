@@ -8,7 +8,10 @@ else
     <div class="accordion" id="@Model.AccordionId">
         @foreach (var snapshot in Model.Rows)
         {
-            <div class="accordion-item">
+            <div class="accordion-item"
+                 data-command-context="@(Model.EnableContextMenu ? "snapshot-command-menu" : null)"
+                 data-command-dataset="@(Model.EnableContextMenu ? snapshot.DatasetName : null)"
+                 data-command-snapshot="@(Model.EnableContextMenu ? snapshot.FullName : null)">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed flex-wrap row-gap-1"
                             type="button"

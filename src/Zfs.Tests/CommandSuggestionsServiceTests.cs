@@ -26,4 +26,12 @@ public class CommandSuggestionsServiceTests
         Assert.Equal($"sudo zfs set {property}={value} tank", suggestion.ZfsCommand);
         Assert.Null(suggestion.NixOsConfig);
     }
+
+    [Fact]
+    public void SuggestDestroyDatasetRecursive_UsesCompleteDatasetName()
+    {
+        var suggestion = CommandSuggestionsService.SuggestDestroyDatasetRecursive("tank/currentdataset");
+
+        Assert.Equal("sudo zfs destroy -r tank/currentdataset", suggestion.ZfsCommand);
+    }
 }

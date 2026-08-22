@@ -95,6 +95,27 @@
   --bs-table-hover-bg: var(--bs-tertiary-bg);
 }
 
+/* Command menus shared by mouse, touch and keyboard interactions */
+.command-context-menu {
+  position: fixed;
+  z-index: 1080;
+}
+.toast-container {
+  z-index: 1090;
+}
+.command-menu-list {
+  min-width: min(22rem, calc(100vw - 1rem));
+  max-width: calc(100vw - 1rem);
+}
+.command-menu-preview {
+  display: block;
+  max-width: 30rem;
+  overflow: hidden;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Dashboard component dimensions */
 .dashboard-table {
   table-layout: fixed;
@@ -156,4 +177,3 @@ details > summary .bi-chevron-right {
 details[open] > summary .bi-chevron-right {
   transform: rotate(90deg);
 }
-
