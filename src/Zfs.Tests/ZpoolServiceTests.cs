@@ -16,9 +16,7 @@ public class ZpoolServiceTests
         var zfsGetPropsJson = File.ReadAllText("TestData/zfs_get_pool_props.json");
 
         return new FakeCommandExecutor()
-            .On("zpool", $"list -Hpvj -o name,size,alloc,free,health,frag {poolName}", zpoolListJson)
             .On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag", zpoolListJson)
-            .On("zpool", "list -Hpj -o name", zpoolListJson)
             .On("zpool", "status -Pj miniTank", zpoolStatusJson)
             .On("zpool", "get -Hpj ashift miniTank", zpoolAshiftJson)
             .On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus miniTank", zfsGetPropsJson)

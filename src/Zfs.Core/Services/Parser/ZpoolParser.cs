@@ -2,6 +2,7 @@ namespace Zfs.Core.Services.Parser;
 
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Zfs.Core.Models;
 
 public static class ZpoolParser
@@ -264,7 +265,7 @@ public static class ZpoolParser
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
 
-        var match = RegexHelper.ScrubTimeLeft().Match(text);
+        var match = Regex.Match(text, @"(\d+:\d+:\d+)\s+to go");
         return match.Success ? match.Groups[1].Value : "";
     }
 

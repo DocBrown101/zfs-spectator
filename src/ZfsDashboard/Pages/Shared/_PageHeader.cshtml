@@ -16,25 +16,15 @@
             }
         }
 
-        @if (Model.StatusBadge is { } statusBadge)
+        @foreach (var badge in new[] { Model.StatusBadge, Model.AlertBadge })
         {
-            <span class="badge @statusBadge.Css">
-                @if (!string.IsNullOrEmpty(statusBadge.Icon))
+            if (badge is null) continue;
+            <span class="badge @badge.Css">
+                @if (!string.IsNullOrEmpty(badge.Icon))
                 {
-                    <i class="bi @statusBadge.Icon me-1"></i>
+                    <i class="bi @badge.Icon me-1"></i>
                 }
-                @statusBadge.Text
-            </span>
-        }
-
-        @if (Model.AlertBadge is { } alertBadge)
-        {
-            <span class="badge @alertBadge.Css">
-                @if (!string.IsNullOrEmpty(alertBadge.Icon))
-                {
-                    <i class="bi @alertBadge.Icon me-1"></i>
-                }
-                @alertBadge.Text
+                @badge.Text
             </span>
         }
     </h3>

@@ -75,7 +75,7 @@
                             new("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit", ValueCss: "fw-semibold"),
                             new("Dedup", ds.Dedup, ValueCss: "fw-semibold"),
                             new("Sync", ds.Sync, ValueCss: "fw-semibold"),
-                            new("Case Sensitivity", ds.CaseSensitivity, ValueCss: "fw-semibold", Last: true),
+                            new("Case Sensitivity", ds.CaseSensitivity, ValueCss: "fw-semibold"),
                         })" />
             </div>
 
@@ -87,7 +87,7 @@
                             new("CanMount", ds.CanMount, ValueCss: "fw-semibold"),
                             new("Quota", ds.Quota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
                             new("RefQuota", ds.RefQuota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
-                            new("Refreservation", ds.Refreservation.FormatBytesOrNone(), ValueCss: "fw-semibold", Last: true),
+                            new("Refreservation", ds.Refreservation.FormatBytesOrNone(), ValueCss: "fw-semibold"),
                         })" />
             </div>
         </div>

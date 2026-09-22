@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
 
@@ -46,7 +47,7 @@ public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfs
     public async Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default)
     {
         var output = await cmd.ExecuteAsync("zfs", "version", cancellationToken);
-        var match = RegexHelper.ZfsVersionRegex().Match(output);
+        var match = Regex.Match(output, @"\d+\.\d+(?:\.\d+)?");
         return match.Success ? match.Value : "unknown";
     }
 

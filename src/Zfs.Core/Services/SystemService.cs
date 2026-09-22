@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Net.NetworkInformation;
 using Zfs.Core.Models;
 
 namespace Zfs.Core.Services;
@@ -626,32 +627,21 @@ public class SystemService() : ISystemService
     // ── Network Info ─────────────────────────────────────────────────────
 
     private Task<List<NetworkInterfaceInfo>> GetNetworkInfoAsync(CancellationToken cancellationToken)
-        => RunSafeAsync(async () =>
+        => RunSafeAsync(() =>
         {
-            var lines = await File.ReadAllLinesAsync("/proc/net/dev", cancellationToken);
-            var interfaces = new List<NetworkInterfaceInfo>();
-
-            foreach (var line in lines)
-            {
-                var colonIdx = line.IndexOf(':');
-                if (colonIdx < 0) continue;
-                var name = line[..colonIdx].Trim();
-                if (name is "Inter-" or "face") continue;
-
-                var parts = line[(colonIdx + 1)..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 16) continue;
-
-                // Skip loopback and inactive interfaces
-                if (name == "lo") continue;
-
-                interfaces.Add(new NetworkInterfaceInfo
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .Select(n =>
                 {
-                    Name = name,
-                    RxBytes = ParseU(parts[0]),
-                    TxBytes = ParseU(parts[8]),
-                });
-            }
-            return interfaces;
+                    var stats = n.GetIPStatistics();
+                    return new NetworkInterfaceInfo
+                    {
+                        Name = n.Name,
+                        RxBytes = (ulong)stats.BytesReceived,
+                        TxBytes = (ulong)stats.BytesSent,
+                    };
+                }).ToList());
         }, []);
 
     // ── Disk I/O Info ────────────────────────────────────────────────────

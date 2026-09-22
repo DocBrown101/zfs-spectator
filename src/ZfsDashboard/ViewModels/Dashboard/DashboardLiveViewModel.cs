@@ -17,28 +17,20 @@ public sealed record DashboardLiveViewModel
         DashboardData data,
         IReadOnlyList<Pool> pools)
     {
-        var poolsByName = pools.ToDictionary(pool => pool.Name, StringComparer.Ordinal);
         var disksByPool = data.PoolDiskIoRates.ToDictionary(
             group => group.PoolName,
             group => (IReadOnlyList<DiskIoRateViewModel>)group.Disks.Select(rate => new DiskIoRateViewModel(rate)).ToList());
-
-        var poolNames = disksByPool.Keys
-            .Concat(data.PoolScrubs.Keys)
-            .Concat(poolsByName.Keys)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
 
         this.data = data;
         this.Memory = new MemoryCardViewModel(data.System.Memory);
         this.Arc = new ArcCardViewModel(data.System.Arc);
         this.NetworkRates = data.NetworkRates.Select(rate => new NetworkRateViewModel(rate)).ToList();
         this.DiskIoRates = data.DiskIoRates.Select(rate => new DiskIoRateViewModel(rate)).ToList();
-        this.Pools = poolNames.Select(name => new PoolLiveViewModel(
-            name,
-            disksByPool.GetValueOrDefault(name) ?? [],
-            new ScrubStatusViewModel(data.PoolScrubs.GetValueOrDefault(name, ScrubInfo.Idle)),
-            poolsByName.TryGetValue(name, out var pool) ? new PoolCardViewModel(pool) : null)).ToList();
+        this.Pools = pools.OrderBy(pool => pool.Name, StringComparer.Ordinal).Select(pool => new PoolLiveViewModel(
+            pool.Name,
+            disksByPool.GetValueOrDefault(pool.Name) ?? [],
+            new ScrubStatusViewModel(data.PoolScrubs.GetValueOrDefault(pool.Name, ScrubInfo.Idle)),
+            new PoolCardViewModel(pool))).ToList();
     }
 
     public string Uptime => this.data.System.Uptime;

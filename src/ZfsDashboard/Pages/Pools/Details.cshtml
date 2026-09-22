@@ -81,7 +81,7 @@
                                 new("VDEV Type", p.VdevType, ValueCss: "fw-semibold"),
                                 new("Ashift", p.Ashift.ToString(), ValueCss: "fw-semibold"),
                                 new("Compression", $"{p.Compression} ({p.CompRatio})", ValueCss: "fw-semibold"),
-                                new("Dedup", p.Dedup, ValueCss: "fw-semibold", Last: true),
+                                new("Dedup", p.Dedup, ValueCss: "fw-semibold"),
                             })" />
                     </div>
                     <div class="col-6">
@@ -94,7 +94,7 @@
                                 ..(p.Encrypted
                                     ? new KeyValueRowViewModel[]
                                     {
-                                        new("Encryption", $"{p.EncryptionAlgorithm} ({keyStatus})", ValueCss: "fw-semibold", Last: true)
+                                        new("Encryption", $"{p.EncryptionAlgorithm} ({keyStatus})", ValueCss: "fw-semibold")
                                     }
                                     : [])
                             ])" />

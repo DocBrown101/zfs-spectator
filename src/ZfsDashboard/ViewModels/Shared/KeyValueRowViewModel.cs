@@ -5,5 +5,4 @@ public sealed record KeyValueRowViewModel(
     object Value,
     string? ElementId = null,
     bool IsVisible = true,
-    string? ValueCss = null,
-    bool Last = false);
+    string? ValueCss = null);
