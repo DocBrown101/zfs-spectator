@@ -47,8 +47,15 @@ public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfs
     public async Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default)
     {
         var output = await cmd.ExecuteAsync("zfs", "version", cancellationToken);
-        var match = Regex.Match(output, @"\d+\.\d+(?:\.\d+)?");
-        return match.Success ? match.Value : "unknown";
+        try
+        {
+            var match = Regex.Match(output, @"\d+\.\d+(?:\.\d+)?", RegexOptions.None, TimeSpan.FromSeconds(1));
+            return match.Success ? match.Value : "unknown";
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return "unknown";
+        }
     }
 
     // ── ARC Statistics ─────────────────────────────────────────────────────

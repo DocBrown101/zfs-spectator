@@ -53,6 +53,7 @@
             return;
         }
 
+        // shortcut: execCommand supports plain HTTP on LAN hosts; remove when HTTPS is required.
         const textarea = document.createElement('textarea');
         textarea.value = text;
         textarea.style.position = 'fixed';

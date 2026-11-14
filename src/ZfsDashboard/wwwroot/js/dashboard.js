@@ -333,5 +333,5 @@
         }
     }
 
-    fetchData();
+    void fetchData();
 })();

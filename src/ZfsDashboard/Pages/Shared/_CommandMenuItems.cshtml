@@ -28,13 +28,13 @@
   <li>
     <h6 class="dropdown-header"><i class="bi bi-snow me-1"></i>NixOS alternatives</h6>
   </li>
-  @foreach (var item in Model.Where(item => item.Suggestion.NixOsConfig is not null))
+  @foreach (var suggestion in Model.Select(item => item.Suggestion).Where(suggestion => suggestion.NixOsConfig is not null))
   {
     <li>
-      <button type="button" class="dropdown-item command-menu-copy" data-command-template="@item.Suggestion.NixOsConfig">
+      <button type="button" class="dropdown-item command-menu-copy" data-command-template="@suggestion.NixOsConfig">
         <span class="d-flex align-items-center gap-2">
           <i class="bi bi-file-earmark-code"></i>
-          <span data-description-template="@item.Suggestion.Description">@item.Suggestion.Description</span>
+          <span data-description-template="@suggestion.Description">@suggestion.Description</span>
           <i class="bi bi-clipboard ms-auto text-body-secondary"></i>
         </span>
         <small class="command-menu-preview text-body-secondary">Copy declarative configuration</small>

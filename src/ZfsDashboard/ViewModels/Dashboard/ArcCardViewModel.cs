@@ -22,9 +22,9 @@ public sealed class ArcCardViewModel(ArcStats arc)
     public string? L2HitRateText => this.L2HitRate is { } hitRate ? $"{FormatPercentage(hitRate)} ({arc.L2Size.FormatBytes()})" : null;
     public string? L2HitRateCss => this.L2HitRate switch
     {
-        >= 70 => "text-success",
-        not null => "text-warning",
         null => null,
+        >= 70 => "text-success",
+        _ => "text-warning",
     };
 
     public string? L2Size => arc.L2Size > 0 ? arc.L2Size.FormatBytes() : null;

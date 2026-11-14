@@ -299,6 +299,20 @@ public class SystemServiceTests
         Assert.Null(SystemService.CountPhysicalCoresFromCpuInfo(lines));
     }
 
+    [Theory]
+    [InlineData("physical id", false)]
+    [InlineData("core id", false)]
+    [InlineData("physical id", true)]
+    [InlineData("core id", true)]
+    public void CountPhysicalCores_IncompleteBlockBeforeNextProcessorOrAtEnd_ReturnsNull(string field, bool atEnd)
+    {
+        var incomplete = new List<string> { "processor: 0", $"{field}: 0" };
+        var complete = CpuInfoBlock(1, 0, 1);
+        var lines = atEnd ? complete.Concat(incomplete).ToList() : incomplete.Concat(complete).ToList();
+
+        Assert.Null(SystemService.CountPhysicalCoresFromCpuInfo(lines));
+    }
+
     [Fact]
     public void CountPhysicalCoresFromSysfs_CountsUniquePackageCorePairs()
     {
@@ -330,6 +344,16 @@ public class SystemServiceTests
     }
 
     // ── CPU temperature ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetSystemInfoAsync_Cancellation_IsPropagated()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new SystemService().GetSystemInfoAsync(new TestDataHelpers.StubZfsService(), cts.Token));
+    }
 
     [Fact]
     public void TryReadCelsius_ConvertsMilliDegreesToCelsius()
@@ -412,6 +436,25 @@ public class SystemServiceTests
         Assert.Equal(52.0, SystemService.TryReadCelsius(chosen));
     }
 
+    [Theory]
+    [InlineData("k10temp", null)]
+    [InlineData("k10temp", "Tctl")]
+    [InlineData("zenpower", "Tdie")]
+    [InlineData("cpu_thermal", "CPU")]
+    [InlineData("soc_thermal", null)]
+    public void FindCpuTemperatureInputPath_RecognizesCpuSensorDriversAndLabels(string driver, string? label)
+    {
+        using var root = TempDirectory.Create();
+        var hwmon = Directory.CreateDirectory(Path.Combine(root.RootPath, "hwmon")).FullName;
+        var sensor = Directory.CreateDirectory(Path.Combine(hwmon, "hwmon0")).FullName;
+        File.WriteAllText(Path.Combine(sensor, "name"), driver);
+        if (label != null) File.WriteAllText(Path.Combine(sensor, "temp1_label"), label);
+        var inputPath = Path.Combine(sensor, "temp1_input");
+        File.WriteAllText(inputPath, "50000");
+
+        Assert.Equal(inputPath, SystemService.FindCpuTemperatureInputPath(hwmon, root.RootPath));
+    }
+
     [Fact]
     public void FindCpuTemperatureInputPath_IgnoresNonCpuSensors()
     {
@@ -458,6 +501,31 @@ public class SystemServiceTests
         var celsius = SystemService.TryReadCelsius(chosen);
         Assert.NotNull(celsius);
         Assert.Equal(52.437, celsius.Value, 3);
+    }
+
+    [Theory]
+    [InlineData("garbage")]
+    [InlineData("0")]
+    [InlineData("200000")]
+    public void FindCpuTemperatureInputPath_InvalidHwmon_FallsBackToHighestCpuThermalZone(string invalidValue)
+    {
+        using var root = TempDirectory.Create();
+        var hwmon = Directory.CreateDirectory(Path.Combine(root.RootPath, "hwmon")).FullName;
+        var sensor = Directory.CreateDirectory(Path.Combine(hwmon, "hwmon0")).FullName;
+        File.WriteAllText(Path.Combine(sensor, "name"), "coretemp");
+        File.WriteAllText(Path.Combine(sensor, "temp1_input"), invalidValue);
+
+        var thermal = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal")).FullName;
+        var chosen = "";
+        for (var i = 0; i < 2; i++)
+        {
+            var zone = Directory.CreateDirectory(Path.Combine(thermal, $"thermal_zone{i}")).FullName;
+            File.WriteAllText(Path.Combine(zone, "type"), "x86_pkg_temp");
+            chosen = Path.Combine(zone, "temp");
+            File.WriteAllText(chosen, i == 0 ? "50000" : "60000");
+        }
+
+        Assert.Equal(chosen, SystemService.FindCpuTemperatureInputPath(hwmon, thermal));
     }
 
     [Fact]

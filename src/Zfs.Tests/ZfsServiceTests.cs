@@ -11,6 +11,7 @@ public class ZfsServiceTests
     [InlineData("zfs-2.2.4\n", "2.2.4")]
     [InlineData("zfs-2.2.4-0ubuntu3.1\nzfs-kmod-2.2.4-1\n", "2.2.4")]
     [InlineData("zfs-2.1.15-1\n", "2.1.15")]
+    [InlineData("zfs-2.3\n", "2.3")]
     public async Task GetZfsVersionAsync_ShouldExtractVersionFromOutput(string output, string expected)
     {
         var service = CreateService(new FakeCommandExecutor()
@@ -27,6 +28,15 @@ public class ZfsServiceTests
     {
         var service = CreateService(new FakeCommandExecutor()
             .On("zfs", "version", output));
+
+        Assert.Equal("unknown", await service.GetZfsVersionAsync());
+    }
+
+    [Fact]
+    public async Task GetZfsVersionAsync_LongInvalidOutput_ShouldReturnUnknown()
+    {
+        var service = CreateService(new FakeCommandExecutor()
+            .On("zfs", "version", new string('1', 100_000)));
 
         Assert.Equal("unknown", await service.GetZfsVersionAsync());
     }

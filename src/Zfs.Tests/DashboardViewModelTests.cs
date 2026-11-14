@@ -287,6 +287,19 @@ public class DashboardViewModelTests
         Assert.Equal("70.0% (4 KiB)", response.Arc.L2HitRateText);
     }
 
+    [Theory]
+    [InlineData(0, 0, null)]
+    [InlineData(4096, 0, "text-warning")]
+    [InlineData(4096, 69, "text-warning")]
+    [InlineData(4096, 70, "text-success")]
+    [InlineData(4096, 100, "text-success")]
+    public void ArcCard_AppliesL2HitRateCss(ulong size, ulong hits, string? expected)
+    {
+        var card = new ArcCardViewModel(new ArcStats { L2Size = size, L2Hits = hits, L2Misses = 100 - hits });
+
+        Assert.Equal(expected, card.L2HitRateCss);
+    }
+
     [Fact]
     public void PoolCard_ExposesCapacityCssForLiveUpdates()
     {

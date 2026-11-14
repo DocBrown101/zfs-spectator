@@ -265,8 +265,15 @@ public static class ZpoolParser
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
 
-        var match = Regex.Match(text, @"(\d+:\d+:\d+)\s+to go");
-        return match.Success ? match.Groups[1].Value : "";
+        try
+        {
+            var match = Regex.Match(text, @"(\d+:\d+:\d+)\s+to go", RegexOptions.None, TimeSpan.FromSeconds(1));
+            return match.Success ? match.Groups[1].Value : "";
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return "";
+        }
     }
 
     private static (ulong Size, ulong Alloc, ulong Free) ParseSpecialVdevSizes(JsonElement pool)

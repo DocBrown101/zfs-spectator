@@ -287,11 +287,7 @@ public class SystemService() : ISystemService
 
             if (key.Equals("processor", StringComparison.OrdinalIgnoreCase))
             {
-                if (package != null || coreId != null)
-                {
-                    if (package == null || coreId == null) return null;
-                    pairs.Add((package, coreId));
-                }
+                if (!TryAddPhysicalCore(pairs, package, coreId)) return null;
 
                 package = null;
                 coreId = null;
@@ -306,13 +302,17 @@ public class SystemService() : ISystemService
             }
         }
 
-        if (package != null || coreId != null)
-        {
-            if (package == null || coreId == null) return null;
-            pairs.Add((package, coreId));
-        }
+        if (!TryAddPhysicalCore(pairs, package, coreId)) return null;
 
         return pairs.Count > 0 ? pairs.Count : null;
+    }
+
+    private static bool TryAddPhysicalCore(HashSet<(string Package, string CoreId)> pairs, string? package, string? coreId)
+    {
+        if (package == null && coreId == null) return true;
+        if (package == null || coreId == null) return false;
+        pairs.Add((package, coreId));
+        return true;
     }
 
     /// <summary>
@@ -363,6 +363,7 @@ public class SystemService() : ISystemService
     private Task<double?> GetCpuTemperatureCelsiusAsync(CancellationToken cancellationToken)
         => RunSafeAsync(async () =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string? path;
             lock (this.sync)
             {
@@ -407,63 +408,65 @@ public class SystemService() : ISystemService
     {
         try
         {
-            string? bestPath = null;
-            var bestRank = 0;
-            var bestValue = long.MinValue;
-
-            if (Directory.Exists(hwmonBasePath))
-            {
-                foreach (var hwmonDir in Directory.EnumerateDirectories(hwmonBasePath, "hwmon*"))
-                {
-                    var driver = TryReadFirstLine(Path.Combine(hwmonDir, "name"));
-                    if (driver == null || !CpuSensorDriverNames.Contains(driver, StringComparer.OrdinalIgnoreCase))
-                        continue;
-
-                    foreach (var inputPath in Directory.EnumerateFiles(hwmonDir, "temp*_input"))
-                    {
-                        if (TryReadMilliCelsius(inputPath) is not { } value) continue;
-                        var rank = ClassifySensorLabel(TryReadLabel(inputPath));
-                        if (rank == 0) continue;
-                        if (rank > bestRank || (rank == bestRank && value > bestValue))
-                        {
-                            bestPath = inputPath;
-                            bestRank = rank;
-                            bestValue = value;
-                        }
-                    }
-                }
-            }
-
-            if (bestPath != null) return bestPath;
-
-            if (Directory.Exists(thermalBasePath))
-            {
-                string? bestZonePath = null;
-                var bestZoneValue = long.MinValue;
-
-                foreach (var zoneDir in Directory.EnumerateDirectories(thermalBasePath, "thermal_zone*"))
-                {
-                    var type = TryReadFirstLine(Path.Combine(zoneDir, "type"));
-                    if (type == null || !IsCpuThermalZoneType(type)) continue;
-
-                    var tempPath = Path.Combine(zoneDir, "temp");
-                    if (TryReadMilliCelsius(tempPath) is not { } value) continue;
-                    if (value > bestZoneValue)
-                    {
-                        bestZonePath = tempPath;
-                        bestZoneValue = value;
-                    }
-                }
-
-                if (bestZonePath != null) return bestZonePath;
-            }
-
-            return null;
+            return FindHwmonCpuTemperatureInputPath(hwmonBasePath) ?? FindThermalZoneCpuTemperatureInputPath(thermalBasePath);
         }
         catch (Exception)
         {
             return null;
         }
+    }
+
+    private static string? FindHwmonCpuTemperatureInputPath(string hwmonBasePath)
+    {
+        if (!Directory.Exists(hwmonBasePath)) return null;
+
+        var inputPaths = Directory.EnumerateDirectories(hwmonBasePath, "hwmon*")
+            .Where(dir => TryReadFirstLine(Path.Combine(dir, "name")) is { } driver &&
+                          CpuSensorDriverNames.Contains(driver, StringComparer.OrdinalIgnoreCase))
+            .SelectMany(dir => Directory.EnumerateFiles(dir, "temp*_input"));
+
+        string? bestPath = null;
+        var bestRank = 0;
+        var bestValue = long.MinValue;
+
+        foreach (var inputPath in inputPaths)
+        {
+            if (TryReadMilliCelsius(inputPath) is not { } value) continue;
+            var rank = ClassifySensorLabel(TryReadLabel(inputPath));
+            if (rank == 0) continue;
+            if (rank > bestRank || (rank == bestRank && value > bestValue))
+            {
+                bestPath = inputPath;
+                bestRank = rank;
+                bestValue = value;
+            }
+        }
+
+        return bestPath;
+    }
+
+    private static string? FindThermalZoneCpuTemperatureInputPath(string thermalBasePath)
+    {
+        if (!Directory.Exists(thermalBasePath)) return null;
+
+        string? bestPath = null;
+        var bestValue = long.MinValue;
+
+        foreach (var zoneDir in Directory.EnumerateDirectories(thermalBasePath, "thermal_zone*"))
+        {
+            var type = TryReadFirstLine(Path.Combine(zoneDir, "type"));
+            if (type == null || !IsCpuThermalZoneType(type)) continue;
+
+            var tempPath = Path.Combine(zoneDir, "temp");
+            if (TryReadMilliCelsius(tempPath) is not { } value) continue;
+            if (value > bestValue)
+            {
+                bestPath = tempPath;
+                bestValue = value;
+            }
+        }
+
+        return bestPath;
     }
 
     /// <summary>

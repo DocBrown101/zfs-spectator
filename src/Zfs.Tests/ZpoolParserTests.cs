@@ -507,6 +507,12 @@ public class ZpoolParserTests
     }
 
     [Fact]
+    public void ParseScrubTimeLeft_LongInvalidText_ShouldReturnEmpty()
+    {
+        Assert.Equal("", ZpoolParser.ParseScrubTimeLeft(new string('1', 100_000)));
+    }
+
+    [Fact]
     public void ParseScrubTimeLeft_ShouldReturnEmptyWhenNoScrub()
     {
         var text = """
