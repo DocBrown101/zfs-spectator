@@ -1,55 +1,55 @@
 @model PageHeaderViewModel
 
 <div class="d-flex justify-content-between align-items-center mb-1 pb-2 border-bottom border-secondary">
-    <h3 class="fw-bold mb-0">
-        <i class="bi @Model.Icon me-2 text-info"></i>@Model.Title
+  <h3 class="fw-bold mb-0">
+    <i class="bi @Model.Icon me-2 text-info"></i>@Model.Title
 
-        @if (Model.TitleIcon is { } titleIcon)
-        {
-            if (titleIcon.Tooltip is not null)
-            {
-                <i class="bi @titleIcon.IconClass" data-bs-toggle="tooltip" data-bs-title="@titleIcon.Tooltip"></i>
-            }
-            else
-            {
-                <i class="bi @titleIcon.IconClass"></i>
-            }
-        }
-
-        @foreach (var badge in new[] { Model.StatusBadge, Model.AlertBadge })
-        {
-            if (badge is null) continue;
-            <span class="badge @badge.Css">
-                @if (!string.IsNullOrEmpty(badge.Icon))
-                {
-                    <i class="bi @badge.Icon me-1"></i>
-                }
-                @badge.Text
-            </span>
-        }
-    </h3>
-
-    @if (Model.TrailingBadge is { } trailingBadge)
+    @if (Model.TitleIcon is { } titleIcon)
     {
-        <span class="badge @trailingBadge.Css">
-            @if (!string.IsNullOrEmpty(trailingBadge.Icon))
-            {
-                <i class="bi @trailingBadge.Icon me-1"></i>
-            }
-
-            @if (!string.IsNullOrEmpty(trailingBadge.ElementId))
-            {
-                <span id="@trailingBadge.ElementId">@trailingBadge.Text</span>
-            }
-            else
-            {
-                @trailingBadge.Text
-            }
-        </span>
+      if (titleIcon.Tooltip is not null)
+      {
+        <i class="bi @titleIcon.IconClass" data-bs-toggle="tooltip" data-bs-title="@titleIcon.Tooltip"></i>
+      }
+      else
+      {
+        <i class="bi @titleIcon.IconClass"></i>
+      }
     }
+
+    @foreach (var badge in new[] { Model.StatusBadge, Model.AlertBadge })
+    {
+      if (badge is null) continue;
+      <span class="badge @badge.Css">
+        @if (!string.IsNullOrEmpty(badge.Icon))
+        {
+          <i class="bi @badge.Icon me-1"></i>
+        }
+        @badge.Text
+      </span>
+    }
+  </h3>
+
+  @if (Model.TrailingBadge is { } trailingBadge)
+  {
+    <span class="badge @trailingBadge.Css">
+      @if (!string.IsNullOrEmpty(trailingBadge.Icon))
+      {
+        <i class="bi @trailingBadge.Icon me-1"></i>
+      }
+
+      @if (!string.IsNullOrEmpty(trailingBadge.ElementId))
+      {
+        <span id="@trailingBadge.ElementId">@trailingBadge.Text</span>
+      }
+      else
+      {
+        @trailingBadge.Text
+      }
+    </span>
+  }
 </div>
 
 @if (!string.IsNullOrEmpty(Model.Subtitle))
 {
-    <p class="text-body-secondary mb-4">@Model.Subtitle</p>
+  <p class="text-body-secondary mb-4">@Model.Subtitle</p>
 }

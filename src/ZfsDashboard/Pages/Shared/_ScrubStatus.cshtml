@@ -1,27 +1,27 @@
 @model ScrubStatusViewModel
 @{
-    var loadingCss = Model.IsLoading ? "" : "d-none";
-    var runningCss = Model.IsRunning ? "" : "d-none";
-    var statusCss = !Model.IsLoading && !Model.IsRunning ? "" : "d-none";
-    var progress = Model.ClampedProgressPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
-    var details = Model.DetailsText;
+  var loadingCss = Model.IsLoading ? "" : "d-none";
+  var runningCss = Model.IsRunning ? "" : "d-none";
+  var statusCss = !Model.IsLoading && !Model.IsRunning ? "" : "d-none";
+  var progress = Model.ClampedProgressPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+  var details = Model.DetailsText;
 }
 <span data-scrub-loading class="text-body-secondary @loadingCss">
-    <i class="bi bi-hourglass-split me-1"></i>Loading&hellip;
+  <i class="bi bi-hourglass-split me-1"></i>Loading&hellip;
 </span>
 <span data-scrub-running class="@runningCss">
-    <span class="d-flex align-items-center gap-2 mb-2">
-        <output class="spinner-border spinner-border-sm text-info"></output>
-        <span data-scrub-headline>@Model.Headline</span>
-    </span>
-    <span class="progress mb-1 dashboard-scrub-progress">
-        <span data-scrub-progress class="progress-bar bg-info" style="width:@progress%"></span>
-    </span>
-    <small data-scrub-details class="text-body-secondary">@details</small>
+  <span class="d-flex align-items-center gap-2 mb-2">
+    <output class="spinner-border spinner-border-sm text-info"></output>
+    <span data-scrub-headline>@Model.Headline</span>
+  </span>
+  <span class="progress mb-1 dashboard-scrub-progress">
+    <span data-scrub-progress class="progress-bar bg-info" style="width:@progress%"></span>
+  </span>
+  <small data-scrub-details class="text-body-secondary">@details</small>
 </span>
 <span data-scrub-status class="@statusCss">
-    <span data-scrub-status-label class="@Model.StatusCss">
-        <i data-scrub-icon class="bi @Model.IconCss me-1"></i><span data-scrub-headline>@Model.Headline</span>
-    </span>
-    <span data-scrub-details class="text-body-secondary small ms-2">@details</span>
+  <span data-scrub-status-label class="@Model.StatusCss">
+    <i data-scrub-icon class="bi @Model.IconCss me-1"></i><span data-scrub-headline>@Model.Headline</span>
+  </span>
+  <span data-scrub-details class="text-body-secondary small ms-2">@details</span>
 </span>

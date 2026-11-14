@@ -1,164 +1,162 @@
 @page "{name}"
 @model ZfsDashboard.Pages.Pools.DetailsModel
 @{
-    ViewData["Title"] = $"Pool: {Model.Pool!.Name}";
-    var p = Model.Pool!;
-    var pct = p.UsagePercent;
-    var keyStatus = p.KeyLocked ? "locked" : "loaded";
-    var header = new PageHeaderViewModel(
-        Icon: "bi-hdd-stack",
-        Title: p.Name,
-        Subtitle: "Pool details and configuration",
-        TitleIcon: p.Encrypted
-            ? new("bi-lock-fill text-warning ms-1", $"Encrypted ({p.EncryptionAlgorithm})")
-            : null,
-        StatusBadge: new(
-            p.Health,
-            p.Health.ToStatusBadgeCss() + " ms-2"),
-        AlertBadge: p.HasErrors
-            ? new(
-                "errors",
-                "text-bg-danger ms-1",
-                Icon: "bi-exclamation-triangle")
-            : null,
-        TrailingBadge: !string.IsNullOrEmpty(p.Operation)
-            ? new(p.Operation, "text-bg-info fs-6")
-            : null);
+  ViewData["Title"] = $"Pool: {Model.Pool!.Name}";
+  var p = Model.Pool!;
+  var pct = p.UsagePercent;
+  var keyStatus = p.KeyLocked ? "locked" : "loaded";
+  var header = new PageHeaderViewModel(
+      Icon: "bi-hdd-stack",
+      Title: p.Name,
+      Subtitle: "Pool details and configuration",
+      TitleIcon: p.Encrypted
+          ? new("bi-lock-fill text-warning ms-1", $"Encrypted ({p.EncryptionAlgorithm})")
+          : null,
+      StatusBadge: new(
+          p.Health,
+          p.Health.ToStatusBadgeCss() + " ms-2"),
+      AlertBadge: p.HasErrors
+          ? new(
+              "errors",
+              "text-bg-danger ms-1",
+              Icon: "bi-exclamation-triangle")
+          : null,
+      TrailingBadge: !string.IsNullOrEmpty(p.Operation)
+          ? new(p.Operation, "text-bg-info fs-6")
+          : null);
 }
 
 <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb mb-0">
-        <li class="breadcrumb-item"><a asp-page="Index">Pools</a></li>
-        <li class="breadcrumb-item active">@p.Name</li>
-    </ol>
+  <ol class="breadcrumb mb-0">
+    <li class="breadcrumb-item"><a asp-page="Index">Pools</a></li>
+    <li class="breadcrumb-item active">@p.Name</li>
+  </ol>
 </nav>
 
 <partial name="_PageHeader" model="header" />
 
 @* ── Capacity + Properties ────────────────────────────────────── *@
 <div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-body bg-surface">
-                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-pie-chart text-info"></i>
-                    Capacity
-                </h5>
-                <partial name="_CapacityBar" model="new CapacityBarViewModel(pct, CapacityBarSize.Large, ShowPercentage: false, ShowThreshold: true)" />
-                <div class="row g-3 mt-2 small">
-                    <div class="col-6">
-                        <div class="text-body-secondary">Raw</div>
-                        <div class="fw-semibold">@p.Size.FormatBytes()</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-body-secondary">Usable</div>
-                        <div class="fw-semibold">@p.UsableSize.FormatBytes()</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-body-secondary">Used</div>
-                        <div class="fw-semibold">@p.UsableUsed.FormatBytes() (@pct.ToString("F1")%)</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-body-secondary">Free</div>
-                        <div class="fw-semibold">@p.UsableAvail.FormatBytes()</div>
-                    </div>
-                </div>
-            </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-pie-chart text-info"></i>
+          Capacity
+        </h5>
+        <partial name="_CapacityBar" model="new CapacityBarViewModel(pct, CapacityBarSize.Large, ShowPercentage: false, ShowThreshold: true)" />
+        <div class="row g-3 mt-2 small">
+          <div class="col-6">
+            <div class="text-body-secondary">Raw</div>
+            <div class="fw-semibold">@p.Size.FormatBytes()</div>
+          </div>
+          <div class="col-6">
+            <div class="text-body-secondary">Usable</div>
+            <div class="fw-semibold">@p.UsableSize.FormatBytes()</div>
+          </div>
+          <div class="col-6">
+            <div class="text-body-secondary">Used</div>
+            <div class="fw-semibold">@p.UsableUsed.FormatBytes() (@pct.ToString("F1")%)</div>
+          </div>
+          <div class="col-6">
+            <div class="text-body-secondary">Free</div>
+            <div class="fw-semibold">@p.UsableAvail.FormatBytes()</div>
+          </div>
         </div>
+      </div>
     </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-body bg-surface">
-                <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-gear text-info"></i>
-                    Properties
-                </h5>
-                <div class="row">
-                    <div class="col-6">
-                        <partial name="_KeyValueRows"
-                            model="@(new KeyValueRowViewModel[]
-                            {
-                                new("VDEV Type", p.VdevType, ValueCss: "fw-semibold"),
-                                new("Ashift", p.Ashift.ToString(), ValueCss: "fw-semibold"),
-                                new("Compression", $"{p.Compression} ({p.CompRatio})", ValueCss: "fw-semibold"),
-                                new("Dedup", p.Dedup, ValueCss: "fw-semibold"),
-                            })" />
-                    </div>
-                    <div class="col-6">
-                        <partial name="_KeyValueRows"
-                            model="@((KeyValueRowViewModel[])
-                            [
-                                new("Sync", p.Sync, ValueCss: "fw-semibold"),
-                                new("Atime", p.Atime, ValueCss: "fw-semibold"),
-                                new("Fragmentation", $"{p.Fragmentation}%", ValueCss: "fw-semibold"),
-                                ..(p.Encrypted
-                                    ? new KeyValueRowViewModel[]
-                                    {
-                                        new("Encryption", $"{p.EncryptionAlgorithm} ({keyStatus})", ValueCss: "fw-semibold")
-                                    }
-                                    : [])
-                            ])" />
-                    </div>
-                </div>
-            </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-gear text-info"></i>
+          Properties
+        </h5>
+        <div class="row">
+          <div class="col-6">
+            <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
+                     {
+         new("VDEV Type", p.VdevType, ValueCss: "fw-semibold"),
+         new("Ashift", p.Ashift.ToString(), ValueCss: "fw-semibold"),
+         new("Compression", $"{p.Compression} ({p.CompRatio})", ValueCss: "fw-semibold"),
+         new("Dedup", p.Dedup, ValueCss: "fw-semibold"),
+                     })" />
+          </div>
+          <div class="col-6">
+            <partial name="_KeyValueRows" model="@((KeyValueRowViewModel[])
+                     [
+                     new("Sync", p.Sync, ValueCss: "fw-semibold"),
+         new("Atime", p.Atime, ValueCss: "fw-semibold"),
+         new("Fragmentation", $"{p.Fragmentation}%", ValueCss: "fw-semibold"),
+         ..(p.Encrypted
+            ? new KeyValueRowViewModel[]
+            {
+                new("Encryption", $"{p.EncryptionAlgorithm} ({keyStatus})", ValueCss: "fw-semibold")
+            }
+            : [])
+                     ])" />
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
 @* ── Errors ──────────────────────────────────────────────────── *@
 @if (p.HasErrors)
 {
-    <div class="card border-danger mb-4">
-        <div class="card-body bg-surface">
-            <h5 class="card-title d-flex align-items-center gap-2 mb-3 text-danger">
-                <i class="bi bi-exclamation-triangle text-danger"></i>
-                Errors
-            </h5>
-            <div class="row g-3 text-center">
-                <div class="col-4">
-                    <div class="small text-body-secondary">Read</div>
-                    <div class="fs-5 fw-semibold @(p.ErrorsRead > 0 ? "text-danger" : "")">@p.ErrorsRead</div>
-                </div>
-                <div class="col-4">
-                    <div class="small text-body-secondary">Write</div>
-                    <div class="fs-5 fw-semibold @(p.ErrorsWrite > 0 ? "text-danger" : "")">@p.ErrorsWrite</div>
-                </div>
-                <div class="col-4">
-                    <div class="small text-body-secondary">Checksum</div>
-                    <div class="fs-5 fw-semibold @(p.ErrorsChecksum > 0 ? "text-danger" : "")">@p.ErrorsChecksum</div>
-                </div>
-            </div>
+  <div class="card border-danger mb-4">
+    <div class="card-body bg-surface">
+      <h5 class="card-title d-flex align-items-center gap-2 mb-3 text-danger">
+        <i class="bi bi-exclamation-triangle text-danger"></i>
+        Errors
+      </h5>
+      <div class="row g-3 text-center">
+        <div class="col-4">
+          <div class="small text-body-secondary">Read</div>
+          <div class="fs-5 fw-semibold @(p.ErrorsRead > 0 ? "text-danger" : "")">@p.ErrorsRead</div>
         </div>
+        <div class="col-4">
+          <div class="small text-body-secondary">Write</div>
+          <div class="fs-5 fw-semibold @(p.ErrorsWrite > 0 ? "text-danger" : "")">@p.ErrorsWrite</div>
+        </div>
+        <div class="col-4">
+          <div class="small text-body-secondary">Checksum</div>
+          <div class="fs-5 fw-semibold @(p.ErrorsChecksum > 0 ? "text-danger" : "")">@p.ErrorsChecksum</div>
+        </div>
+      </div>
     </div>
+  </div>
 }
 
 @* ── Devices ─────────────────────────────────────────────────── *@
 <div class="card mb-4">
-    <div class="card-body bg-surface">
-        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-            <i class="bi bi-hdd text-info"></i>
-            Physical Devices
-        </h5>
-        @foreach (var group in Model.DeviceGroups)
-        {
-            <partial name="_DeviceGroup" model="group" />
-        }
-        @if (Model.DeviceGroups.Count == 0)
-        {
-            <span class="text-body-secondary">No device information available</span>
-        }
-    </div>
+  <div class="card-body bg-surface">
+    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-hdd text-info"></i>
+      Physical Devices
+    </h5>
+    @foreach (var group in Model.DeviceGroups)
+    {
+      <partial name="_DeviceGroup" model="group" />
+    }
+    @if (Model.DeviceGroups.Count == 0)
+    {
+      <span class="text-body-secondary">No device information available</span>
+    }
+  </div>
 </div>
 
 @* ── Scrub ────────────────────────────────────────────────────── *@
 <div class="card mb-4">
-    <div class="card-body bg-surface">
-        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-            <i class="bi bi-shield-check text-info"></i>
-            Scrub Status
-        </h5>
-        <partial name="_ScrubStatus" model="Model.Scrub" />
-    </div>
+  <div class="card-body bg-surface">
+    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-shield-check text-info"></i>
+      Scrub Status
+    </h5>
+    <partial name="_ScrubStatus" model="Model.Scrub" />
+  </div>
 </div>
 
 <partial name="_CommandSuggestions" model="new CommandSuggestionsViewModel(Model.Suggestions)" />

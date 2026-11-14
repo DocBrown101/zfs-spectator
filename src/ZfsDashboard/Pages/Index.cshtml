@@ -1,32 +1,32 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Dashboard";
-    var header = new PageHeaderViewModel(
-        Icon: "bi-grid-1x2",
-        Title: "System Dashboard",
-        Subtitle: "Overview of system resources and ZFS pools",
-        TrailingBadge: new(Model.Live.Uptime, "bg-body-tertiary text-body-secondary border", Icon: "bi-clock", ElementId: "sysUptime"));
+  ViewData["Title"] = "Dashboard";
+  var header = new PageHeaderViewModel(
+      Icon: "bi-grid-1x2",
+      Title: "System Dashboard",
+      Subtitle: "Overview of system resources and ZFS pools",
+      TrailingBadge: new(Model.Live.Uptime, "bg-body-tertiary text-body-secondary border", Icon: "bi-clock", ElementId: "sysUptime"));
 }
 
 <partial name="_PageHeader" model="header" />
 
 <div id="dashboard" data-live-url="@Url.Page("/Index", "Live")">
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <partial name="/Pages/Dashboard/_NetworkCard.cshtml" />
-            <partial name="/Pages/Dashboard/_CpuCard.cshtml" model="Model.Cpu" />
-            <partial name="/Pages/Dashboard/_MemoryCard.cshtml" model="Model.Live.Memory" />
-            <partial name="/Pages/Dashboard/_ArcCard.cshtml" model="Model.Live.Arc" />
-        </div>
-        <div class="col-lg-6">
-            <partial name="/Pages/Dashboard/_DiskIoCard.cshtml" />
-            <partial name="/Pages/Dashboard/_PoolOverview.cshtml" model="Model.Pools" />
-        </div>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <partial name="/Pages/Dashboard/_NetworkCard.cshtml" />
+      <partial name="/Pages/Dashboard/_CpuCard.cshtml" model="Model.Cpu" />
+      <partial name="/Pages/Dashboard/_MemoryCard.cshtml" model="Model.Live.Memory" />
+      <partial name="/Pages/Dashboard/_ArcCard.cshtml" model="Model.Live.Arc" />
     </div>
+    <div class="col-lg-6">
+      <partial name="/Pages/Dashboard/_DiskIoCard.cshtml" />
+      <partial name="/Pages/Dashboard/_PoolOverview.cshtml" model="Model.Pools" />
+    </div>
+  </div>
 </div>
 
 @section Scripts {
-    <script src="~/lib/chartjs/chart.umd.min.js"></script>
-    <script src="~/js/dashboard.js"></script>
+  <script src="~/lib/chartjs/chart.umd.min.js"></script>
+  <script src="~/js/dashboard.js"></script>
 }

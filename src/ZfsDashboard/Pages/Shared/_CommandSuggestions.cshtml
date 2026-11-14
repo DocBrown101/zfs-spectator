@@ -1,30 +1,30 @@
 @model CommandSuggestionsViewModel
 @if (Model.Suggestions.Count > 0)
 {
-    <div class="card mb-4">
-        <div class="card-body bg-surface">
-            <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-                <i class="bi bi-terminal text-info"></i>
-                @Model.Title
-            </h5>
-            @foreach (var cmd in Model.Suggestions)
-            {
-                <div class="mb-3">
-                    <div class="small text-body-secondary mb-1">@cmd.Description</div>
-                    <partial name="_CopyableCommand" model="new CopyableCommandViewModel(cmd.ZfsCommand)" />
-                    @if (cmd.NixOsConfig is not null)
-                    {
-                        <details class="small mt-1">
-                            <summary class="text-info">
-                                NixOS alternative
-                            </summary>
-                            <div class="mt-1">
-                                <partial name="_CopyableCommand" model="new CopyableCommandViewModel(cmd.NixOsConfig)" />
-                            </div>
-                        </details>
-                    }
-                </div>
-            }
+  <div class="card mb-4">
+    <div class="card-body bg-surface">
+      <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-terminal text-info"></i>
+        @Model.Title
+      </h5>
+      @foreach (var cmd in Model.Suggestions)
+      {
+        <div class="mb-3">
+          <div class="small text-body-secondary mb-1">@cmd.Description</div>
+          <partial name="_CopyableCommand" model="new CopyableCommandViewModel(cmd.ZfsCommand)" />
+          @if (cmd.NixOsConfig is not null)
+          {
+            <details class="small mt-1">
+              <summary class="text-info">
+                NixOS alternative
+              </summary>
+              <div class="mt-1">
+                <partial name="_CopyableCommand" model="new CopyableCommandViewModel(cmd.NixOsConfig)" />
+              </div>
+            </details>
+          }
         </div>
+      }
     </div>
+  </div>
 }

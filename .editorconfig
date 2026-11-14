@@ -2,10 +2,13 @@ root = true
 
 [*]
 end_of_line = crlf
+insert_final_newline = true
 
 [*.{cs,csx}]
 indent_size = 4
-insert_final_newline = true
+
+[*.{cshtml,css}]
+indent_size = 2
 
 ###############################
 # .NET Coding Conventions
@@ -61,6 +64,6 @@ csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
 # Diagnostics
 ###############################
 dotnet_diagnostic.CA1031.severity = silent # CA1031: Keine allgemeinen Ausnahmetypen abfangen
-dotnet_diagnostic.CA1030.severity = silent # CA1030: Nach Möglichkeit Ereignisse verwenden
-dotnet_diagnostic.CA2007.severity = none # CA2007: Aufruf von "ConfigureAwait" für erwarteten Task erwägen
+dotnet_diagnostic.CA1030.severity = silent # CA1030: Nach Mï¿½glichkeit Ereignisse verwenden
+dotnet_diagnostic.CA2007.severity = none # CA2007: Aufruf von "ConfigureAwait" fï¿½r erwarteten Task erwï¿½gen
 dotnet_diagnostic.IDE0305.severity = none # IDE0305: Initialisierung der Sammlung vereinfachen
