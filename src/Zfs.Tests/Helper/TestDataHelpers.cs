@@ -21,7 +21,6 @@ internal static class TestDataHelpers
     public sealed class StubZfsService : IZfsService
     {
         public Task<ArcStats> GetArcStatsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ArcStats());
-        public Task<List<Dataset>> GetAllDatasetsAsync() => Task.FromResult(new List<Dataset>());
         public Task<List<Dataset>> GetDatasetsAsync(string poolName) => Task.FromResult(new List<Dataset>());
         public Task<List<Snapshot>> GetSnapshotsAsync(string poolName) => Task.FromResult(new List<Snapshot>());
         public Task<List<ZVol>> GetAllZVolsAsync() => Task.FromResult(new List<ZVol>());

@@ -13,7 +13,7 @@ public class SystemService() : ISystemService
     private long prevNetworkTimestamp;
     private List<DiskIoInfo>? prevDisks;
     private long prevDiskTimestamp;
-    private string? cachedCpuTemperaturePath;
+    private readonly CpuTemperatureReader cpuTemperature = new();
 
     // ── Dashboard API ────────────────────────────────────────────────────
 
@@ -209,10 +209,9 @@ public class SystemService() : ISystemService
             var arcTask = zfs.GetArcStatsAsync(cancellationToken);
             var memTask = this.GetMemoryInfoAsync(cancellationToken);
             var cpuTask = this.GetCpuUsagePercentAsync(cancellationToken);
-            var tempTask = this.GetCpuTemperatureCelsiusAsync(cancellationToken);
             var uptimeTask = File.ReadAllTextAsync("/proc/uptime", cancellationToken);
 
-            await Task.WhenAll(uptimeTask, arcTask, memTask, cpuTask, tempTask);
+            await Task.WhenAll(uptimeTask, arcTask, memTask, cpuTask);
 
             var uptimeSec = ParseD(uptimeTask.Result.Split(' ').ElementAtOrDefault(0));
 
@@ -222,7 +221,7 @@ public class SystemService() : ISystemService
                 Arc = arcTask.Result,
                 Memory = memTask.Result,
                 CpuUsagePercent = cpuTask.Result,
-                CpuTemperatureCelsius = tempTask.Result,
+                CpuTemperatureCelsius = this.cpuTemperature.ReadCelsius(cancellationToken),
             };
         }, new SystemInfo { Uptime = "N/A" });
     }
@@ -336,8 +335,8 @@ public class SystemService() : ISystemService
                     !int.TryParse(dirName[3..], out _)) continue;
 
                 var topology = Path.Combine(dir, "topology");
-                var package = TryReadFirstLine(Path.Combine(topology, "physical_package_id"));
-                var coreId = TryReadFirstLine(Path.Combine(topology, "core_id"));
+                var package = SysfsFile.TryReadFirstLine(Path.Combine(topology, "physical_package_id"));
+                var coreId = SysfsFile.TryReadFirstLine(Path.Combine(topology, "core_id"));
                 if (package == null || coreId == null) return null;
                 pairs.Add((package, coreId));
             }
@@ -350,188 +349,6 @@ public class SystemService() : ISystemService
         }
     }
 
-    // ── CPU Temperature ────────────────────────────────────────────────
-
-    private static readonly string[] CpuSensorDriverNames =
-        ["coretemp", "k10temp", "zenpower", "cpu_thermal", "soc_thermal"];
-
-    /// <summary>
-    /// Reads the current CPU temperature in Celsius. The matching
-    /// <c>temp*_input</c> path is discovered lazily and cached; on a missing or
-    /// vanished sensor the discovery is retried on the next poll.
-    /// </summary>
-    private Task<double?> GetCpuTemperatureCelsiusAsync(CancellationToken cancellationToken)
-        => RunSafeAsync(async () =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            string? path;
-            lock (this.sync)
-            {
-                path = this.cachedCpuTemperaturePath;
-            }
-
-            if (path == null)
-            {
-                var discovered = FindCpuTemperatureInputPath();
-                lock (this.sync)
-                {
-                    this.cachedCpuTemperaturePath = discovered;
-                    path = discovered;
-                }
-            }
-
-            if (path == null) return null;
-
-            var celsius = TryReadCelsius(path);
-            if (celsius == null)
-            {
-                lock (this.sync)
-                {
-                    this.cachedCpuTemperaturePath = null;
-                }
-
-                return null;
-            }
-
-            return celsius;
-        }, null);
-
-    private static string? FindCpuTemperatureInputPath()
-        => FindCpuTemperatureInputPath("/sys/class/hwmon", "/sys/class/thermal");
-
-    /// <summary>
-    /// Discovers the <c>temp*_input</c> file of the best CPU temperature sensor.
-    /// Prefers a package/Tctl/Tdie reading, then CPU core sensors, then matching
-    /// thermal zones. Never throws.
-    /// </summary>
-    internal static string? FindCpuTemperatureInputPath(string hwmonBasePath, string thermalBasePath)
-    {
-        try
-        {
-            return FindHwmonCpuTemperatureInputPath(hwmonBasePath) ?? FindThermalZoneCpuTemperatureInputPath(thermalBasePath);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private static string? FindHwmonCpuTemperatureInputPath(string hwmonBasePath)
-    {
-        if (!Directory.Exists(hwmonBasePath)) return null;
-
-        var inputPaths = Directory.EnumerateDirectories(hwmonBasePath, "hwmon*")
-            .Where(dir => TryReadFirstLine(Path.Combine(dir, "name")) is { } driver &&
-                          CpuSensorDriverNames.Contains(driver, StringComparer.OrdinalIgnoreCase))
-            .SelectMany(dir => Directory.EnumerateFiles(dir, "temp*_input"));
-
-        string? bestPath = null;
-        var bestRank = 0;
-        var bestValue = long.MinValue;
-
-        foreach (var inputPath in inputPaths)
-        {
-            if (TryReadMilliCelsius(inputPath) is not { } value) continue;
-            var rank = ClassifySensorLabel(TryReadLabel(inputPath));
-            if (rank == 0) continue;
-            if (rank > bestRank || (rank == bestRank && value > bestValue))
-            {
-                bestPath = inputPath;
-                bestRank = rank;
-                bestValue = value;
-            }
-        }
-
-        return bestPath;
-    }
-
-    private static string? FindThermalZoneCpuTemperatureInputPath(string thermalBasePath)
-    {
-        if (!Directory.Exists(thermalBasePath)) return null;
-
-        string? bestPath = null;
-        var bestValue = long.MinValue;
-
-        foreach (var zoneDir in Directory.EnumerateDirectories(thermalBasePath, "thermal_zone*"))
-        {
-            var type = TryReadFirstLine(Path.Combine(zoneDir, "type"));
-            if (type == null || !IsCpuThermalZoneType(type)) continue;
-
-            var tempPath = Path.Combine(zoneDir, "temp");
-            if (TryReadMilliCelsius(tempPath) is not { } value) continue;
-            if (value > bestValue)
-            {
-                bestPath = tempPath;
-                bestValue = value;
-            }
-        }
-
-        return bestPath;
-    }
-
-    /// <summary>
-    /// Reads a <c>temp*_input</c> value in millidegrees Celsius, or <c>null</c>
-    /// when the file is missing, unreadable or contains an implausible value.
-    /// </summary>
-    private static long? TryReadMilliCelsius(string inputPath)
-    {
-        var text = TryReadFirstLine(inputPath);
-        if (text == null) return null;
-
-        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var milli))
-            return null;
-
-        // Plausible range: 0 °C .. 200 °C in millidegrees.
-        return milli is > 0 and < 200_000 ? milli : null;
-    }
-
-    /// <summary>
-    /// Reads a <c>temp*_input</c> file and converts the value to Celsius.
-    /// Returns <c>null</c> when unavailable.
-    /// </summary>
-    internal static double? TryReadCelsius(string inputPath)
-    {
-        var milli = TryReadMilliCelsius(inputPath);
-        return milli == null ? null : milli / 1000.0;
-    }
-
-    /// <summary>Ranks a sensor label: 3 = package, 2 = core, 1 = unlabeled CPU sensor, 0 = unrelated.</summary>
-    private static int ClassifySensorLabel(string? label)
-    {
-        if (label == null) return 1;
-        if (IsPackageLabel(label)) return 3;
-        if (IsCoreLabel(label)) return 2;
-        return 0;
-    }
-
-    private static bool IsPackageLabel(string label) =>
-        label.Contains("package", StringComparison.OrdinalIgnoreCase) ||
-        label.Contains("tctl", StringComparison.OrdinalIgnoreCase) ||
-        label.Contains("tdie", StringComparison.OrdinalIgnoreCase) ||
-        label.Equals("cpu", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsCoreLabel(string label) =>
-        label.Contains("core", StringComparison.OrdinalIgnoreCase) ||
-        label.Contains("tccd", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsCpuThermalZoneType(string type) =>
-        type.Contains("cpu", StringComparison.OrdinalIgnoreCase) ||
-        type.Contains("package", StringComparison.OrdinalIgnoreCase) ||
-        type.Contains("pkg_temp", StringComparison.OrdinalIgnoreCase) ||
-        (type.Contains("soc", StringComparison.OrdinalIgnoreCase) &&
-         type.Contains("thermal", StringComparison.OrdinalIgnoreCase));
-
-    private static string? TryReadLabel(string inputPath)
-    {
-        var fileName = Path.GetFileName(inputPath);
-        if (!fileName.EndsWith("_input", StringComparison.Ordinal)) return null;
-
-        var labelPath = Path.Combine(
-            Path.GetDirectoryName(inputPath) ?? "",
-            fileName[..^"_input".Length] + "_label");
-        return TryReadFirstLine(labelPath);
-    }
-
     private static bool TrySplitKeyValue(string line, out string key, out string value)
     {
         key = "";
@@ -542,19 +359,6 @@ public class SystemService() : ISystemService
         key = line[..colonIdx].Trim();
         value = line[(colonIdx + 1)..].Trim();
         return key.Length > 0;
-    }
-
-    private static string? TryReadFirstLine(string path)
-    {
-        try
-        {
-            var line = File.ReadAllText(path).Split('\n')[0].Trim();
-            return line.Length > 0 ? line : null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
     }
 
     // ── CPU Usage ────────────────────────────────────────────────────────

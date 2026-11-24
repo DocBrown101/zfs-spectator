@@ -87,7 +87,7 @@ public class EmbeddedJsonCommandExecutorTests
     {
         var executor = new EmbeddedJsonCommandExecutor();
         var zpool = new ZpoolService(executor);
-        var zfs = new ZfsService(executor, zpool);
+        var zfs = new ZfsService(executor);
 
         var poolNames = await zpool.GetPoolNamesAsync();
         Assert.Equal(["miniTank", "zfsPool"], poolNames.Order().ToList());
@@ -97,7 +97,7 @@ public class EmbeddedJsonCommandExecutorTests
         Assert.Equal("finished", snapshots.Single(item => item.Pool.Name == "zfsPool").Scrub.State);
         Assert.Equal("idle", snapshots.Single(item => item.Pool.Name == "miniTank").Scrub.State);
 
-        var datasets = await zfs.GetAllDatasetsAsync();
+        var datasets = await zfs.GetDatasetsAsync("zfsPool");
         Assert.Equal(9, datasets.Count);
         Assert.All(datasets, dataset => Assert.StartsWith("zfsPool", dataset.Name, StringComparison.Ordinal));
 

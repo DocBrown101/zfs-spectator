@@ -14,7 +14,7 @@ public class ZfsServiceTests
     [InlineData("zfs-2.3\n", "2.3")]
     public async Task GetZfsVersionAsync_ShouldExtractVersionFromOutput(string output, string expected)
     {
-        var service = CreateService(new FakeCommandExecutor()
+        var service = new ZfsService(new FakeCommandExecutor()
             .On("zfs", "version", output));
 
         Assert.Equal(expected, await service.GetZfsVersionAsync());
@@ -26,7 +26,7 @@ public class ZfsServiceTests
     [InlineData("zfs-unknown\n")]
     public async Task GetZfsVersionAsync_NoVersionFound_ShouldReturnUnknown(string output)
     {
-        var service = CreateService(new FakeCommandExecutor()
+        var service = new ZfsService(new FakeCommandExecutor()
             .On("zfs", "version", output));
 
         Assert.Equal("unknown", await service.GetZfsVersionAsync());
@@ -35,7 +35,7 @@ public class ZfsServiceTests
     [Fact]
     public async Task GetZfsVersionAsync_LongInvalidOutput_ShouldReturnUnknown()
     {
-        var service = CreateService(new FakeCommandExecutor()
+        var service = new ZfsService(new FakeCommandExecutor()
             .On("zfs", "version", new string('1', 100_000)));
 
         Assert.Equal("unknown", await service.GetZfsVersionAsync());
@@ -44,7 +44,7 @@ public class ZfsServiceTests
     [Fact]
     public async Task GetArcStatsAsync_ShouldParseProcValues()
     {
-        var service = CreateService(new FakeCommandExecutor()
+        var service = new ZfsService(new FakeCommandExecutor()
             .On("cat", "/proc/spl/kstat/zfs/arcstats", File.ReadAllText("TestData/arcstats.txt")));
 
         var arc = await service.GetArcStatsAsync();
@@ -65,13 +65,11 @@ public class ZfsServiceTests
     [Fact]
     public async Task GetArcStatsAsync_UnparseableOutput_ShouldReturnZeros()
     {
-        var service = CreateService(new FakeCommandExecutor()
+        var service = new ZfsService(new FakeCommandExecutor()
             .On("cat", "/proc/spl/kstat/zfs/arcstats", "name type data\ngarbage\n"));
 
         var arc = await service.GetArcStatsAsync();
 
         Assert.Equal(new ArcStats(), arc);
     }
-
-    private static ZfsService CreateService(FakeCommandExecutor executor) => new(executor, new ZpoolService(executor));
 }

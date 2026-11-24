@@ -107,11 +107,11 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolLayout_ShouldParseVdevStructure()
+    public void ParsePoolStatus_ShouldParseVdevStructure()
     {
         var json = File.ReadAllText("TestData/zpool_status.json");
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
+        var layout = ZpoolParser.ParsePoolStatus(json, "zfsPool").Layout;
 
         Assert.Equal("raidz1", layout.VdevType);
         Assert.Equal("", layout.Operation);
@@ -126,11 +126,11 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolLayout_ShouldParseDeviceDetails()
+    public void ParsePoolStatus_ShouldParseDeviceDetails()
     {
         var json = File.ReadAllText("TestData/zpool_status.json");
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
+        var layout = ZpoolParser.ParsePoolStatus(json, "zfsPool").Layout;
 
         var firstData = layout.DataDevices[0];
         Assert.Equal("/dev/disk/by-id/wwn-0x50014ee2c06fdd9f-part2", firstData.Path);
@@ -147,11 +147,11 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldParseFinishedScrub()
+    public void ParsePoolStatus_ShouldParseFinishedScrub()
     {
         var json = File.ReadAllText("TestData/zpool_status.json");
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "zfsPool");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "zfsPool").Scrub;
 
         Assert.Equal("finished", scrub.State);
         Assert.Equal(0, scrub.Errors);
@@ -161,7 +161,7 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldComputeDurationWithoutTimezone()
+    public void ParsePoolStatus_ShouldComputeDurationWithoutTimezone()
     {
         const string json = """
             {
@@ -181,26 +181,26 @@ public class ZpoolParserTests
             }
             """;
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "tank").Scrub;
 
         Assert.Equal("finished", scrub.State);
         Assert.Equal("04:27:25", scrub.Duration);
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldReturnIdleForMissingData()
+    public void ParsePoolStatus_ShouldReturnIdleForMissingData()
     {
-        var scrub = ZpoolParser.ParseScrubInfo("{}", "nonexistent");
+        var scrub = ZpoolParser.ParsePoolStatus("{}", "nonexistent").Scrub;
 
         Assert.Equal("idle", scrub.State);
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldParseScanningWithProgress()
+    public void ParsePoolStatus_ShouldParseScanningWithProgress()
     {
         var json = File.ReadAllText("TestData/zpool_status_scanning.json");
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "zfsPool");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "zfsPool").Scrub;
 
         Assert.Equal("running", scrub.State);
         Assert.Equal(0, scrub.Errors);
@@ -211,17 +211,17 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldDetectScrubOperation()
+    public void ParsePoolStatus_ShouldDetectScrubOperation()
     {
         var json = File.ReadAllText("TestData/zpool_status_scanning.json");
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "zfsPool");
+        var layout = ZpoolParser.ParsePoolStatus(json, "zfsPool").Layout;
 
         Assert.Equal("scrubbing", layout.Operation);
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldParseCanceledScrub()
+    public void ParsePoolStatus_ShouldParseCanceledScrub()
     {
         const string json = """
             {
@@ -240,7 +240,7 @@ public class ZpoolParserTests
             }
             """;
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "tank").Scrub;
 
         Assert.Equal("canceled", scrub.State);
         Assert.Equal(3, scrub.Errors);
@@ -248,7 +248,7 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldParseRunningResilver()
+    public void ParsePoolStatus_ShouldParseRunningResilver()
     {
         const string json = """
             {
@@ -267,14 +267,14 @@ public class ZpoolParserTests
             }
             """;
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "tank").Scrub;
 
         Assert.Equal("running", scrub.State);
         Assert.Equal(50.0, scrub.ProgressPct);
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldReturnIdleForNonScrubFunction()
+    public void ParsePoolStatus_ShouldReturnIdleForNonScrubFunction()
     {
         const string json = """
             {
@@ -289,11 +289,11 @@ public class ZpoolParserTests
             }
             """;
 
-        Assert.Equal("idle", ZpoolParser.ParseScrubInfo(json, "tank").State);
+        Assert.Equal("idle", ZpoolParser.ParsePoolStatus(json, "tank").Scrub.State);
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldStripTimezoneFromGermanTimestamp()
+    public void ParsePoolStatus_ShouldStripTimezoneFromGermanTimestamp()
     {
         const string json = """
             {
@@ -311,14 +311,14 @@ public class ZpoolParserTests
             }
             """;
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "tank").Scrub;
 
         Assert.Equal("finished", scrub.State);
         Assert.Equal("04:27:25", scrub.Duration);
     }
 
     [Fact]
-    public void ParseScrubInfo_ShouldReturnEmptyDurationWhenEndBeforeStart()
+    public void ParsePoolStatus_ShouldReturnEmptyDurationWhenEndBeforeStart()
     {
         const string json = """
             {
@@ -336,18 +336,18 @@ public class ZpoolParserTests
             }
             """;
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "tank");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "tank").Scrub;
 
         Assert.Equal("finished", scrub.State);
         Assert.Equal("", scrub.Duration);
     }
 
     [Fact]
-    public void ParsePoolLayout_MiniTank_ShouldBeStripeWithTwoDisks()
+    public void ParsePoolStatus_MiniTank_ShouldBeStripeWithTwoDisks()
     {
         var json = File.ReadAllText("TestData/zpool_status.json");
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "miniTank");
+        var layout = ZpoolParser.ParsePoolStatus(json, "miniTank").Layout;
 
         Assert.Equal("stripe", layout.VdevType);
         Assert.Equal("", layout.Operation);
@@ -359,7 +359,7 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolLayout_Mirror_ShouldParseDevicesWithMirrorRole()
+    public void ParsePoolStatus_Mirror_ShouldParseDevicesWithMirrorRole()
     {
         const string json = """
             {
@@ -399,7 +399,7 @@ public class ZpoolParserTests
             }
             """;
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "tank");
+        var layout = ZpoolParser.ParsePoolStatus(json, "tank").Layout;
 
         Assert.Equal("mirror", layout.VdevType);
         Assert.Equal(2, layout.DataDevices.Count);
@@ -410,7 +410,7 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolLayout_ShouldParseCacheLogAndSpareDevices()
+    public void ParsePoolStatus_ShouldParseCacheLogAndSpareDevices()
     {
         const string json = """
             {
@@ -446,7 +446,7 @@ public class ZpoolParserTests
             }
             """;
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "tank");
+        var layout = ZpoolParser.ParsePoolStatus(json, "tank").Layout;
 
         Assert.Equal("stripe", layout.VdevType);
         Assert.Empty(layout.DataDevices);
@@ -460,7 +460,7 @@ public class ZpoolParserTests
     }
 
     [Fact]
-    public void ParsePoolLayout_ShouldDetectResilverOperation()
+    public void ParsePoolStatus_ShouldDetectResilverOperation()
     {
         const string json = """
             {
@@ -475,17 +475,17 @@ public class ZpoolParserTests
             }
             """;
 
-        var layout = ZpoolParser.ParsePoolLayout(json, "tank");
+        var layout = ZpoolParser.ParsePoolStatus(json, "tank").Layout;
 
         Assert.Equal("resilvering", layout.Operation);
     }
 
     [Fact]
-    public void ParseScrubInfo_MiniTank_ShouldBeIdle()
+    public void ParsePoolStatus_MiniTank_ShouldBeIdle()
     {
         var json = File.ReadAllText("TestData/zpool_status.json");
 
-        var scrub = ZpoolParser.ParseScrubInfo(json, "miniTank");
+        var scrub = ZpoolParser.ParsePoolStatus(json, "miniTank").Scrub;
 
         Assert.Equal("idle", scrub.State);
     }

@@ -4,13 +4,9 @@ using Zfs.Core.Services.Parser;
 
 namespace Zfs.Core.Services;
 
-public class ZfsService(ICommandExecutor cmd, IZpoolService zpoolService) : IZfsService
+public class ZfsService(ICommandExecutor cmd) : IZfsService
 {
     // ── Datasets ──────────────────────────────────────────────────────────
-
-    public async Task<List<Dataset>> GetAllDatasetsAsync()
-        => (await ZfsAggregation.GetAllByPoolAsync(zpoolService, this.GetDatasetsAsync))
-            .SelectMany(group => group.Items).ToList();
 
     public async Task<List<Dataset>> GetDatasetsAsync(string poolName)
     {

@@ -39,7 +39,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     {
         var pools = await this.ListPoolsAsync(cancellationToken, requireOutput: true);
         return (await Task.WhenAll(pools.Select(pool =>
-            this.LoadDashboardPoolAsync(pool, cancellationToken)))).ToList();
+            this.LoadPoolStatusAsync(pool, cancellationToken, requireOutput: true)))).ToList();
     }
 
     public async Task<List<string>> GetPoolNamesAsync()
@@ -84,14 +84,10 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         bool requireOutput)
     {
         var propsTask = this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput);
-        var statusTask = cmd.ExecuteAsync(ZpoolCommand, $"status -Pj {pool.Name}", cancellationToken);
+        var statusTask = this.LoadPoolStatusAsync(pool, cancellationToken, requireOutput);
         await Task.WhenAll(propsTask, statusTask);
 
-        var statusJson = await statusTask;
-        var layout = ParsePoolLayout(statusJson, pool.Name, requireOutput);
-        var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
-
-        var enriched = layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree);
+        var (enriched, scrub) = await statusTask;
         var props = await propsTask;
         return (enriched with
         {
@@ -110,15 +106,22 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         }, scrub);
     }
 
-    private async Task<(Pool Pool, ScrubInfo Scrub)> LoadDashboardPoolAsync(
+    private async Task<(Pool Pool, ScrubInfo Scrub)> LoadPoolStatusAsync(
         Pool pool,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool requireOutput)
     {
         var statusJson = await cmd.ExecuteAsync(ZpoolCommand, $"status -Pj {pool.Name}", cancellationToken);
-        var layout = ParsePoolLayout(statusJson, pool.Name, requireOutput: true);
-        var scrub = ZpoolParser.ParseScrubInfo(statusJson, pool.Name);
-
-        return (layout.ApplyTo(pool, pool.SpecialSize, pool.SpecialAlloc, pool.SpecialFree), scrub);
+        var (layout, scrub) = ZpoolParser.ParsePoolStatus(statusJson, pool.Name, requireOutput);
+        var presentLayout = layout with
+        {
+            DataDevices = WithPresence(layout.DataDevices),
+            CacheDevices = WithPresence(layout.CacheDevices),
+            LogDevices = WithPresence(layout.LogDevices),
+            SpareDevices = WithPresence(layout.SpareDevices),
+            SpecialDevices = WithPresence(layout.SpecialDevices),
+        };
+        return (presentLayout.ApplyTo(pool), scrub);
     }
 
     private async Task<List<(Pool Pool, ScrubInfo Scrub)>> AttachScrubTimeLeftAsync(
@@ -201,20 +204,6 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         bool Encrypted, bool KeyLocked, string EncryptionAlgorithm);
 
     // ── Pool Layout & Scrub ──────────────────────────────────────────────
-
-    private static PoolLayout ParsePoolLayout(string statusJson, string poolName, bool requireOutput = false)
-    {
-        var layout = ZpoolParser.ParsePoolLayout(statusJson, poolName, requireOutput);
-
-        return layout with
-        {
-            DataDevices = WithPresence(layout.DataDevices),
-            CacheDevices = WithPresence(layout.CacheDevices),
-            LogDevices = WithPresence(layout.LogDevices),
-            SpareDevices = WithPresence(layout.SpareDevices),
-            SpecialDevices = WithPresence(layout.SpecialDevices),
-        };
-    }
 
     private static IReadOnlyList<PoolDevice> WithPresence(IReadOnlyList<PoolDevice> devices)
     {

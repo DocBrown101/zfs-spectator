@@ -356,13 +356,31 @@ public class SystemServiceTests
     }
 
     [Fact]
+    public void ReadCelsius_RediscoversSensorAfterCachedFileDisappears()
+    {
+        using var root = TempDirectory.Create();
+        var sensor = Directory.CreateDirectory(Path.Combine(root.RootPath, "hwmon0")).FullName;
+        File.WriteAllText(Path.Combine(sensor, "name"), "coretemp");
+        var first = Path.Combine(sensor, "temp1_input");
+        File.WriteAllText(first, "48000");
+        var reader = new CpuTemperatureReader(root.RootPath, root.RootPath);
+
+        Assert.Equal(48.0, reader.ReadCelsius(default));
+        File.WriteAllText(Path.Combine(sensor, "temp2_input"), "55000");
+        Assert.Equal(48.0, reader.ReadCelsius(default));
+        File.Delete(first);
+        Assert.Null(reader.ReadCelsius(default));
+        Assert.Equal(55.0, reader.ReadCelsius(default));
+    }
+
+    [Fact]
     public void TryReadCelsius_ConvertsMilliDegreesToCelsius()
     {
         using var root = TempDirectory.Create();
         var inputPath = Path.Combine(root.RootPath, "temp1_input");
         File.WriteAllText(inputPath, "52437");
 
-        var celsius = SystemService.TryReadCelsius(inputPath);
+        var celsius = CpuTemperatureReader.TryReadCelsius(inputPath);
         Assert.NotNull(celsius);
         Assert.Equal(52.437, celsius.Value, 3);
     }
@@ -383,11 +401,11 @@ public class SystemServiceTests
         File.WriteAllText(packageInput, "50000\n");
         var thermal = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal")).FullName;
 
-        var chosen = SystemService.FindCpuTemperatureInputPath(hwmon, thermal);
+        var chosen = CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal);
 
         Assert.NotNull(chosen);
         Assert.Equal(packageInput, chosen);
-        Assert.Equal(50.0, SystemService.TryReadCelsius(chosen));
+        Assert.Equal(50.0, CpuTemperatureReader.TryReadCelsius(chosen));
     }
 
     [Fact]
@@ -406,11 +424,11 @@ public class SystemServiceTests
         File.WriteAllText(package1, "52000\n");
         var thermal = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal")).FullName;
 
-        var chosen = SystemService.FindCpuTemperatureInputPath(hwmon, thermal);
+        var chosen = CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal);
 
         Assert.NotNull(chosen);
         Assert.Equal(package1, chosen);
-        Assert.Equal(52.0, SystemService.TryReadCelsius(chosen));
+        Assert.Equal(52.0, CpuTemperatureReader.TryReadCelsius(chosen));
     }
 
     [Fact]
@@ -429,11 +447,11 @@ public class SystemServiceTests
         File.WriteAllText(core1, "52000\n");
         var thermal = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal")).FullName;
 
-        var chosen = SystemService.FindCpuTemperatureInputPath(hwmon, thermal);
+        var chosen = CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal);
 
         Assert.NotNull(chosen);
         Assert.Equal(core1, chosen);
-        Assert.Equal(52.0, SystemService.TryReadCelsius(chosen));
+        Assert.Equal(52.0, CpuTemperatureReader.TryReadCelsius(chosen));
     }
 
     [Theory]
@@ -452,7 +470,7 @@ public class SystemServiceTests
         var inputPath = Path.Combine(sensor, "temp1_input");
         File.WriteAllText(inputPath, "50000");
 
-        Assert.Equal(inputPath, SystemService.FindCpuTemperatureInputPath(hwmon, root.RootPath));
+        Assert.Equal(inputPath, CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, root.RootPath));
     }
 
     [Fact]
@@ -474,7 +492,7 @@ public class SystemServiceTests
 
         var thermal = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal")).FullName;
 
-        Assert.Null(SystemService.FindCpuTemperatureInputPath(hwmon, thermal));
+        Assert.Null(CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal));
     }
 
     [Fact]
@@ -494,11 +512,11 @@ public class SystemServiceTests
         File.WriteAllText(Path.Combine(acpiZone, "type"), "acpitz\n");
         File.WriteAllText(Path.Combine(acpiZone, "temp"), "99999\n");
 
-        var chosen = SystemService.FindCpuTemperatureInputPath(hwmon, thermal);
+        var chosen = CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal);
 
         Assert.NotNull(chosen);
         Assert.Equal(cpuZoneTemp, chosen);
-        var celsius = SystemService.TryReadCelsius(chosen);
+        var celsius = CpuTemperatureReader.TryReadCelsius(chosen);
         Assert.NotNull(celsius);
         Assert.Equal(52.437, celsius.Value, 3);
     }
@@ -525,7 +543,30 @@ public class SystemServiceTests
             File.WriteAllText(chosen, i == 0 ? "50000" : "60000");
         }
 
-        Assert.Equal(chosen, SystemService.FindCpuTemperatureInputPath(hwmon, thermal));
+        Assert.Equal(chosen, CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal));
+    }
+
+    [Fact]
+    public void FindCpuTemperatureInputPath_UnreadableHwmon_StillUsesThermalZone()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var root = TempDirectory.Create();
+        var hwmon = Directory.CreateDirectory(Path.Combine(root.RootPath, "hwmon")).FullName;
+        var zone = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal_zone0")).FullName;
+        File.WriteAllText(Path.Combine(zone, "type"), "cpu");
+        var temp = Path.Combine(zone, "temp");
+        File.WriteAllText(temp, "52000");
+
+        var mode = File.GetUnixFileMode(hwmon);
+        try
+        {
+            File.SetUnixFileMode(hwmon, UnixFileMode.None);
+            Assert.Equal(temp, CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, root.RootPath));
+        }
+        finally
+        {
+            File.SetUnixFileMode(hwmon, mode);
+        }
     }
 
     [Fact]
@@ -533,7 +574,7 @@ public class SystemServiceTests
     {
         var missing = Path.Combine(Path.GetTempPath(), "missing-" + Guid.NewGuid());
 
-        Assert.Null(SystemService.FindCpuTemperatureInputPath(missing, missing));
+        Assert.Null(CpuTemperatureReader.FindCpuTemperatureInputPath(missing, missing));
     }
 
     [Fact]
@@ -547,7 +588,7 @@ public class SystemServiceTests
         File.WriteAllText(Path.Combine(coretemp, "temp1_input"), "garbage\n");
         var thermal = Directory.CreateDirectory(Path.Combine(root.RootPath, "thermal")).FullName;
 
-        Assert.Null(SystemService.FindCpuTemperatureInputPath(hwmon, thermal));
+        Assert.Null(CpuTemperatureReader.FindCpuTemperatureInputPath(hwmon, thermal));
     }
 
     [Fact]
@@ -556,13 +597,13 @@ public class SystemServiceTests
         using var root = TempDirectory.Create();
         var inputPath = Path.Combine(root.RootPath, "temp1_input");
 
-        Assert.Null(SystemService.TryReadCelsius(inputPath));
+        Assert.Null(CpuTemperatureReader.TryReadCelsius(inputPath));
 
         File.WriteAllText(inputPath, "not-a-number\n");
-        Assert.Null(SystemService.TryReadCelsius(inputPath));
+        Assert.Null(CpuTemperatureReader.TryReadCelsius(inputPath));
 
         File.WriteAllText(inputPath, "0\n");
-        Assert.Null(SystemService.TryReadCelsius(inputPath));
+        Assert.Null(CpuTemperatureReader.TryReadCelsius(inputPath));
     }
 
     private static void WriteCpuTopology(string cpuBasePath, string cpuName, string package, string coreId)

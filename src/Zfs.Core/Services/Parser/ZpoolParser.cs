@@ -88,38 +88,42 @@ public static class ZpoolParser
 
     // ── Pool Layout (from zpool status -Pj) ─────────────────────────────
 
-    public static PoolLayout ParsePoolLayout(string json, string poolName, bool requireOutput = false)
+    public static (PoolLayout Layout, ScrubInfo Scrub) ParsePoolStatus(string json, string poolName, bool requireOutput = false)
     {
         using var pool = TryGetPoolContainer(json, "zpool status", poolName, requireOutput);
-        if (pool is null) return new PoolLayout();
+        if (pool is null) return (new PoolLayout(), ScrubInfo.Idle);
+        return (ParsePoolLayout(pool.Value, poolName, requireOutput), ParseScrubInfo(pool.Value));
+    }
 
+    private static PoolLayout ParsePoolLayout(JsonElement pool, string poolName, bool requireOutput)
+    {
         if (requireOutput &&
-            (!pool.Value.TryGetProperty(VdevsProperty, out var checkedVdevs) ||
+            (!pool.TryGetProperty(VdevsProperty, out var checkedVdevs) ||
              checkedVdevs.ValueKind != JsonValueKind.Object ||
              !checkedVdevs.TryGetProperty(poolName, out var checkedRootVdev) ||
              checkedRootVdev.ValueKind != JsonValueKind.Object))
             throw new InvalidOperationException($"zpool status returned incomplete data for {poolName}");
 
-        var operation = ParseOperation(pool.Value);
-        var (dataDevices, vdevType, poolErrR, poolErrW, poolErrC) = ParseDataDevices(pool.Value, poolName);
+        var operation = ParseOperation(pool);
+        var (dataDevices, vdevType, poolErrR, poolErrW, poolErrC) = ParseDataDevices(pool, poolName);
 
-        var logDevices = ParseSectionDevices(pool.Value, "logs", "log");
+        var logDevices = ParseSectionDevices(pool, "logs", "log");
         if (logDevices.Count == 0)
-            logDevices = ParseSectionDevices(pool.Value, "log", "log");
+            logDevices = ParseSectionDevices(pool, "log", "log");
 
-        var spareDevices = ParseSectionDevices(pool.Value, "spares", "spare");
+        var spareDevices = ParseSectionDevices(pool, "spares", "spare");
         if (spareDevices.Count == 0)
-            spareDevices = ParseSectionDevices(pool.Value, "spare", "spare");
+            spareDevices = ParseSectionDevices(pool, "spare", "spare");
 
         return new PoolLayout
         {
             VdevType = vdevType,
             Operation = operation,
             DataDevices = dataDevices,
-            CacheDevices = ParseSectionDevices(pool.Value, "cache", "cache"),
+            CacheDevices = ParseSectionDevices(pool, "cache", "cache"),
             LogDevices = logDevices,
             SpareDevices = spareDevices,
-            SpecialDevices = ParseSectionDevices(pool.Value, "special", "special"),
+            SpecialDevices = ParseSectionDevices(pool, "special", "special"),
             PoolErrorsRead = poolErrR,
             PoolErrorsWrite = poolErrW,
             PoolErrorsChecksum = poolErrC,
@@ -184,11 +188,9 @@ public static class ZpoolParser
 
     // ── Scrub Info (from zpool status -Pj) ──────────────────────────────
 
-    public static ScrubInfo ParseScrubInfo(string json, string poolName)
+    private static ScrubInfo ParseScrubInfo(JsonElement pool)
     {
-        using var pool = JsonHelper.TryGetObject(json, "pools", poolName);
-        if (pool is null) return ScrubInfo.Idle;
-        if (!pool.Value.TryGetProperty("scan_stats", out var scan)) return ScrubInfo.Idle;
+        if (!pool.TryGetProperty("scan_stats", out var scan)) return ScrubInfo.Idle;
 
         var function = JsonHelper.GetString(scan, "function");
         if (function is not ("SCRUB" or "RESILVER")) return ScrubInfo.Idle;

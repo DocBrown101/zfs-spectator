@@ -13,7 +13,7 @@ public record PoolLayout
     public long PoolErrorsWrite { get; init; }
     public long PoolErrorsChecksum { get; init; }
 
-    public Pool ApplyTo(Pool pool, ulong specialSize = 0, ulong specialAlloc = 0, ulong specialFree = 0) =>
+    public Pool ApplyTo(Pool pool) =>
         pool with
         {
             VdevType = this.VdevType,
@@ -23,9 +23,6 @@ public record PoolLayout
             LogDevices = this.LogDevices,
             SpareDevices = this.SpareDevices,
             SpecialDevices = this.SpecialDevices,
-            SpecialSize = specialSize,
-            SpecialAlloc = specialAlloc,
-            SpecialFree = specialFree,
             ErrorsRead = this.PoolErrorsRead,
             ErrorsWrite = this.PoolErrorsWrite,
             ErrorsChecksum = this.PoolErrorsChecksum,

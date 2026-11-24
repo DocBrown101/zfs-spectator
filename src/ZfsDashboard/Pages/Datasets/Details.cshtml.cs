@@ -6,7 +6,7 @@ using ZfsDashboard.ViewModels.Snapshots;
 
 namespace ZfsDashboard.Pages.Datasets;
 
-public class DetailsModel(IZfsService zfs) : PageModel
+public class DetailsModel(IZfsService zfs, IZpoolService zpool) : PageModel
 {
     public Dataset? Dataset { get; private set; }
     public SnapshotGroupViewModel SnapshotGroup { get; private set; } = new("", []);
@@ -16,11 +16,13 @@ public class DetailsModel(IZfsService zfs) : PageModel
     {
         if (string.IsNullOrEmpty(name)) return this.NotFound();
 
-        var allDs = await zfs.GetAllDatasetsAsync();
-        this.Dataset = allDs.FirstOrDefault(d => d.Name == name);
+        var poolName = name.Split('/', 2)[0];
+        if (!(await zpool.GetPoolNamesAsync()).Contains(poolName)) return this.NotFound();
+
+        var datasets = await zfs.GetDatasetsAsync(poolName);
+        this.Dataset = datasets.FirstOrDefault(d => d.Name == name);
         if (this.Dataset is null) return this.NotFound();
 
-        var poolName = name.Split('/')[0];
         var allSnaps = await zfs.GetSnapshotsAsync(poolName);
         var snapshots = allSnaps.Where(s => s.DatasetName == name).ToList();
         this.SnapshotGroup = new SnapshotGroupViewModel(name, snapshots);
