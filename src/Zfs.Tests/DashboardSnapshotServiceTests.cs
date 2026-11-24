@@ -26,6 +26,70 @@ public class DashboardSnapshotServiceTests
     }
 
     [Fact]
+    public async Task CollectOnceAsync_SlowPoolRefreshKeepsPublishingFastSamples()
+    {
+        var time = new ManualTimeProvider(DateTimeOffset.UnixEpoch);
+        var pending = new TaskCompletionSource<List<(Pool Pool, ScrubInfo Scrub)>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var zpool = new StubZpoolService([Snapshot(MakePool("tank"), ScrubInfo.Idle)])
+        {
+            PendingRuntime = pending.Task,
+        };
+        var service = CreateService(new StubSystemService(), zpool, time);
+        await service.CollectOnceAsync();
+        try
+        {
+            time.Advance(TimeSpan.FromSeconds(10));
+            await service.CollectOnceAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            var previous = service.Current!;
+
+            time.Advance(TimeSpan.FromSeconds(20));
+            await service.CollectOnceAsync().WaitAsync(TimeSpan.FromSeconds(2));
+
+            Assert.NotEqual(previous.Data.System.Uptime, service.Current!.Data.System.Uptime);
+            Assert.Same(Assert.Single(previous.Pools), Assert.Single(service.Current.Pools));
+            Assert.Equal(1, zpool.RuntimeCollectionCount);
+            Assert.Equal(1, zpool.DetailCollectionCount);
+
+            pending.SetResult([Snapshot(MakePool("tank") with { Health = "DEGRADED" }, ScrubInfo.Idle)]);
+            await CollectUntilAsync(service, () => service.Current!.Pools.Single().Health == "DEGRADED");
+        }
+        finally
+        {
+            pending.TrySetResult([]);
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetSnapshotAsync_WaitsForInitialPoolResultWhileLiveDataIsAvailable(bool hasPool)
+    {
+        var pending = new TaskCompletionSource<List<(Pool Pool, ScrubInfo Scrub)>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var zpool = new StubZpoolService([]) { PendingDetails = pending.Task };
+        var service = CreateService(new StubSystemService(), zpool, new ManualTimeProvider(DateTimeOffset.UnixEpoch));
+
+        try
+        {
+            await service.CollectOnceAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.Equal("1s", service.Current!.Data.System.Uptime);
+            var page = service.GetSnapshotAsync();
+            Assert.False(page.IsCompleted);
+
+            pending.SetResult(hasPool ? [Snapshot(MakePool("tank"), ScrubInfo.Idle)] : []);
+            await CollectUntilAsync(service, () => page.IsCompleted);
+            var snapshot = await page;
+            if (hasPool)
+                Assert.Equal("tank", Assert.Single(snapshot.Pools).Name);
+            else
+                Assert.Empty(snapshot.Pools);
+        }
+        finally
+        {
+            pending.TrySetResult([]);
+        }
+    }
+
+    [Fact]
     public async Task CollectOnceAsync_UsesLightweightPoolRefreshAfterTenSeconds()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero));
@@ -242,6 +306,17 @@ public class DashboardSnapshotServiceTests
         Assert.Equal(3, system.StaticCollectionCount);
     }
 
+    private static async Task CollectUntilAsync(DashboardSnapshotBackgroundService service, Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        while (!condition())
+        {
+            timeout.Token.ThrowIfCancellationRequested();
+            await service.CollectOnceAsync(timeout.Token).WaitAsync(timeout.Token);
+            await Task.Yield();
+        }
+    }
+
     private static DashboardSnapshotBackgroundService CreateService(
         ISystemService system,
         IZpoolService zpool,
@@ -294,7 +369,7 @@ public class DashboardSnapshotServiceTests
 
             return Task.FromResult(new DashboardData
             {
-                System = new SystemInfo { Uptime = "1h" },
+                System = new SystemInfo { Uptime = $"{this.CollectionCount}s" },
                 DiskIoRates = [new DiskIoRateInfo { Device = "sda" }],
                 PoolDiskIoRates = poolSnapshots.Select(item => new PoolDiskIoGroup { PoolName = item.Pool.Name }).ToList(),
                 PoolScrubs = poolSnapshots.ToDictionary(item => item.Pool.Name, item => item.Scrub),
@@ -325,6 +400,8 @@ public class DashboardSnapshotServiceTests
         }
 
         public IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> RuntimeSnapshots { get; init; }
+        public Task<List<(Pool Pool, ScrubInfo Scrub)>>? PendingDetails { get; init; }
+        public Task<List<(Pool Pool, ScrubInfo Scrub)>>? PendingRuntime { get; init; }
         public int DetailCollectionCount { get; private set; }
         public int RuntimeCollectionCount { get; private set; }
         public bool ThrowOnRuntimeCollection { get; set; }
@@ -334,14 +411,14 @@ public class DashboardSnapshotServiceTests
         {
             this.DetailCollectionCount++;
             if (this.ThrowOnDetailCollection) throw new InvalidOperationException("pool detail collection failed");
-            return Task.FromResult(this.detailSnapshots.ToList());
+            return this.PendingDetails ?? Task.FromResult(this.detailSnapshots.ToList());
         }
 
         public Task<List<(Pool Pool, ScrubInfo Scrub)>> GetDashboardPoolsAsync(CancellationToken cancellationToken = default)
         {
             this.RuntimeCollectionCount++;
             if (this.ThrowOnRuntimeCollection) throw new InvalidOperationException("pool collection failed");
-            return Task.FromResult(this.RuntimeSnapshots.ToList());
+            return this.PendingRuntime ?? Task.FromResult(this.RuntimeSnapshots.ToList());
         }
 
         public Task<List<Pool>> GetAllPoolsAsync() => Task.FromResult(this.detailSnapshots.Select(item => item.Pool).ToList());

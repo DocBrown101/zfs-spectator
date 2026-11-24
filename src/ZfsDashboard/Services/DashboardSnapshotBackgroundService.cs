@@ -17,23 +17,24 @@ public sealed class DashboardSnapshotBackgroundService(
     private static readonly TimeSpan StaticSystemInterval = TimeSpan.FromHours(24);
     private static readonly TimeSpan StaticSystemRetryInterval = TimeSpan.FromMinutes(1);
 
-    private readonly TaskCompletionSource<DashboardSnapshot> firstSnapshot = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource initialPageSnapshotReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<StaticSystemInfo> firstStaticSystem = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile DashboardSnapshot? current;
-    private IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> poolSnapshots = [];
+    private volatile IReadOnlyList<(Pool Pool, ScrubInfo Scrub)>? poolSnapshots;
+    private Task poolRefresh = Task.CompletedTask;
     private StaticSystemInfo staticSystem = new();
     private DateTimeOffset nextPoolRefresh;
     private DateTimeOffset nextPoolDetailsRefresh;
     private DateTimeOffset nextStaticSystemRefresh;
-    private bool poolDetailsInitialized;
     private volatile bool staticSystemInitialized;
 
     public DashboardSnapshot? Current => this.current;
 
     public async Task<DashboardSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
-        var snapshot = this.current;
-        return snapshot ?? await this.firstSnapshot.Task.WaitAsync(cancellationToken);
+        // The initial HTML needs pool cards; live requests can already use Current.
+        await this.initialPageSnapshotReady.Task.WaitAsync(cancellationToken);
+        return this.current!;
     }
 
     public async Task<StaticSystemInfo> GetStaticSystemInfoAsync(CancellationToken cancellationToken = default)
@@ -44,46 +45,46 @@ public sealed class DashboardSnapshotBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await this.CollectOnceAsync(stoppingToken);
-
-        using var timer = new PeriodicTimer(SystemInterval, timeProvider);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        try
+        {
             await this.CollectOnceAsync(stoppingToken);
+            using var timer = new PeriodicTimer(SystemInterval, timeProvider);
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+                await this.CollectOnceAsync(stoppingToken);
+        }
+        finally
+        {
+            await this.poolRefresh;
+        }
     }
 
     internal async Task CollectOnceAsync(CancellationToken cancellationToken = default)
     {
         await this.RefreshStaticSystemAsync(cancellationToken);
 
-        var now = timeProvider.GetUtcNow();
-        var refreshDetails = !this.poolDetailsInitialized || now >= this.nextPoolDetailsRefresh;
-        try
+        if (this.poolRefresh.IsCompleted)
         {
-            await this.RefreshPoolDataAsync(now, refreshDetails, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            var completedAt = timeProvider.GetUtcNow();
-            this.nextPoolRefresh = completedAt + PoolInterval;
-            if (refreshDetails)
-            {
-                this.poolDetailsInitialized = true;
-                this.nextPoolDetailsRefresh = completedAt + PoolDetailsInterval;
-            }
-            logger.LogError(ex, "Failed to refresh dashboard pool data; keeping the previous pool snapshot");
+            await this.poolRefresh;
+            var now = timeProvider.GetUtcNow();
+            var detailsDue = now >= this.nextPoolDetailsRefresh;
+            if (detailsDue || now >= this.nextPoolRefresh)
+                this.poolRefresh = this.RefreshPoolDataAsync(detailsDue, cancellationToken);
         }
 
+        var poolState = this.poolSnapshots;
+        var pools = poolState ?? [];
         try
         {
-            var data = await system.GetDashboardDataAsync(zfs, this.poolSnapshots, cancellationToken);
+            var data = await system.GetDashboardDataAsync(zfs, pools, cancellationToken);
             ApplyTemperatures(data.DiskIoRates, temperatures.Temperatures);
             var snapshot = new DashboardSnapshot(
                 data,
-                this.poolSnapshots.Select(item => item.Pool).ToList().AsReadOnly(),
+                pools.Select(item => item.Pool).ToList().AsReadOnly(),
                 this.staticSystem);
 
             this.current = snapshot;
-            this.firstSnapshot.TrySetResult(snapshot);
+            if (poolState is not null)
+                this.initialPageSnapshotReady.TrySetResult();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -126,23 +127,24 @@ public sealed class DashboardSnapshotBackgroundService(
         }
     }
 
-    private async Task RefreshPoolDataAsync(DateTimeOffset now, bool refreshDetails, CancellationToken cancellationToken)
+    private async Task RefreshPoolDataAsync(bool refreshDetails, CancellationToken cancellationToken)
     {
+        try
+        {
+            this.poolSnapshots = refreshDetails
+                ? await zpool.GetAllPoolsWithScrubAsync(cancellationToken)
+                : MergePoolDetails(await zpool.GetDashboardPoolsAsync(cancellationToken), this.poolSnapshots!);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Failed to refresh dashboard pool data; keeping the previous pool snapshot");
+            this.poolSnapshots ??= [];
+        }
+
+        var completedAt = timeProvider.GetUtcNow();
+        this.nextPoolRefresh = completedAt + PoolInterval;
         if (refreshDetails)
-        {
-            this.poolSnapshots = await zpool.GetAllPoolsWithScrubAsync(cancellationToken);
-            this.poolDetailsInitialized = true;
-            var completedAt = timeProvider.GetUtcNow();
             this.nextPoolDetailsRefresh = completedAt + PoolDetailsInterval;
-            this.nextPoolRefresh = completedAt + PoolInterval;
-        }
-        else if (now >= this.nextPoolRefresh)
-        {
-            var runtimePools = await zpool.GetDashboardPoolsAsync(cancellationToken);
-            this.poolSnapshots = MergePoolDetails(runtimePools, this.poolSnapshots);
-            var completedAt = timeProvider.GetUtcNow();
-            this.nextPoolRefresh = completedAt + PoolInterval;
-        }
     }
 
     private static IReadOnlyList<(Pool Pool, ScrubInfo Scrub)> MergePoolDetails(
