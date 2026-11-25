@@ -21,6 +21,7 @@ public record Pool
     public bool Encrypted { get; init; }
     public bool KeyLocked { get; init; }
     public string EncryptionAlgorithm { get; init; } = "";
+    public KeySettings? RootKeySettings { get; init; }
     public IReadOnlyList<PoolDevice> DataDevices { get; init; } = [];
     public IReadOnlyList<PoolDevice> CacheDevices { get; init; } = [];
     public IReadOnlyList<PoolDevice> LogDevices { get; init; } = [];

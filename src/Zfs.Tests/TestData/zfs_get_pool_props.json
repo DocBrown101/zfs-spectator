@@ -73,7 +73,9 @@
             "type": "NONE",
             "data": "-"
           }
-        }
+        },
+        "keyformat": { "value": "passphrase" },
+        "keylocation": { "value": "prompt" }
       }
     },
     "miniTank": {
@@ -144,7 +146,9 @@
             "type": "NONE",
             "data": "-"
           }
-        }
+        },
+        "keyformat": { "value": "raw" },
+        "keylocation": { "value": "file:///etc/zfs/miniTank.key" }
       }
     }
   }

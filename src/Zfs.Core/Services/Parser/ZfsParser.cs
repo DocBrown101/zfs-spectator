@@ -46,12 +46,29 @@ public static class ZfsParser
                 Encrypted = encrypted,
                 KeyLocked = JsonHelper.IsKeyLocked(props),
                 EncryptionAlgorithm = encrypted ? encryption : "",
+                EncryptionRoot = JsonHelper.GetPropertyString(props, "encryptionroot"),
+                KeySettings = encrypted ? ParseKeySettings(props) : null,
                 Mounted = JsonHelper.GetPropertyString(props, "mounted") == "yes",
                 CanMount = JsonHelper.GetPropertyString(props, "canmount"),
                 UsedBySnapshots = JsonHelper.GetPropertyUlong(props, "usedbysnapshots"),
             });
         }
         return result;
+    }
+
+    internal static KeySettings ParseKeySettings(JsonElement props)
+    {
+        var format = JsonHelper.GetPropertyString(props, "keyformat");
+        var location = JsonHelper.GetPropertyString(props, "keylocation");
+        return location switch
+        {
+            "prompt" => new("Prompt", format, null),
+            _ when location.StartsWith("file:///", StringComparison.Ordinal) => new("File", format, location["file://".Length..]),
+            // Remote URLs can contain credentials. Keep only the retrieval method.
+            _ when location.StartsWith("https://", StringComparison.OrdinalIgnoreCase) => new("HTTPS", format, null),
+            _ when location.StartsWith("http://", StringComparison.OrdinalIgnoreCase) => new("HTTP", format, null),
+            _ => new("Unknown", format, null),
+        };
     }
 
     // ── Snapshots (from zfs list -Hpj -t snapshot) ──────────────────────

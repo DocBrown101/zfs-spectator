@@ -5,15 +5,14 @@ using Zfs.Core.Services;
 public class CommandSuggestionsServiceTests
 {
     [Theory]
-    [InlineData("compression", "zstd")]
-    [InlineData("atime", "on")]
-    [InlineData("quota", "1T")]
-    public void SuggestSetProperty_SupportedProperty_ProvidesNixOsConfig(string property, string value)
+    [InlineData("tank/Meine Daten", "'tank/Meine Daten'")]
+    [InlineData("tank/O'Brien", "'tank/O'\\''Brien'")]
+    public void SuggestSetProperty_QuotesDatasetOnlyInCommand(string dataset, string quotedDataset)
     {
-        var suggestion = CommandSuggestionsService.SuggestSetProperty("tank/data", property, value);
+        var suggestion = CommandSuggestionsService.SuggestSetProperty(dataset, "quota", "none");
 
-        Assert.Equal($"sudo zfs set {property}={value} tank/data", suggestion.ZfsCommand);
-        Assert.NotNull(suggestion.NixOsConfig);
+        Assert.Equal($"sudo zfs set quota=none {quotedDataset}", suggestion.ZfsCommand);
+        Assert.Equal($"Set quota to none on {dataset}", suggestion.Description);
     }
 
     [Theory]
@@ -23,7 +22,7 @@ public class CommandSuggestionsServiceTests
     {
         var suggestion = CommandSuggestionsService.SuggestSetProperty("tank", property, value);
 
-        Assert.Equal($"sudo zfs set {property}={value} tank", suggestion.ZfsCommand);
+        Assert.Equal($"sudo zfs set {property}={value} 'tank'", suggestion.ZfsCommand);
         Assert.Null(suggestion.NixOsConfig);
     }
 

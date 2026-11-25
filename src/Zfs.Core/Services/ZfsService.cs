@@ -12,7 +12,7 @@ public class ZfsService(ICommandExecutor cmd) : IZfsService
     {
         var fields = "name,used,avail,refer,quota,refquota,compression,compressratio," +
                      "recordsize,mountpoint,sync,dedup,casesensitivity,refreservation," +
-                     "zfsnas:comment,encryption,keystatus,mounted,canmount,usedbysnapshots";
+                     "zfsnas:comment,encryption,keystatus,keyformat,keylocation,encryptionroot,mounted,canmount,usedbysnapshots";
 
         var json = await cmd.ExecuteAsync("zfs", $"list -Hpj -r -t filesystem -o {fields} {poolName}");
         return ZfsParser.ParseDatasets(json, poolName);

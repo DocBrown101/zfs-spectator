@@ -25,93 +25,90 @@
 
 <partial name="_PageHeader" model="header" />
 
-@* ── Capacity ────────────────────────────────────────────────── *@
-<div class="card mb-4">
-  <div class="card-body bg-surface">
-    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-pie-chart text-info"></i>
-      Capacity
-    </h5>
-    <div class="mb-3">
-      <partial name="_CapacityBar" model="new CapacityBarViewModel(ds.UsagePercent, CapacityBarSize.Regular, ShowPercentage: false)" />
-    </div>
-    <div class="row g-3 small">
-      <div class="col-6 col-md-3">
-        <div class="text-body-secondary">Used</div>
-        <div class="fw-semibold">@ds.Used.FormatBytes()</div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="text-body-secondary">Available</div>
-        <div class="fw-semibold">@ds.Avail.FormatBytes()</div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="text-body-secondary">Referenced</div>
-        <div class="fw-semibold">@ds.Refer.FormatBytes()</div>
-      </div>
-      @if (ds.UsedBySnapshots > 0)
-      {
-        <div class="col-6 col-md-3">
-          <div class="text-body-secondary">Snapshots</div>
-          <div class="fw-semibold">@ds.UsedBySnapshots.FormatBytes()</div>
+<div class="row g-4 mb-4">
+  <div class="col-lg-6 d-flex flex-column gap-4">
+    <div class="card flex-grow-1">
+      <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-pie-chart text-info"></i>
+          Capacity
+        </h5>
+        <div class="mb-3">
+          <partial name="_CapacityBar" model="new CapacityBarViewModel(ds.UsagePercent, CapacityBarSize.Regular, ShowPercentage: false)" />
         </div>
-      }
-    </div>
-  </div>
-</div>
-
-@* ── Properties ──────────────────────────────────────────────── *@
-<div class="card mb-4">
-  <div class="card-body bg-surface">
-    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-gear text-info"></i>
-      Properties
-    </h5>
-    <div class="row">
-      <div class="col-md-6">
-        <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
-                 {
-         new("Compression", $"{ds.Compression} ({ds.CompRatio})", ValueCss: "fw-semibold"),
-         new("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit", ValueCss: "fw-semibold"),
-         new("Dedup", ds.Dedup, ValueCss: "fw-semibold"),
-         new("Sync", ds.Sync, ValueCss: "fw-semibold"),
-         new("Case Sensitivity", ds.CaseSensitivity, ValueCss: "fw-semibold"),
-                 })" />
-      </div>
-
-      <div class="col-md-6">
-        <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
-                 {
-         new("Mountpoint", ds.Mountpoint, ValueCss: "fw-semibold"),
-         new("CanMount", ds.CanMount, ValueCss: "fw-semibold"),
-         new("Quota", ds.Quota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
-         new("RefQuota", ds.RefQuota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
-         new("Refreservation", ds.Refreservation.FormatBytesOrNone(), ValueCss: "fw-semibold"),
-                 })" />
+        <div class="row g-3 small">
+          <div class="col-6">
+            <div class="text-body-secondary">Used</div>
+            <div class="fw-semibold">@ds.Used.FormatBytes()</div>
+          </div>
+          <div class="col-6">
+            <div class="text-body-secondary">Available</div>
+            <div class="fw-semibold">@ds.Avail.FormatBytes()</div>
+          </div>
+          <div class="col-6">
+            <div class="text-body-secondary">Referenced</div>
+            <div class="fw-semibold">@ds.Refer.FormatBytes()</div>
+          </div>
+          @if (ds.UsedBySnapshots > 0)
+          {
+            <div class="col-6">
+              <div class="text-body-secondary">Snapshots</div>
+              <div class="fw-semibold">@ds.UsedBySnapshots.FormatBytes()</div>
+            </div>
+          }
+        </div>
       </div>
     </div>
-    @if (ds.Encrypted)
-    {
-      <div class="mt-2 small">
-        <span class="text-body-secondary">Encryption:</span> @ds.EncryptionAlgorithm
-        <span class="badge @(ds.KeyLocked ? "text-bg-warning" : "text-bg-success") ms-1">@(ds.KeyLocked ? "locked" : "loaded")</span>
+    <div class="card">
+      <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-camera text-info"></i>
+          Snapshots
+          <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.SnapshotGroup.Rows.Count</span>
+        </h5>
+        <partial name="_SnapshotTable" model="Model.SnapshotGroup" />
       </div>
-    }
-    @if (!string.IsNullOrEmpty(ds.Comment))
-    {
-      <div class="mt-2 small"><strong>Comment:</strong> @ds.Comment</div>
-    }
+    </div>
   </div>
-</div>
-
-@* ── Snapshots ───────────────────────────────────────────────── *@
-<div class="card mb-4">
-  <div class="card-body bg-surface">
-    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-camera text-info"></i>
-      Snapshots
-      <span class="badge bg-body-tertiary text-body-secondary border ms-auto">@Model.SnapshotGroup.Rows.Count</span>
-    </h5>
-    <partial name="_SnapshotTable" model="Model.SnapshotGroup" />
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-gear text-info"></i>
+          Properties
+        </h5>
+        <div class="row">
+          <div class="col-xl-6">
+            <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
+              {
+                new("Compression", $"{ds.Compression} ({ds.CompRatio})", ValueCss: "fw-semibold"),
+                new("Record Size", ds.RecordSize > 0 ? ds.RecordSize.FormatBytes() : "inherit", ValueCss: "fw-semibold"),
+                new("Dedup", ds.Dedup, ValueCss: "fw-semibold"),
+                new("Sync", ds.Sync, ValueCss: "fw-semibold"),
+                new("Case Sensitivity", ds.CaseSensitivity, ValueCss: "fw-semibold"),
+              })" />
+          </div>
+          <div class="col-xl-6">
+            <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
+              {
+                new("Mountpoint", ds.Mountpoint, ValueCss: "fw-semibold text-break"),
+                new("CanMount", ds.CanMount, ValueCss: "fw-semibold"),
+                new("Quota", ds.Quota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
+                new("RefQuota", ds.RefQuota.FormatBytesOrNone(), ValueCss: "fw-semibold"),
+                new("Refreservation", ds.Refreservation.FormatBytesOrNone(), ValueCss: "fw-semibold"),
+              })" />
+          </div>
+        </div>
+        @if (Model.Encryption is { } encryption)
+        {
+          <partial name="_EncryptionDetails" model="encryption" />
+        }
+        @if (!string.IsNullOrEmpty(ds.Comment))
+        {
+          <div class="mt-2 small"><strong>Comment:</strong> @ds.Comment</div>
+        }
+      </div>
+    </div>
   </div>
 </div>
 

@@ -1,0 +1,29 @@
+@model EncryptionDetailsViewModel
+@{
+  var source = Model.Key?.Source switch
+  {
+    "Prompt" when Model.Key.Format == "passphrase" => "Passphrase entered at the prompt",
+    "Prompt" => "Key supplied at the prompt",
+    var other => other ?? "Unknown",
+  };
+  List<KeyValueRowViewModel> rows = [
+    new("Algorithm", Model.Algorithm, ValueCss: "fw-semibold"),
+    new("Key source", source, ValueCss: "fw-semibold"),
+  ];
+  if (Model.Key?.Format is { Length: > 0 } format && format is not ("-" or "none"))
+    rows.Add(new("Key format", format, ValueCss: "fw-semibold"));
+  if (Model.Key?.FilePath is { } path)
+    rows.Add(new("Key file on ZFS host", path, ValueCss: "font-monospace text-break"));
+}
+<section class="border-top mt-3 pt-3">
+  <h6 class="d-flex align-items-center justify-content-between gap-2 mb-1">
+    @Model.Label
+    <span class="badge @(Model.KeyLocked ? "text-bg-warning" : "text-bg-success")">@(Model.KeyLocked ? "locked" : "loaded")</span>
+  </h6>
+  <partial name="_KeyValueRows" model="rows" />
+  @if (Model.LoadKeyCommand is { } command)
+  {
+    <div class="small text-body-secondary mt-2">Load the key on the ZFS host:</div>
+    <partial name="_CopyableCommand" model="new CopyableCommandViewModel(command, Compact: true)" />
+  }
+</section>

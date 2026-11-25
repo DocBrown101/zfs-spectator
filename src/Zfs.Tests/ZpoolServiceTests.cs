@@ -6,6 +6,8 @@ using Zfs.Tests.Helper;
 
 public class ZpoolServiceTests
 {
+    private const string DetailPropertiesQuery = "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus,keyformat,keylocation";
+
     // ── Helper: build a FakeCommandExecutor pre-loaded with standard pool responses ──
 
     private static FakeCommandExecutor CreateExecutorForPool(string poolName = "zfsPool")
@@ -22,6 +24,7 @@ public class ZpoolServiceTests
             .On("zfs", "get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus miniTank", zfsGetPropsJson)
             .On("zpool", $"status -Pj {poolName}", zpoolStatusJson)
             .On("zpool", $"get -Hpj ashift {poolName}", zpoolAshiftJson)
+            .On("zfs", $"{DetailPropertiesQuery} {poolName}", zfsGetPropsJson)
             .On("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}", zfsGetPropsJson);
     }
 
@@ -265,6 +268,29 @@ public class ZpoolServiceTests
     }
 
     // ── GetPoolWithScrubAsync ────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("aes-256-gcm", "unavailable", "file:///etc/zfs/root.key", "File", "/etc/zfs/root.key", "sudo zfs load-key 'zfsPool'")]
+    [InlineData("aes-256-gcm", "available", "https://user:secret@example.org/key", "HTTPS", null, null)]
+    [InlineData("off", "-", "none", null, null, null)]
+    public async Task PoolDetails_ShowOnlyRootDatasetKeySettings(string algorithm, string status, string location,
+        string? source, string? path, string? command)
+    {
+        var executor = CreateExecutorForPool()
+            .On("zfs", $"{DetailPropertiesQuery} zfsPool", BuildZfsGetJson("zfsPool",
+                ("encryption", algorithm), ("keystatus", status), ("keylocation", location), ("keyformat", "raw")));
+        var page = new ZfsDashboard.Pages.Pools.DetailsModel(new ZpoolService(executor));
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(await page.OnGetAsync("zfsPool"));
+        Assert.Single(executor.Invocations, call => call.Command == "zfs");
+        if (source is null)
+            Assert.Null(page.Encryption);
+        else
+        {
+            Assert.Equal(new Zfs.Core.Models.KeySettings(source, "raw", path), page.Encryption?.Key);
+            Assert.Equal(command, page.Encryption?.LoadKeyCommand);
+        }
+    }
 
     [Fact]
     public async Task GetPoolWithScrubAsync_ShouldReturnEnrichedPoolWithScrub()

@@ -59,7 +59,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
         var pools = await this.ListPoolsAsync();
         var pool = pools.FirstOrDefault(p => p.Name == name);
         if (pool == null) return null;
-        var (enriched, scrub) = await this.LoadDetailedPoolAsync(pool, CancellationToken.None, requireOutput: false);
+        var (enriched, scrub) = await this.LoadDetailedPoolAsync(pool, CancellationToken.None, requireOutput: false, includeKeySettings: true);
 
         scrub = await this.AddScrubTimeLeftAsync(name, scrub, CancellationToken.None);
 
@@ -81,9 +81,10 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     private async Task<(Pool Pool, ScrubInfo Scrub)> LoadDetailedPoolAsync(
         Pool pool,
         CancellationToken cancellationToken,
-        bool requireOutput)
+        bool requireOutput,
+        bool includeKeySettings = false)
     {
-        var propsTask = this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput);
+        var propsTask = this.GetPoolPropertiesAsync(pool.Name, cancellationToken, requireOutput, includeKeySettings);
         var statusTask = this.LoadPoolStatusAsync(pool, cancellationToken, requireOutput);
         await Task.WhenAll(propsTask, statusTask);
 
@@ -103,6 +104,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
             Encrypted = props.Encrypted,
             KeyLocked = props.KeyLocked,
             EncryptionAlgorithm = props.EncryptionAlgorithm,
+            RootKeySettings = props.RootKeySettings,
         }, scrub);
     }
 
@@ -140,9 +142,12 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     private async Task<PoolProperties> GetPoolPropertiesAsync(
         string poolName,
         CancellationToken cancellationToken,
-        bool requireOutput)
+        bool requireOutput,
+        bool includeKeySettings)
     {
-        var json = await cmd.ExecuteAsync("zfs", $"get -Hpj used,available,compression,compressratio,dedup,sync,atime,encryption,keystatus {poolName}", cancellationToken);
+        var fields = string.Join(',', RequiredPoolProperties);
+        if (includeKeySettings) fields += ",keyformat,keylocation";
+        var json = await cmd.ExecuteAsync("zfs", $"get -Hpj {fields} {poolName}", cancellationToken);
 
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -177,7 +182,8 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
                 Atime: JsonHelper.GetPropertyString(props, "atime", "off"),
                 Encrypted: encrypted,
                 KeyLocked: JsonHelper.IsKeyLocked(props),
-                EncryptionAlgorithm: encrypted ? encryption : "");
+                EncryptionAlgorithm: encrypted ? encryption : "",
+                RootKeySettings: encrypted && includeKeySettings ? ZfsParser.ParseKeySettings(props) : null);
         }
         catch (JsonException ex)
         {
@@ -201,7 +207,7 @@ public class ZpoolService(ICommandExecutor cmd) : IZpoolService
     private sealed record PoolProperties(
         ulong UsableUsed, ulong UsableAvail,
         string Compression, string CompRatio, string Dedup, string Sync, string Atime,
-        bool Encrypted, bool KeyLocked, string EncryptionAlgorithm);
+        bool Encrypted, bool KeyLocked, string EncryptionAlgorithm, KeySettings? RootKeySettings = null);
 
     // ── Pool Layout & Scrub ──────────────────────────────────────────────
 

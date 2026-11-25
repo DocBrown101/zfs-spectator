@@ -4,13 +4,12 @@
   ViewData["Title"] = $"Pool: {Model.Pool!.Name}";
   var p = Model.Pool!;
   var pct = p.UsagePercent;
-  var keyStatus = p.KeyLocked ? "locked" : "loaded";
   var header = new PageHeaderViewModel(
       Icon: "bi-hdd-stack",
       Title: p.Name,
       Subtitle: "Pool details and configuration",
       TitleIcon: p.Encrypted
-          ? new("bi-lock-fill text-warning ms-1", $"Encrypted ({p.EncryptionAlgorithm})")
+          ? new("bi-lock-fill text-warning ms-1", $"Root dataset encrypted ({p.EncryptionAlgorithm})")
           : null,
       StatusBadge: new(
           p.Health,
@@ -35,10 +34,10 @@
 
 <partial name="_PageHeader" model="header" />
 
-@* ── Capacity + Properties ────────────────────────────────────── *@
+@* ── Capacity, Scrub Status + Properties ───────────────────────── *@
 <div class="row g-4 mb-4">
-  <div class="col-md-6">
-    <div class="card h-100">
+  <div class="col-lg-6 d-flex flex-column gap-4">
+    <div class="card flex-grow-1">
       <div class="card-body bg-surface">
         <h5 class="card-title d-flex align-items-center gap-2 mb-3">
           <i class="bi bi-pie-chart text-info"></i>
@@ -65,39 +64,48 @@
         </div>
       </div>
     </div>
+    <div class="card">
+      <div class="card-body bg-surface">
+        <h5 class="card-title d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-shield-check text-info"></i>
+          Scrub Status
+        </h5>
+        <partial name="_ScrubStatus" model="Model.Scrub" />
+      </div>
+    </div>
   </div>
-  <div class="col-md-6">
+  <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-body bg-surface">
         <h5 class="card-title d-flex align-items-center gap-2 mb-3">
           <i class="bi bi-gear text-info"></i>
           Properties
         </h5>
-        <div class="row">
-          <div class="col-6">
+        <div class="row gy-3">
+          <div class="col-12 col-xl-6">
+            <h6 class="mb-1">Pool layout</h6>
             <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
-                     {
-         new("VDEV Type", p.VdevType, ValueCss: "fw-semibold"),
-         new("Ashift", p.Ashift.ToString(), ValueCss: "fw-semibold"),
-         new("Compression", $"{p.Compression} ({p.CompRatio})", ValueCss: "fw-semibold"),
-         new("Dedup", p.Dedup, ValueCss: "fw-semibold"),
-                     })" />
+              {
+                new("VDEV type", p.VdevType, ValueCss: "fw-semibold"),
+                new("Ashift", p.Ashift, ValueCss: "fw-semibold"),
+                new("Fragmentation", $"{p.Fragmentation}%", ValueCss: "fw-semibold"),
+              })" />
           </div>
-          <div class="col-6">
-            <partial name="_KeyValueRows" model="@((KeyValueRowViewModel[])
-                     [
-                     new("Sync", p.Sync, ValueCss: "fw-semibold"),
-         new("Atime", p.Atime, ValueCss: "fw-semibold"),
-         new("Fragmentation", $"{p.Fragmentation}%", ValueCss: "fw-semibold"),
-         ..(p.Encrypted
-            ? new KeyValueRowViewModel[]
-            {
-                new("Encryption", $"{p.EncryptionAlgorithm} ({keyStatus})", ValueCss: "fw-semibold")
-            }
-            : [])
-                     ])" />
+          <div class="col-12 col-xl-6">
+            <h6 class="mb-1">Root dataset</h6>
+            <partial name="_KeyValueRows" model="@(new KeyValueRowViewModel[]
+              {
+                new("Compression", $"{p.Compression} ({p.CompRatio})", ValueCss: "fw-semibold"),
+                new("Dedup", p.Dedup, ValueCss: "fw-semibold"),
+                new("Sync", p.Sync, ValueCss: "fw-semibold"),
+                new("Atime", p.Atime, ValueCss: "fw-semibold"),
+              })" />
           </div>
         </div>
+        @if (Model.Encryption is { } encryption)
+        {
+          <partial name="_EncryptionDetails" model="encryption" />
+        }
       </div>
     </div>
   </div>
@@ -145,17 +153,6 @@
     {
       <span class="text-body-secondary">No device information available</span>
     }
-  </div>
-</div>
-
-@* ── Scrub ────────────────────────────────────────────────────── *@
-<div class="card mb-4">
-  <div class="card-body bg-surface">
-    <h5 class="card-title d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-shield-check text-info"></i>
-      Scrub Status
-    </h5>
-    <partial name="_ScrubStatus" model="Model.Scrub" />
   </div>
 </div>
 

@@ -22,6 +22,8 @@ public record Dataset
     public bool Encrypted { get; init; }
     public bool KeyLocked { get; init; }
     public string EncryptionAlgorithm { get; init; } = "";
+    public string EncryptionRoot { get; init; } = "";
+    public KeySettings? KeySettings { get; init; }
     public bool Mounted { get; init; }
     public required string CanMount { get; init; }
     public ulong UsedBySnapshots { get; init; }

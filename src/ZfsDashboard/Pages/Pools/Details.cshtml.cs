@@ -10,6 +10,7 @@ namespace ZfsDashboard.Pages.Pools;
 public class DetailsModel(IZpoolService zpool) : PageModel
 {
     public Pool? Pool { get; private set; }
+    public EncryptionDetailsViewModel? Encryption { get; private set; }
     public ScrubStatusViewModel Scrub { get; private set; } = ScrubStatusViewModel.Loading;
     public List<CommandSuggestion> Suggestions { get; } = [];
     public IReadOnlyList<PoolDeviceGroupViewModel> DeviceGroups { get; private set; } = [];
@@ -20,6 +21,9 @@ public class DetailsModel(IZpoolService zpool) : PageModel
         if (result is null) return this.NotFound();
 
         this.Pool = result.Value.Pool;
+        if (this.Pool.Encrypted)
+            this.Encryption = new("Root dataset encryption", this.Pool.EncryptionAlgorithm, this.Pool.KeyLocked, this.Pool.RootKeySettings, this.Pool.Name);
+
         this.Scrub = new ScrubStatusViewModel(result.Value.Scrub);
         this.DeviceGroups = BuildDeviceGroups(this.Pool);
 
@@ -27,8 +31,7 @@ public class DetailsModel(IZpoolService zpool) : PageModel
         this.Suggestions.Add(CommandSuggestionsService.SuggestScrub(name));
         this.Suggestions.Add(CommandSuggestionsService.SuggestSetSpecialSmallBlocks(name));
         this.Suggestions.Add(CommandSuggestionsService.SuggestPoolExport(name));
-        if (this.Pool.Compression == "off")
-            this.Suggestions.Add(CommandSuggestionsService.SuggestSetProperty(name, "compression", "lz4"));
+        this.Suggestions.Add(CommandSuggestionsService.SuggestSetProperty(name, "compression", this.Pool.Compression == "off" ? "lz4" : "off"));
         if (this.Pool.Atime == "on")
             this.Suggestions.Add(CommandSuggestionsService.SuggestSetProperty(name, "atime", "off"));
 

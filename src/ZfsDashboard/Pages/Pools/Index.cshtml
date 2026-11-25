@@ -58,7 +58,7 @@ else
                   <a asp-page="Details" asp-route-name="@p.Name" class="text-info text-decoration-none fw-semibold" data-bs-toggle="tooltip" data-bs-title="Ashift: @p.Ashift &middot; Raw: @p.Size.FormatBytes()">@p.Name</a>
                   @if (p.Encrypted)
                   {
-                    <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="@p.EncryptionAlgorithm"></i>
+                    <i class="bi bi-lock-fill text-warning ms-1" data-bs-toggle="tooltip" data-bs-title="Root dataset encrypted (@p.EncryptionAlgorithm)"></i>
                   }
                 </td>
                 <td class="text-center"><span class="badge @p.Health.ToStatusBadgeCss()">@p.Health</span></td>

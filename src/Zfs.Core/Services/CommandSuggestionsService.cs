@@ -4,44 +4,18 @@ namespace Zfs.Core.Services;
 
 /// <summary>
 /// Provides suggestions for ZFS mutation commands that modify system state and therefore require elevated privileges (sudo). 
-/// Additionally, where applicable, declarative NixOS configuration equivalents are provided to persist these mutations across system rebuilds.
 /// </summary>
 public static class CommandSuggestionsService
 {
+    private static string QuoteShellArgument(string value) => $"'{value.Replace("'", "'\\''")}'";
+
+    public static string LoadKeyCommand(string dataset) => $"sudo zfs load-key {QuoteShellArgument(dataset)}";
+
     public static CommandSuggestion SuggestSetProperty(string dataset, string property, string value) => new()
     {
         Description = $"Set {property} to {value} on {dataset}",
-        ZfsCommand = $"sudo zfs set {property}={value} {dataset}",
-        NixOsConfig = property switch
-        {
-            "compression" => OneshotService(
-                "set via postCreationHook or systemd oneshot",
-                $"zfs-set-{dataset.Replace('/', '-')}-compression",
-                $"Set ZFS compression on {dataset}",
-                $"\n    ${{{{{{}}}}/bin/zfs}} set compression={value} {dataset}\n  "),
-            "atime" =>
-                $"# configuration.nix\n" +
-                $"fileSystems.\"{dataset}\" = {{\n" +
-                $"  options = [ \"noatime\" ];\n" +
-                $"}};",
-            "quota" => OneshotService(
-                "set quota via systemd oneshot",
-                $"zfs-quota-{dataset.Replace('/', '-')}",
-                null,
-                $"zfs set quota={value} {dataset}"),
-            _ => null,
-        },
+        ZfsCommand = $"sudo zfs set {property}={value} {QuoteShellArgument(dataset)}",
     };
-
-    private static string OneshotService(string comment, string serviceName, string? description, string script)
-        => $"# configuration.nix — {comment}\n" +
-           $"systemd.services.\"{serviceName}\" = {{\n" +
-           (description is null ? "" : $"  description = \"{description}\";\n") +
-           $"  after = [ \"zfs-import.target\" ];\n" +
-           $"  wantedBy = [ \"zfs.target\" ];\n" +
-           $"  serviceConfig.Type = \"oneshot\";\n" +
-           $"  script = ''{script}'';\n" +
-           $"}};";
 
     public static CommandSuggestion SuggestCreateSnapshot(string dataset) => new()
     {
