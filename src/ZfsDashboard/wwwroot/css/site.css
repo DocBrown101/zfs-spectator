@@ -154,10 +154,7 @@ tr[data-command-context] {
   font-size: 0.85rem;
 }
 
-/* Table column min-widths (no Bootstrap utility equivalent) */
-.col-capacity {
-  min-width: 110px;
-}
+/* Table column min-width (no Bootstrap utility equivalent) */
 .col-usage {
   min-width: 100px;
 }

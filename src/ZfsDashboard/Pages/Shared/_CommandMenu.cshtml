@@ -12,11 +12,11 @@
   }
   else
   {
-    <div class="dropdown">
+    <div class="dropdown-center">
       <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
         <i class="bi @Model.TriggerIcon me-1"></i>@Model.TriggerLabel
       </button>
-      <ul class="dropdown-menu dropdown-menu-end command-menu-list shadow" role="menu">
+      <ul class="dropdown-menu command-menu-list shadow" role="menu">
         <partial name="_CommandMenuItems" model="Model.Items" />
       </ul>
     </div>
