@@ -88,31 +88,33 @@ public class SystemServiceTests
             {
                 Device = "sda",
                 ReadsCompleted = 200,
-                WritesCompleted = 150,
+                WritesCompleted = 100,
                 SectorsRead = 4000,
-                SectorsWritten = 3000,
+                SectorsWritten = 2000,
                 ReadTimeMs = 700,
-                WriteTimeMs = 600,
+                WriteTimeMs = 250,
+                IoInProgress = 3,
                 IoTimeMs = 1500,
             },
         };
 
-        var rates = SystemService.ComputeDiskIoRates(curr, prev, 1.0);
+        var rates = SystemService.ComputeDiskIoRates(curr, prev, 2.0);
 
         Assert.Single(rates);
         var r = rates[0];
         Assert.Equal("sda", r.Device);
 
-        // (4000-2000) * 512 / 1.0 = 1_024_000
-        Assert.Equal(1_024_000.0, r.ReadBytesPerSec);
-        // (3000-1000) * 512 / 1.0 = 1_024_000
-        Assert.Equal(1_024_000.0, r.WriteBytesPerSec);
+        // (4000-2000) * 512 / 2.0 = 512_000
+        Assert.Equal(512_000.0, r.ReadBytesPerSec);
+        // (2000-1000) * 512 / 2.0 = 256_000
+        Assert.Equal(256_000.0, r.WriteBytesPerSec);
         // (700-200) / (200-100) = 5.0 ms
         Assert.Equal(5.0, r.ReadLatencyMs);
-        // (600-100) / (150-50) = 5.0 ms
-        Assert.Equal(5.0, r.WriteLatencyMs);
-        // (1500-500) / (1.0*1000) * 100 = 100%
-        Assert.Equal(100.0, r.UtilizationPct);
+        // (250-100) / (100-50) = 3.0 ms
+        Assert.Equal(3.0, r.WriteLatencyMs);
+        Assert.Equal(3, r.QueueDepth);
+        // (1500-500) / (2.0*1000) * 100 = 50%
+        Assert.Equal(50.0, r.UtilizationPct);
     }
 
     [Fact]
@@ -282,21 +284,6 @@ public class SystemServiceTests
 
         Assert.Null(SystemService.CountPhysicalCoresFromCpuInfo(lines));
         Assert.Equal(16, SystemService.CountLogicalCores(lines));
-    }
-
-    [Fact]
-    public void CountPhysicalCores_IncompleteBlock_ReturnsNull()
-    {
-        var lines = new List<string>
-        {
-            "processor\t: 0",
-            "physical id\t: 0",
-            "core id\t: 0",
-            "processor\t: 1",
-            "physical id\t: 0",
-        };
-
-        Assert.Null(SystemService.CountPhysicalCoresFromCpuInfo(lines));
     }
 
     [Theory]

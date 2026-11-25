@@ -1,4 +1,7 @@
 using Zfs.Core.Models;
+using Zfs.Core.Services;
+using Zfs.Tests.Helper;
+using ZfsDashboard.Pages.Snapshots;
 using ZfsDashboard.ViewModels.Snapshots;
 
 namespace Zfs.Tests;
@@ -6,38 +9,32 @@ namespace Zfs.Tests;
 public class SnapshotViewModelTests
 {
     [Fact]
-    public void Groups_AreOrderedByNewestSnapshotAndGroupedByDataset()
+    public async Task Index_GroupsSnapshotsAcrossPoolsByNewestAndAssignsUniqueIdsAndCommands()
     {
-        var snapshots = new[]
+        var executor = new FakeCommandExecutor().On("zpool", "list -Hpvj -o name,size,alloc,free,health,frag",
+            File.ReadAllText("TestData/zpool_list.json"));
+        var zfs = new TestDataHelpers.StubZfsService(pool => pool switch
         {
-            Snapshot("tank/data@old", "tank/data", "old", "2026-01-01T10:00:00Z"),
-            Snapshot("backup/data@newest", "backup/data", "newest", "2026-03-01T10:00:00Z"),
-            Snapshot("tank/data@new", "tank/data", "new", "2026-02-01T10:00:00Z"),
-        };
+            "miniTank" =>
+            [
+                Snapshot("miniTank/data@old", "miniTank/data", "old", "2026-01-01T10:00:00Z"),
+                Snapshot("miniTank/data@daily", "miniTank/data", "daily", "2026-02-01T10:00:00Z"),
+            ],
+            "zfsPool" => [Snapshot("zfsPool/data@daily", "zfsPool/data", "daily", "2026-03-01T10:00:00Z")],
+            _ => throw new ArgumentException("Unexpected pool", nameof(pool)),
+        });
+        var page = new IndexModel(zfs, new ZpoolService(executor));
 
-        var groups = Group(snapshots);
+        await page.OnGetAsync();
 
-        Assert.Equal(["backup/data", "tank/data"], groups.Select(group => group.DatasetName));
-        Assert.Equal(["new", "old"], groups[1].Rows.Select(row => row.Name));
-    }
-
-    [Fact]
-    public void Groups_CreateUniqueIdsAndCommands()
-    {
-        var snapshots = new[]
-        {
-            Snapshot("tank/a@daily", "tank/a", "daily", "2026-01-01T10:00:00Z"),
-            Snapshot("tank/b@daily", "tank/b", "daily", "2026-01-01T11:00:00Z"),
-        };
-
-        var rows = Group(snapshots).SelectMany(group => group.Rows).ToList();
-
-        Assert.Equal(rows.Count, rows.Select(row => row.CollapseId).Distinct().Count());
-        Assert.Equal(["snapshot-group-0-0", "snapshot-group-1-0"], rows.Select(row => row.CollapseId));
-        Assert.Contains("tank/a", rows.Select(row => row.DatasetName));
-        Assert.Contains("tank/b@daily", rows.Select(row => row.FullName));
-        Assert.Contains("sudo zfs rollback -r tank/a@daily", rows.Select(row => row.RollbackCommand.Command));
-        Assert.Contains("sudo zfs destroy tank/b@daily", rows.Select(row => row.DestroyCommand.Command));
+        Assert.Equal(3, page.SnapshotCount);
+        Assert.Equal(["zfsPool/data", "miniTank/data"], page.SnapshotGroups.Select(group => group.DatasetName));
+        Assert.All(page.SnapshotGroups, group => Assert.True(group.EnableContextMenu));
+        Assert.Equal(["daily", "old"], page.SnapshotGroups[1].Rows.Select(row => row.Name));
+        var rows = page.SnapshotGroups.SelectMany(group => group.Rows).ToList();
+        Assert.Equal(["snapshot-group-0-0", "snapshot-group-1-0", "snapshot-group-1-1"], rows.Select(row => row.CollapseId));
+        Assert.Equal("sudo zfs rollback -r 'zfsPool/data@daily'", rows[0].RollbackCommand.Command);
+        Assert.Equal("sudo zfs destroy 'miniTank/data@daily'", rows[1].DestroyCommand.Command);
     }
 
     [Fact]
@@ -92,17 +89,6 @@ public class SnapshotViewModelTests
         Assert.Empty(group.Rows);
         Assert.Equal("No snapshots", group.EmptyMessage);
     }
-
-    private static IReadOnlyList<SnapshotGroupViewModel> Group(IEnumerable<Snapshot> snapshots) =>
-        snapshots
-            .OrderByDescending(snapshot => snapshot.Creation)
-            .GroupBy(snapshot => snapshot.DatasetName)
-            .Select((group, index) => new SnapshotGroupViewModel(
-                group.Key,
-                group,
-                idPrefix: $"snapshot-group-{index}",
-                includeSeconds: true))
-            .ToList();
 
     private static Snapshot Snapshot(string name, string dataset, string snapshotName, string created) => new()
     {

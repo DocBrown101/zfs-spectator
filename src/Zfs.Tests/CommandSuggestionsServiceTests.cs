@@ -26,11 +26,22 @@ public class CommandSuggestionsServiceTests
         Assert.Null(suggestion.NixOsConfig);
     }
 
-    [Fact]
-    public void SuggestDestroyDatasetRecursive_UsesCompleteDatasetName()
+    [Theory]
+    [InlineData("tank/Meine Daten", "'tank/Meine Daten'", "'tank/Meine Daten_renamed'")]
+    [InlineData("tank/O'Brien", "'tank/O'\\''Brien'", "'tank/O'\\''Brien_renamed'")]
+    public void DatasetCommands_QuoteCompleteNames(string dataset, string quotedDataset, string quotedRenamed)
     {
-        var suggestion = CommandSuggestionsService.SuggestDestroyDatasetRecursive("tank/currentdataset");
+        Assert.Equal($"sudo zfs destroy {quotedDataset}", CommandSuggestionsService.SuggestDestroyDataset(dataset).ZfsCommand);
+        Assert.Equal($"sudo zfs destroy -r {quotedDataset}", CommandSuggestionsService.SuggestDestroyDatasetRecursive(dataset).ZfsCommand);
+        Assert.Equal($"sudo zfs rename {quotedDataset} {quotedRenamed}", CommandSuggestionsService.SuggestRenameDataset(dataset).ZfsCommand);
+    }
 
-        Assert.Equal("sudo zfs destroy -r tank/currentdataset", suggestion.ZfsCommand);
+    [Theory]
+    [InlineData("tank/Meine Daten@daily", "'tank/Meine Daten@daily'")]
+    [InlineData("tank/O'Brien@daily", "'tank/O'\\''Brien@daily'")]
+    public void SnapshotCommands_QuoteCompleteNames(string snapshot, string quotedSnapshot)
+    {
+        Assert.Equal($"sudo zfs rollback -r {quotedSnapshot}", CommandSuggestionsService.SuggestRollback(snapshot).ZfsCommand);
+        Assert.Equal($"sudo zfs destroy {quotedSnapshot}", CommandSuggestionsService.SuggestDestroySnapshot(snapshot).ZfsCommand);
     }
 }

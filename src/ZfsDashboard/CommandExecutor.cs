@@ -5,8 +5,11 @@ namespace ZfsDashboard;
 
 public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
 {
-    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
+    private readonly TimeSpan commandTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ProcessTerminationTimeout = TimeSpan.FromSeconds(2);
+
+    internal CommandExecutor(ILogger<CommandExecutor> logger, TimeSpan commandTimeout) : this(logger)
+        => this.commandTimeout = commandTimeout;
 
     public async Task<string> ExecuteAsync(string command, string arguments, CancellationToken cancellationToken = default)
     {
@@ -35,7 +38,7 @@ public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
             throw new InvalidOperationException($"Failed to start {command}", ex);
         }
 
-        using var timeoutCts = new CancellationTokenSource(CommandTimeout);
+        using var timeoutCts = new CancellationTokenSource(this.commandTimeout);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         try
@@ -61,9 +64,9 @@ public class CommandExecutor(ILogger<CommandExecutor> logger) : ICommandExecutor
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogError(ex, "Command {Command} {Arguments} timed out after {Timeout}s", command, arguments, CommandTimeout.TotalSeconds);
+            logger.LogError(ex, "Command {Command} {Arguments} timed out after {Timeout}s", command, arguments, this.commandTimeout.TotalSeconds);
             await this.KillProcessAsync(process);
-            throw new TimeoutException($"{command} timed out after {CommandTimeout.TotalSeconds} seconds");
+            throw new TimeoutException($"{command} timed out after {this.commandTimeout.TotalSeconds} seconds");
         }
         catch (OperationCanceledException)
         {

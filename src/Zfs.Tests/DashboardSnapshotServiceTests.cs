@@ -140,6 +140,42 @@ public class DashboardSnapshotServiceTests
         Assert.Equal("01:23:45", scrub.TimeLeft);
     }
 
+    [Theory]
+    [InlineData("/dev/sdc", 1000, 400, 600, "")]
+    [InlineData("/dev/sdb", 100, 25, 75, "01:23:45")]
+    public async Task CollectOnceAsync_RuntimeRefresh_MatchesDetailsByDevicesRegardlessOfOrder(
+        string firstDevice, ulong size, ulong used, ulong available, string timeLeft)
+    {
+        var detailed = MakePool("tank") with
+        {
+            Size = 1000, Alloc = 400, Free = 600,
+            UsableSize = 100, UsableUsed = 25, UsableAvail = 75,
+            DataDevices = [Device("/dev/sda"), Device("/dev/sdb")],
+        };
+        var runtime = detailed with
+        {
+            UsableSize = 0, UsableUsed = 0, UsableAvail = 0,
+            DataDevices = [Device(firstDevice), Device("/dev/sda")],
+        };
+        var zpool = new StubZpoolService(
+            [Snapshot(detailed, new ScrubInfo { State = "running", TimeLeft = "01:23:45" })])
+        {
+            RuntimeSnapshots = [Snapshot(runtime, new ScrubInfo { State = "running" })],
+        };
+        var time = new ManualTimeProvider(DateTimeOffset.UnixEpoch);
+        var service = CreateService(new StubSystemService(), zpool, time);
+
+        await service.CollectOnceAsync();
+        time.Advance(TimeSpan.FromSeconds(10));
+        await service.CollectOnceAsync();
+
+        var pool = Assert.Single(service.Current!.Pools);
+        Assert.Equal((size, used, available), (pool.UsableSize, pool.UsableUsed, pool.UsableAvail));
+        Assert.Equal(timeLeft, service.Current.Data.PoolScrubs["tank"].TimeLeft);
+
+        static PoolDevice Device(string path) => new() { Path = path, VdevType = "mirror", Status = "ONLINE" };
+    }
+
     [Fact]
     public async Task CollectOnceAsync_NewPoolInRuntimeRefresh_FallsBackToListUsableSizes()
     {

@@ -65,6 +65,42 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_TimeoutThrowsAndStopsChildProcess()
+    {
+        var executor = new CommandExecutor(NullLogger<CommandExecutor>.Instance, TimeSpan.FromSeconds(2));
+        var pidFile = Path.Combine(Path.GetTempPath(), $"zfs-spectator-{Guid.NewGuid():N}.pid");
+        try
+        {
+            var execution = executor.ExecuteAsync("sh",
+                $"-c \"sleep 10 & child=$!; echo $child > '{pidFile}'; wait $child\"");
+
+            await Assert.ThrowsAsync<TimeoutException>(() => execution).WaitAsync(TimeSpan.FromSeconds(6));
+            var pid = int.Parse(await File.ReadAllTextAsync(pidFile));
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            while (IsRunning(pid))
+                await Task.Delay(10, deadline.Token);
+        }
+        finally
+        {
+            File.Delete(pidFile);
+        }
+
+        static bool IsRunning(int pid)
+        {
+            try
+            {
+                var stat = File.ReadAllText($"/proc/{pid}/stat");
+                // A killed child can remain a zombie until its new parent reaps it.
+                return stat[stat.LastIndexOf(')') + 2] is not ('Z' or 'X');
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AlreadyCancelledDoesNotStartCommand()
     {
         var executor = new CommandExecutor(NullLogger<CommandExecutor>.Instance);

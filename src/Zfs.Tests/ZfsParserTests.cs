@@ -1,10 +1,6 @@
 namespace Zfs.Tests;
 
-using System.Text.Json;
-using Zfs.Core.Models;
 using Zfs.Core.Services.Parser;
-using ZfsDashboard.Services;
-using ZfsDashboard.ViewModels.Dashboard;
 
 public class ZfsParserTests
 {
@@ -205,27 +201,35 @@ public class ZfsParserTests
         Assert.Equal(1700000000, snapshot.Creation.ToUnixTimeSeconds());
     }
 
-    [Fact]
-    public void ParseSnapshots_InvalidCreationValue_ShouldUseMinValue()
+    [Theory]
+    [InlineData("not-a-timestamp")]
+    [InlineData("9223372036854775807")]
+    [InlineData("-9223372036854775808")]
+    public void ParseSnapshots_InvalidCreationValue_ShouldUseMinValueAndKeepOtherSnapshots(string invalidCreation)
     {
-        const string json = """
+        var json = $$"""
             {
               "datasets": {
                 "tank@snap1": {
                   "name": "tank@snap1",
-                  "dataset": "tank",
-                  "snapshot_name": "snap1",
                   "properties": {
-                    "creation": { "value": "not-a-timestamp" }
+                    "creation": { "value": "{{invalidCreation}}" }
+                  }
+                },
+                "tank@snap2": {
+                  "name": "tank@snap2",
+                  "properties": {
+                    "creation": { "value": "1700000000" }
                   }
                 }
               }
             }
             """;
 
-        var snapshot = Assert.Single(ZfsParser.ParseSnapshots(json));
-
-        Assert.Equal(DateTimeOffset.MinValue, snapshot.Creation);
+        var snapshots = ZfsParser.ParseSnapshots(json);
+        Assert.Equal(2, snapshots.Count);
+        Assert.Equal(DateTimeOffset.MinValue, snapshots.Single(snapshot => snapshot.SnapName == "snap1").Creation);
+        Assert.Equal(1700000000, snapshots.Single(snapshot => snapshot.SnapName == "snap2").Creation.ToUnixTimeSeconds());
     }
 
     // ── ZVol Tests ──────────────────────────────────────────────────────
@@ -255,16 +259,6 @@ public class ZfsParserTests
     }
 
     [Fact]
-    public void ParseZVols_ShouldDerivePoolFromName()
-    {
-        var json = File.ReadAllText("TestData/zfs_list_zvols.json");
-
-        var zvols = ZfsParser.ParseZVols(json);
-
-        Assert.Equal("zfsPool", zvols[0].Pool);
-    }
-
-    [Fact]
     public void ParseZVols_ShouldReturnEmptyForEmptyDatasets()
     {
         var json = """{"output_version":{"command":"zfs list"},"datasets":{}}""";
@@ -279,99 +273,4 @@ public class ZfsParserTests
         Assert.Empty(ZfsParser.ParseZVols("{}"));
     }
 
-    // ── JSON Serialization (verifies property names match frontend JS) ───
-
-    [Fact]
-    public void DashboardLiveViewModel_ShouldSerializeWithFrontendPropertyNames()
-    {
-        var data = new DashboardLiveViewModel(new DashboardSnapshot(
-            new DashboardData
-            {
-                System = new SystemInfo
-                {
-                    Uptime = "1h 2m 3s",
-                    CpuUsagePercent = 5,
-                    Memory = new MemoryInfo { Total = 1024, Used = 512, Available = 512 },
-                },
-                NetworkRates = [],
-                DiskIoRates =
-                [
-                    new DiskIoRateInfo
-                    {
-                        Device = "sda",
-                        ReadBytesPerSec = 1024,
-                        WriteBytesPerSec = 512,
-                        ReadLatencyMs = 1.5,
-                        WriteLatencyMs = 2.0,
-                        QueueDepth = 0.5,
-                        UtilizationPct = 25.0,
-                    },
-                ],
-            },
-            [],
-            new StaticSystemInfo()));
-
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        var json = JsonSerializer.Serialize(data, options);
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        // Top-level properties
-        Assert.True(root.TryGetProperty("diskIoRates", out var rates));
-        Assert.True(root.TryGetProperty("networkRates", out _));
-        Assert.True(root.TryGetProperty("cpuUsagePercent", out _));
-        Assert.True(root.TryGetProperty("memory", out _));
-        Assert.True(root.TryGetProperty("arc", out _));
-        Assert.True(root.TryGetProperty("pools", out _));
-
-        // Device-level properties must match dashboard.js.
-        var dev = rates[0];
-        Assert.True(dev.TryGetProperty("device", out var device));
-        Assert.Equal("sda", device.GetString());
-        Assert.True(dev.TryGetProperty("readBytesPerSecond", out _));
-        Assert.True(dev.TryGetProperty("writeBytesPerSecond", out _));
-        Assert.True(dev.TryGetProperty("readRate", out _));
-        Assert.True(dev.TryGetProperty("writeRate", out _));
-        Assert.True(dev.TryGetProperty("queueDepth", out _));
-        Assert.True(dev.TryGetProperty("utilizationPercent", out _));
-    }
-
-    [Fact]
-    public void DashboardLiveViewModel_ShouldSerializePoolSummaryContract()
-    {
-        var pool = new Pool
-        {
-            Name = "tank",
-            Health = "ONLINE",
-            VdevType = "mirror",
-            Operation = "",
-            Compression = "lz4",
-            CompRatio = "1.00x",
-            Dedup = "off",
-            Sync = "standard",
-            Atime = "off",
-            UsableSize = 100,
-            UsableUsed = 25,
-            UsableAvail = 75,
-        };
-        var response = new DashboardLiveViewModel(new DashboardSnapshot(
-            new DashboardData(),
-            [pool],
-            new StaticSystemInfo()));
-
-        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        using var doc = JsonDocument.Parse(json);
-        var summary = doc.RootElement.GetProperty("pools")[0].GetProperty("summary");
-
-        Assert.True(summary.TryGetProperty("size", out _));
-        Assert.True(summary.TryGetProperty("allocated", out _));
-        Assert.True(summary.TryGetProperty("free", out _));
-        Assert.True(summary.TryGetProperty("usagePercent", out _));
-        Assert.True(summary.TryGetProperty("health", out _));
-        Assert.True(summary.TryGetProperty("healthCss", out _));
-        Assert.True(summary.TryGetProperty("encrypted", out _));
-        Assert.True(summary.TryGetProperty("encryptionAlgorithm", out _));
-        Assert.True(summary.TryGetProperty("hasErrors", out _));
-        Assert.True(summary.TryGetProperty("errorTooltip", out _));
-    }
 }

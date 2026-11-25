@@ -66,10 +66,12 @@ public class ZpoolServiceTests
 
         // Warm the cache via GetAllPoolsAsync (which calls ListPoolsAsync internally)
         await service.GetAllPoolsAsync();
+        var listCallsBefore = executor.Invocations.Count(call => call is ("zpool", "list -Hpvj -o name,size,alloc,free,health,frag"));
 
-        // Cache is now populated — this call should not hit the executor
         var names = await service.GetPoolNamesAsync();
 
+        Assert.Equal(1, listCallsBefore);
+        Assert.Equal(listCallsBefore, executor.Invocations.Count(call => call is ("zpool", "list -Hpvj -o name,size,alloc,free,health,frag")));
         Assert.Equal(2, names.Count);
         Assert.Contains("miniTank", names);
         Assert.Contains("zfsPool", names);

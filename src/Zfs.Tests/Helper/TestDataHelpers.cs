@@ -18,11 +18,11 @@ internal static class TestDataHelpers
         Atime = "off",
     };
 
-    public sealed class StubZfsService : IZfsService
+    public sealed class StubZfsService(Func<string, List<Snapshot>>? snapshotsForPool = null) : IZfsService
     {
         public Task<ArcStats> GetArcStatsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ArcStats());
         public Task<List<Dataset>> GetDatasetsAsync(string poolName) => Task.FromResult(new List<Dataset>());
-        public Task<List<Snapshot>> GetSnapshotsAsync(string poolName) => Task.FromResult(new List<Snapshot>());
+        public Task<List<Snapshot>> GetSnapshotsAsync(string poolName) => Task.FromResult(snapshotsForPool?.Invoke(poolName) ?? []);
         public Task<List<ZVol>> GetAllZVolsAsync() => Task.FromResult(new List<ZVol>());
         public Task<string> GetZfsVersionAsync(CancellationToken cancellationToken = default) => Task.FromResult("test");
     }

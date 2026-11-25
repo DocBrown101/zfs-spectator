@@ -97,6 +97,8 @@ public static class ZfsParser
 
             var creationStr = JsonHelper.GetPropertyString(props, "creation");
             var creation = long.TryParse(creationStr, out var unix)
+                && unix >= DateTimeOffset.MinValue.ToUnixTimeSeconds()
+                && unix <= DateTimeOffset.MaxValue.ToUnixTimeSeconds()
                 ? DateTimeOffset.FromUnixTimeSeconds(unix)
                 : DateTimeOffset.MinValue;
 

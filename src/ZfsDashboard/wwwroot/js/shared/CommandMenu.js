@@ -1,15 +1,19 @@
 (() => {
-    const tokenPattern = /\{(pool|dataset|snapshot)\}/g;
+    const tokenPattern = /('?)\{(pool|dataset|snapshot)\}/g;
 
-    const resolveTemplate = (template, source) => template.replace(
+    const resolveTemplate = (template, source, shellCommand = false) => template.replace(
         tokenPattern,
-        (token, name) => source.dataset[`command${name[0].toUpperCase()}${name.slice(1)}`] ?? token);
+        (token, quote, name) => {
+            const value = source.dataset[`command${name[0].toUpperCase()}${name.slice(1)}`];
+            if (value == null) return token;
+            // Escape only substitutions inside a shell template's single quotes.
+            return quote + (shellCommand && quote ? value.replaceAll("'", "'\\''") : value);
+        });
 
     const populateMenu = (menu, source) => {
         menu.querySelectorAll('[data-command-template]').forEach(item => {
-            item.dataset.command = resolveTemplate(item.dataset.commandTemplate, source);
-
             const preview = item.querySelector('[data-command-preview]');
+            item.dataset.command = resolveTemplate(item.dataset.commandTemplate, source, preview !== null);
             if (preview) preview.textContent = item.dataset.command;
 
             const description = item.querySelector('[data-description-template]');

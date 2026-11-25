@@ -50,13 +50,13 @@ public static class CommandSuggestionsService
     public static CommandSuggestion SuggestRollback(string snapName) => new()
     {
         Description = $"Rollback to {snapName}",
-        ZfsCommand = $"sudo zfs rollback -r {snapName}",
+        ZfsCommand = $"sudo zfs rollback -r {QuoteShellArgument(snapName)}",
     };
 
     public static CommandSuggestion SuggestDestroySnapshot(string snapName) => new()
     {
         Description = $"Destroy snapshot {snapName}",
-        ZfsCommand = $"sudo zfs destroy {snapName}",
+        ZfsCommand = $"sudo zfs destroy {QuoteShellArgument(snapName)}",
     };
 
     public static CommandSuggestion SuggestPoolExport(string poolName) => new()
@@ -96,19 +96,19 @@ public static class CommandSuggestionsService
     public static CommandSuggestion SuggestDestroyDataset(string dataset) => new()
     {
         Description = $"Destroy dataset {dataset}",
-        ZfsCommand = $"sudo zfs destroy {dataset}",
+        ZfsCommand = $"sudo zfs destroy {QuoteShellArgument(dataset)}",
     };
 
     public static CommandSuggestion SuggestDestroyDatasetRecursive(string dataset) => new()
     {
         Description = $"Recursively destroy dataset {dataset}",
-        ZfsCommand = $"sudo zfs destroy -r {dataset}",
+        ZfsCommand = $"sudo zfs destroy -r {QuoteShellArgument(dataset)}",
     };
 
     public static CommandSuggestion SuggestRenameDataset(string dataset) => new()
     {
         Description = $"Rename dataset {dataset}",
-        ZfsCommand = $"sudo zfs rename {dataset} {dataset}_renamed",
+        ZfsCommand = $"sudo zfs rename {QuoteShellArgument(dataset)} {QuoteShellArgument(dataset + "_renamed")}",
     };
 
     public static CommandSuggestion SuggestCreateZVol(string pool) => new()
