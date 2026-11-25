@@ -48,6 +48,7 @@
         toast.classList.toggle('text-bg-danger', !success);
         const body = toast.querySelector('[data-command-toast-message]');
         if (body) body.textContent = message;
+        document.getElementById('command-copy-status').textContent = message;
         bootstrap.Toast.getOrCreateInstance(toast, { delay: 1800 }).show();
     };
 

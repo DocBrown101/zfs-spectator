@@ -96,6 +96,9 @@
 }
 
 /* Command menus shared by mouse, touch and keyboard interactions */
+tr[data-command-context] {
+  cursor: pointer;
+}
 .command-context-menu {
   position: fixed;
   z-index: 1080;

@@ -26,19 +26,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>@ViewData["Title"] - ZFS Spectator</title>
-  <link href="~/lib/bootstrap/bootstrap.min.css" rel="stylesheet" />
-  <link href="~/lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet" />
-  <link href="~/css/site.css" rel="stylesheet" />
+  <link href="~/lib/bootstrap/bootstrap.min.css" rel="stylesheet" asp-append-version="true" />
+  <link href="~/lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet" asp-append-version="true" />
+  <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
 </head>
 
 <body class="d-flex flex-column min-vh-100">
-  <nav class="navbar navbar-expand-lg bg-surface border-bottom border-body-tertiary py-2 sticky-top">
+  <nav class="navbar navbar-expand-lg bg-surface border-bottom border-secondary-subtle py-2 sticky-top">
     <div class="container-fluid">
       <a class="navbar-brand d-flex align-items-center gap-2" href="/">
         <i class="bi bi-hdd-rack"></i>
         <span>ZFS Spectator</span>
       </a>
-      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain"
+              aria-label="Toggle navigation" aria-controls="navMain" aria-expanded="false">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navMain">
@@ -88,8 +89,8 @@
     <span><i class="bi bi-eye me-1"></i>ZFS Spectator &mdash; read-only monitoring</span>
     <span>Commands shown are for reference only &mdash; copy &amp; run manually</span>
   </footer>
-  <script src="~/lib/bootstrap/bootstrap.bundle.min.js"></script>
-  <script src="~/js/site.js"></script>
+  <script src="~/lib/bootstrap/bootstrap.bundle.min.js" asp-append-version="true"></script>
+  <script src="~/js/site.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 
